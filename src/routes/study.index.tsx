@@ -28,7 +28,6 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { MoreVertical } from "lucide-react";
 import type { Word } from "@/lib/words";
 import { supabase } from "@/integrations/supabase/client";
 
