@@ -152,6 +152,7 @@ export type Database = {
           is_active: boolean
           part_of_speech: string | null
           source_image_id: string | null
+          tier: string | null
           word: string
         }
         Insert: {
@@ -164,6 +165,7 @@ export type Database = {
           is_active?: boolean
           part_of_speech?: string | null
           source_image_id?: string | null
+          tier?: string | null
           word: string
         }
         Update: {
@@ -176,6 +178,7 @@ export type Database = {
           is_active?: boolean
           part_of_speech?: string | null
           source_image_id?: string | null
+          tier?: string | null
           word?: string
         }
         Relationships: [
