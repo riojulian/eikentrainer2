@@ -13,8 +13,31 @@ import {
 } from "@/lib/words";
 import { Button } from "@/components/ui/button";
 import { ArrowUp, ArrowDown, Trophy } from "lucide-react";
+import {
+  ensureWordOrder,
+  chunkize,
+  buildChunkQuiz,
+  buildPeriodicQuiz,
+  recordAttempt,
+  getProgress,
+  setCurrentChunk,
+  CHUNK_SIZE,
+} from "@/lib/chunks";
+
+type Mode = "chunk" | "weekly" | "monthly";
 
 export const Route = createFileRoute("/study/quiz")({
+  validateSearch: (s: Record<string, unknown>) => {
+    const modeRaw = s.mode;
+    const mode: Mode | undefined =
+      modeRaw === "chunk" || modeRaw === "weekly" || modeRaw === "monthly" ? modeRaw : undefined;
+    const chunkRaw = s.chunk;
+    const chunk = typeof chunkRaw === "number" ? chunkRaw : typeof chunkRaw === "string" ? Number(chunkRaw) : undefined;
+    return {
+      mode,
+      chunk: chunk && Number.isFinite(chunk) && chunk > 0 ? chunk : undefined,
+    } as { mode?: Mode; chunk?: number };
+  },
   component: QuizPage,
 });
 
@@ -30,10 +53,9 @@ function shuffle<T>(arr: T[]) {
   return a;
 }
 
-function buildQuiz(pool: Word[], allWords: Word[]): Q[] {
+function buildQuizQuestions(pool: Word[], allWords: Word[]): Q[] {
   const usable = pool.filter((w) => w.example_sentence);
-  const sample = shuffle(usable).slice(0, 10);
-  return sample.map((w) => {
+  return usable.slice(0, CHUNK_SIZE).map((w) => {
     const distractors = shuffle(allWords.filter((x) => x.id !== w.id)).slice(0, 3).map((x) => x.word);
     const options = shuffle([w.word, ...distractors]);
     const sentenceHtml = (w.example_sentence ?? "").replace(/<strong>.*?<\/strong>/i, "<strong>______</strong>");
@@ -43,26 +65,43 @@ function buildQuiz(pool: Word[], allWords: Word[]): Q[] {
 
 function QuizPage() {
   const { user } = useAuth();
+  const search = Route.useSearch();
+  const mode: Mode = search.mode ?? "chunk";
+  const chunkParam = search.chunk;
+
   const [questions, setQuestions] = useState<Q[] | null>(null);
   const [statuses, setStatuses] = useState<Record<string, MasteryOrUnseen>>({});
+  const [chunkIndex, setChunkIndex] = useState<number | null>(null);
   const [idx, setIdx] = useState(0);
   const [picked, setPicked] = useState<string | null>(null);
   const [score, setScore] = useState(0);
   const [done, setDone] = useState(false);
   const [outcomes, setOutcomes] = useState<Outcome[]>([]);
+  const [recorded, setRecorded] = useState(false);
 
   useEffect(() => {
     if (!user) return;
     (async () => {
-      const [all, st] = await Promise.all([fetchActiveWords(), fetchStatuses(user.id)]);
+      const [allWords, st] = await Promise.all([fetchActiveWords(), fetchStatuses(user.id)]);
       setStatuses(st);
-      // Pool = words the user has at least seen, otherwise fall back to all words
-      const seen = all.filter((w) => st[w.id] !== undefined && st[w.id] !== null);
-      const pool = seen.length >= 4 ? seen : all;
-      if (pool.filter((w) => w.example_sentence).length < 4) { setQuestions([]); return; }
-      setQuestions(buildQuiz(pool, all));
+
+      if (mode === "chunk") {
+        const ordered = await ensureWordOrder(user.id);
+        const chunks = chunkize(ordered);
+        const progress = await getProgress(user.id);
+        const idxToUse = chunkParam ?? progress.current_chunk;
+        setChunkIndex(idxToUse);
+        if (chunks.length === 0) { setQuestions([]); return; }
+        const pool = buildChunkQuiz(chunks, idxToUse);
+        setQuestions(buildQuizQuestions(pool, allWords));
+      } else {
+        const days = mode === "weekly" ? 7 : 30;
+        const pool = await buildPeriodicQuiz(user.id, days);
+        if (pool.length < 4) { setQuestions([]); return; }
+        setQuestions(buildQuizQuestions(pool, allWords));
+      }
     })();
-  }, [user]);
+  }, [user, mode, chunkParam]);
 
   if (!questions) return <main className="p-10 text-center text-muted-foreground">Loading…</main>;
 
@@ -70,13 +109,29 @@ function QuizPage() {
     return (
       <main className="mx-auto max-w-xl px-4 py-6 text-center">
         <h1 className="font-display text-3xl">Not enough words yet</h1>
-        <p className="text-muted-foreground mt-2">Need at least 4 words with example sentences to run a quiz.</p>
-        <Button asChild className="mt-6"><Link to="/study/flashcards">Open flashcards</Link></Button>
+        <p className="text-muted-foreground mt-2">
+          {mode === "chunk"
+            ? "Need at least a few words with example sentences in this chunk."
+            : `Study at least 4 words in the last ${mode === "weekly" ? "7" : "30"} days to take this review.`}
+        </p>
+        <Button asChild className="mt-6"><Link to="/study">Back to study</Link></Button>
       </main>
     );
   }
 
   if (done) {
+    if (!recorded && user) {
+      setRecorded(true);
+      recordAttempt(user.id, mode, score, questions.length, mode === "chunk" ? chunkIndex : null).catch(() => {});
+      // Advance current chunk if they just finished the suggested chunk
+      if (mode === "chunk" && chunkIndex) {
+        getProgress(user.id).then((p) => {
+          if (chunkIndex === p.current_chunk) {
+            setCurrentChunk(user.id, chunkIndex + 1).catch(() => {});
+          }
+        });
+      }
+    }
     const movedUp = outcomes.filter((o) => o.after > (o.before ?? 0)).length;
     const movedDown = outcomes.filter((o) => o.after < (o.before ?? 0)).length;
     const reachedMastered = outcomes.filter((o) => o.after === 3 && o.before !== 3).length;
@@ -107,9 +162,24 @@ function QuizPage() {
           </ul>
         </div>
 
-        <div className="mt-8 flex justify-center gap-3">
-          <Button onClick={() => location.reload()}>Try again</Button>
-          <Button variant="outline" asChild><Link to="/study">Back</Link></Button>
+        <div className="mt-8 flex flex-wrap justify-center gap-3">
+          {mode === "chunk" && chunkIndex ? (
+            <>
+              <Button asChild>
+                <Link to="/study/flashcards" search={{ chunk: chunkIndex + 1 }}>
+                  Study chunk {chunkIndex + 1}
+                </Link>
+              </Button>
+              <Button variant="outline" asChild>
+                <Link to="/study/quiz" search={{ mode: "chunk" as const, chunk: chunkIndex }} reloadDocument>
+                  Retry chunk {chunkIndex} quiz
+                </Link>
+              </Button>
+            </>
+          ) : (
+            <Button onClick={() => location.reload()}>Try again</Button>
+          )}
+          <Button variant="ghost" asChild><Link to="/study">Back</Link></Button>
         </div>
       </main>
     );
@@ -123,10 +193,8 @@ function QuizPage() {
     const correct = opt === q.answer;
     if (correct) setScore((s) => s + 1);
 
-    // record quiz result
     supabase.from("quiz_results").insert({ student_id: user.id, word_id: q.word.id, correct }).then(() => {});
 
-    // update mastery
     const before = statuses[q.word.id];
     applyQuizResult(user.id, q.word.id, before, correct).then((after) => {
       setStatuses((p) => ({ ...p, [q.word.id]: after }));
@@ -139,9 +207,21 @@ function QuizPage() {
     }, 1200);
   };
 
+  const headerLabel =
+    mode === "chunk" && chunkIndex
+      ? `Chunk ${chunkIndex} quiz`
+      : mode === "weekly"
+      ? "Weekly review"
+      : mode === "monthly"
+      ? "Monthly review"
+      : "Quiz";
+
   return (
     <main className="mx-auto max-w-xl px-4 py-4">
-      <div className="text-sm text-muted-foreground mb-2">Question {idx + 1} of {questions.length}</div>
+      <div className="flex items-center justify-between text-sm text-muted-foreground mb-2">
+        <span className="rounded-full bg-gold/15 text-gold px-2 py-0.5 text-xs font-medium">{headerLabel}</span>
+        <span>Question {idx + 1} of {questions.length}</span>
+      </div>
       <div className="h-1.5 w-full rounded-full bg-muted overflow-hidden mb-6">
         <div className="h-full bg-gold" style={{ width: `${((idx + 1) / questions.length) * 100}%` }} />
       </div>

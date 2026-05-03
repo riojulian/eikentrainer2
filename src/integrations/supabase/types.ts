@@ -14,6 +14,36 @@ export type Database = {
   }
   public: {
     Tables: {
+      chunk_attempts: {
+        Row: {
+          chunk_index: number | null
+          id: string
+          kind: string
+          score: number
+          student_id: string
+          taken_at: string
+          total: number
+        }
+        Insert: {
+          chunk_index?: number | null
+          id?: string
+          kind: string
+          score: number
+          student_id: string
+          taken_at?: string
+          total: number
+        }
+        Update: {
+          chunk_index?: number | null
+          id?: string
+          kind?: string
+          score?: number
+          student_id?: string
+          taken_at?: string
+          total?: number
+        }
+        Relationships: []
+      }
       images: {
         Row: {
           id: string
@@ -90,6 +120,48 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      student_word_order: {
+        Row: {
+          created_at: string
+          position: number
+          student_id: string
+          word_id: string
+        }
+        Insert: {
+          created_at?: string
+          position: number
+          student_id: string
+          word_id: string
+        }
+        Update: {
+          created_at?: string
+          position?: number
+          student_id?: string
+          word_id?: string
+        }
+        Relationships: []
+      }
+      study_progress: {
+        Row: {
+          chunk_size: number
+          current_chunk: number
+          student_id: string
+          updated_at: string
+        }
+        Insert: {
+          chunk_size?: number
+          current_chunk?: number
+          student_id: string
+          updated_at?: string
+        }
+        Update: {
+          chunk_size?: number
+          current_chunk?: number
+          student_id?: string
+          updated_at?: string
+        }
+        Relationships: []
       }
       user_roles: {
         Row: {

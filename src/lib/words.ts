@@ -9,6 +9,7 @@ export type Word = {
   example_sentence: string | null;
   category: string | null;
   is_active: boolean;
+  tier?: string | null;
 };
 
 export type Mastery = 0 | 1 | 2 | 3;
