@@ -53,6 +53,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => sub.subscription.unsubscribe();
   }, []);
 
+  // Refresh role when window regains focus or tab becomes visible,
+  // so role promotions in the DB take effect without re-login.
+  useEffect(() => {
+    const refresh = () => {
+      const uid = supabase.auth.getSession ? null : null;
+      if (user?.id) loadProfile(user.id);
+    };
+    const onVis = () => {
+      if (document.visibilityState === "visible") refresh();
+    };
+    window.addEventListener("focus", refresh);
+    document.addEventListener("visibilitychange", onVis);
+    return () => {
+      window.removeEventListener("focus", refresh);
+      document.removeEventListener("visibilitychange", onVis);
+    };
+  }, [user?.id]);
+
   return (
     <Ctx.Provider
       value={{
