@@ -14,7 +14,8 @@ import { Shuffle, Check, RotateCcw, ChevronLeft, SkipForward, Keyboard, Undo2, T
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
-import { ensureWordOrder, missionize } from "@/lib/missions";
+import { ensureWordOrder, stagize } from "@/lib/stages";
+import { bumpStreak, awardXp, XP_PER_KNOWN_FIRST } from "@/lib/gamification";
 
 export const Route = createFileRoute("/study/flashcards")({
   validateSearch: (s: Record<string, unknown>) => {
@@ -69,12 +70,14 @@ function Flashcards() {
     (async () => {
       const [ordered, s] = await Promise.all([ensureWordOrder(user.id), fetchStatuses(user.id)]);
       if (missionParam && !freeMode) {
-        const missions = missionize(ordered);
-        setWords(missions[missionParam - 1] ?? []);
+        const stages = stagize(ordered);
+        setWords(stages[missionParam - 1] ?? []);
       } else {
         setWords(ordered);
       }
       setStatuses(s);
+      // Bump streak whenever the student opens a flashcard session
+      bumpStreak(user.id).catch(() => {});
     })();
   }, [user, missionParam, freeMode]);
 
@@ -126,6 +129,10 @@ function Flashcards() {
       }));
       setLast({ wordId: current.id, prev, after, kind });
       setMastery(user.id, current.id, after).catch(() => {});
+      // First time marking a word as "known" → small XP bonus
+      if (kind === "known" && (prev === null || prev === undefined || prev < 2)) {
+        awardXp(user.id, XP_PER_KNOWN_FIRST).catch(() => {});
+      }
       if (undoTimer.current) window.clearTimeout(undoTimer.current);
       undoTimer.current = window.setTimeout(() => setLast(null), 900);
       advance();
@@ -230,7 +237,7 @@ function Flashcards() {
           {missionParam && !freeMode && (
             <Button asChild>
               <Link to="/study/quiz" search={{ mode: "mission" as const, mission: missionParam }}>
-                <Trophy className="h-4 w-4 mr-1" /> Take mission {missionParam} quiz
+                <Trophy className="h-4 w-4 mr-1" /> Take stage {missionParam} quiz
               </Link>
             </Button>
           )}
@@ -258,7 +265,7 @@ function Flashcards() {
           <ChevronLeft className="h-5 w-5" />
         </Button>
         <div className="text-sm text-muted-foreground tabular-nums">
-          {missionParam && !freeMode ? <span className="mr-2 rounded-full bg-gold/15 text-gold px-2 py-0.5 text-xs font-medium">Mission {missionParam}</span> : null}
+          {missionParam && !freeMode ? <span className="mr-2 rounded-full bg-gold/15 text-gold px-2 py-0.5 text-xs font-medium">Stage {missionParam}</span> : null}
           {idx + 1} / {order.length}
         </div>
         <div className="ml-auto flex items-center gap-2">
