@@ -3,10 +3,22 @@ import { useEffect, useState } from "react";
 import { useAuth } from "@/lib/auth";
 import { fetchStatuses, MASTERY_LABELS, MASTERY_BG, type Mastery } from "@/lib/words";
 import { BookOpen, ScrollText, Trophy, CalendarDays, CalendarRange, ChevronRight } from "lucide-react";
-import { ensureWordOrder, rebuildWordOrder, missionize, getProgress, setCurrentMission as persistCurrentMission, MISSION_SIZE } from "@/lib/missions";
+import {
+  ensureWordOrder,
+  rebuildWordOrder,
+  stagize,
+  getProgress,
+  setCurrentStage as persistCurrentStage,
+  STAGE_SIZE,
+  getStarsByStage,
+} from "@/lib/stages";
+import { getStats, getEarnedBadges, type Stats } from "@/lib/gamification";
+import { StatsHeader } from "@/components/StatsHeader";
+import { StageMap } from "@/components/StageMap";
+import { AchievementsStrip } from "@/components/AchievementsStrip";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { cn } from "@/lib/utils";
+import type { Word } from "@/lib/words";
 import { supabase } from "@/integrations/supabase/client";
 
 export const Route = createFileRoute("/study/")({
@@ -20,14 +32,16 @@ function StudyHome() {
     tiers: { 0: 0, 1: 0, 2: 0, 3: 0 },
     unseen: 0,
   });
-  const [missions, setMissions] = useState<string[][]>([]);
-  const [currentMission, setCurrentMission] = useState(1);
+  const [stages, setStages] = useState<Word[][]>([]);
+  const [currentStage, setCurrentStage] = useState(1);
   const [weeklyEligible, setWeeklyEligible] = useState(0);
   const [monthlyEligible, setMonthlyEligible] = useState(0);
-  const [showAllMissions, setShowAllMissions] = useState(false);
+  const [starsByStage, setStarsByStage] = useState<Record<number, 0 | 1 | 2 | 3>>({});
+  const [gameStats, setGameStats] = useState<Stats>({ xp: 0, current_streak: 0, longest_streak: 0, last_active_date: null });
+  const [earnedBadges, setEarnedBadges] = useState<Set<string>>(new Set());
   const [startTier, setStartTier] = useState<string>(() => {
     if (typeof window === "undefined") return "auto";
-    return localStorage.getItem("mission_start_tier") || "auto";
+    return localStorage.getItem("stage_start_tier") || "auto";
   });
   const [rebuilding, setRebuilding] = useState(false);
 
@@ -35,9 +49,14 @@ function StudyHome() {
     if (!user) return;
     (async () => {
       const tierArg = startTier === "auto" ? null : startTier;
-      const words = await ensureWordOrder(user.id, tierArg);
-      const statuses = await fetchStatuses(user.id);
-      const progress = await getProgress(user.id);
+      const [words, statuses, progress, stars, gs, badges] = await Promise.all([
+        ensureWordOrder(user.id, tierArg),
+        fetchStatuses(user.id),
+        getProgress(user.id),
+        getStarsByStage(user.id),
+        getStats(user.id),
+        getEarnedBadges(user.id),
+      ]);
       const tiers: Record<Mastery, number> = { 0: 0, 1: 0, 2: 0, 3: 0 };
       let seen = 0;
       Object.values(statuses).forEach((s) => {
@@ -46,9 +65,13 @@ function StudyHome() {
         seen++;
       });
       setStats({ total: words.length, tiers, unseen: words.length - seen });
-      setMissions(missionize(words).map((c) => c.map((w) => w.id)));
-      const total = Math.max(1, Math.ceil(words.length / MISSION_SIZE));
-      setCurrentMission(Math.min(progress.current_mission, total));
+      const newStages = stagize(words);
+      setStages(newStages);
+      const total = Math.max(1, newStages.length);
+      setCurrentStage(Math.min(progress.current_stage, total));
+      setStarsByStage(stars);
+      setGameStats(gs);
+      setEarnedBadges(badges);
 
       const wkSince = new Date(Date.now() - 7 * 86400000).toISOString();
       const moSince = new Date(Date.now() - 30 * 86400000).toISOString();
@@ -61,19 +84,17 @@ function StudyHome() {
     })();
   }, [user, startTier]);
 
-
   const onStartTierChange = async (next: string) => {
     if (!user) return;
     setStartTier(next);
-    if (typeof window !== "undefined") localStorage.setItem("mission_start_tier", next);
+    if (typeof window !== "undefined") localStorage.setItem("stage_start_tier", next);
     setRebuilding(true);
     try {
       const tierArg = next === "auto" ? null : next;
       const words = await rebuildWordOrder(user.id, tierArg);
-      setMissions(missionize(words).map((c) => c.map((w) => w.id)));
-      // Reset progress to mission 1 since order changed
-      setCurrentMission(1);
-      await persistCurrentMission(user.id, 1);
+      setStages(stagize(words));
+      setCurrentStage(1);
+      await persistCurrentStage(user.id, 1);
     } finally {
       setRebuilding(false);
     }
@@ -88,12 +109,17 @@ function StudyHome() {
     { key: 3, count: stats.tiers[3], cls: MASTERY_BG[3], label: MASTERY_LABELS[3] },
   ];
 
-  const totalMissions = missions.length;
-  const hasMissions = totalMissions > 0 && stats.total >= MISSION_SIZE;
+  const totalStages = stages.length;
+  const hasStages = totalStages > 0 && stats.total >= STAGE_SIZE;
+  const tierByStage = stages.map((stage) => stage[0]?.tier ?? null);
 
   return (
     <main className="mx-auto max-w-3xl px-4 py-6">
       <h1 className="font-display text-3xl">Hello, {displayName ?? "friend"} 🌸</h1>
+
+      <div className="mt-4">
+        <StatsHeader stats={gameStats} />
+      </div>
 
       <div className="mt-4 rounded-2xl border bg-card p-4 shadow-card">
         <div className="flex items-baseline justify-between">
@@ -129,13 +155,13 @@ function StudyHome() {
         )}
       </div>
 
-      {hasMissions ? (
+      {hasStages ? (
         <>
           <div className="mt-4 rounded-2xl border bg-card p-4 shadow-card">
             <div className="flex items-center justify-between gap-3">
               <div className="min-w-0">
-                <div className="text-sm font-medium">Start missions from</div>
-                <div className="text-xs text-muted-foreground">Re-orders missions to begin at the chosen tier. Resets your current mission to 1.</div>
+                <div className="text-sm font-medium">Start stages from</div>
+                <div className="text-xs text-muted-foreground">Re-orders stages to begin at the chosen tier. Resets your current stage to 1.</div>
               </div>
               <Select value={startTier} onValueChange={onStartTierChange} disabled={rebuilding}>
                 <SelectTrigger className="w-44"><SelectValue /></SelectTrigger>
@@ -151,41 +177,44 @@ function StudyHome() {
             </div>
           </div>
 
-          <div className="mt-4 rounded-2xl border bg-card p-4 shadow-card">
-            <div className="flex items-baseline justify-between">
-              <div className="text-sm text-muted-foreground">Your progress</div>
-              <div className="text-sm">Mission <span className="font-display text-lg">{currentMission}</span> of {totalMissions}</div>
-            </div>
-            <div className="mt-3 flex w-full gap-0.5 overflow-hidden rounded-full">
-              {missions.map((_, i) => {
-                const n = i + 1;
-                const cls = n < currentMission ? "bg-sage" : n === currentMission ? "bg-gold" : "bg-muted";
-                return <div key={n} className={cn("h-2 flex-1", cls)} title={`Mission ${n}`} />;
-              })}
-            </div>
-          </div>
-
           <div className="mt-4 rounded-2xl border bg-card p-5 shadow-card">
             <div className="flex items-center justify-between">
               <div>
-                <div className="text-xs uppercase tracking-widest text-gold">Current mission</div>
-                <div className="font-display text-2xl mt-0.5">Mission {currentMission}</div>
-                <div className="text-sm text-muted-foreground">{missions[currentMission - 1]?.length ?? 0} words</div>
+                <div className="text-xs uppercase tracking-widest text-gold">Current stage</div>
+                <div className="font-display text-2xl mt-0.5">Stage {currentStage}</div>
+                <div className="text-sm text-muted-foreground">{stages[currentStage - 1]?.length ?? 0} words</div>
               </div>
               <BookOpen className="h-8 w-8 text-gold" />
             </div>
             <div className="mt-4 grid gap-2 sm:grid-cols-2">
               <Button asChild size="lg" className="h-12">
-                <Link to="/study/flashcards" search={{ mission: currentMission }}>
-                  <BookOpen className="h-4 w-4 mr-1" /> Study mission
+                <Link to="/study/flashcards" search={{ mission: currentStage }}>
+                  <BookOpen className="h-4 w-4 mr-1" /> Study stage
                 </Link>
               </Button>
               <Button asChild size="lg" variant="outline" className="h-12">
-                <Link to="/study/quiz" search={{ mode: "mission", mission: currentMission }}>
-                  <Trophy className="h-4 w-4 mr-1" /> Take mission quiz
+                <Link to="/study/quiz" search={{ mode: "mission", mission: currentStage }}>
+                  <Trophy className="h-4 w-4 mr-1" /> Take stage quiz
                 </Link>
               </Button>
             </div>
+          </div>
+
+          <div className="mt-4 rounded-2xl border bg-card p-4 shadow-card">
+            <div className="flex items-baseline justify-between mb-1">
+              <div className="text-sm font-medium">Your journey</div>
+              <div className="text-xs text-muted-foreground">Stage {currentStage} of {totalStages}</div>
+            </div>
+            <StageMap
+              total={totalStages}
+              currentStage={currentStage}
+              starsByStage={starsByStage}
+              tierByStage={tierByStage}
+            />
+          </div>
+
+          <div className="mt-4">
+            <AchievementsStrip earned={earnedBadges} />
           </div>
 
           <div className="mt-4 grid gap-3 sm:grid-cols-2">
@@ -205,39 +234,6 @@ function StudyHome() {
             />
           </div>
 
-          <div className="mt-4 rounded-2xl border bg-card p-4 shadow-card">
-            <button
-              type="button"
-              onClick={() => setShowAllMissions((s) => !s)}
-              className="flex w-full items-center justify-between text-left"
-            >
-              <div className="text-sm font-medium">Jump to another mission</div>
-              <ChevronRight className={cn("h-4 w-4 text-muted-foreground transition-transform", showAllMissions && "rotate-90")} />
-            </button>
-            {showAllMissions && (
-              <div className="mt-3 grid gap-1.5 grid-cols-4 sm:grid-cols-6">
-                {missions.map((_, i) => {
-                  const n = i + 1;
-                  const status = n < currentMission ? "done" : n === currentMission ? "current" : "upcoming";
-                  return (
-                    <Link
-                      key={n}
-                      to="/study/flashcards"
-                      search={{ mission: n }}
-                      className={cn(
-                        "rounded-lg border px-2 py-1.5 text-center text-sm transition hover:border-gold",
-                        status === "done" && "bg-sage/15 border-sage/40",
-                        status === "current" && "bg-gold/15 border-gold/50 font-medium",
-                      )}
-                    >
-                      {n}
-                    </Link>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-
           <div className="mt-4">
             <Link to="/study/list" className="group flex items-center justify-between rounded-xl border bg-card p-3 shadow-card transition hover:border-gold">
               <div className="flex items-center gap-2">
@@ -250,7 +246,7 @@ function StudyHome() {
         </>
       ) : (
         <div className="mt-4 rounded-2xl border border-dashed bg-card p-6 text-center shadow-card">
-          <div className="font-display text-xl">Add at least {MISSION_SIZE} words to unlock missions</div>
+          <div className="font-display text-xl">Add at least {STAGE_SIZE} words to unlock stages</div>
           <p className="mt-1 text-sm text-muted-foreground">For now, you can browse and quiz freely.</p>
           <div className="mt-4 grid gap-3 grid-cols-3">
             {[
@@ -285,7 +281,7 @@ function ReviewTile({
 }) {
   const inner = (
     <div className="flex items-center gap-3">
-      <Icon className={cn("h-6 w-6", eligible ? "text-gold" : "text-muted-foreground")} />
+      <Icon className={eligible ? "h-6 w-6 text-gold" : "h-6 w-6 text-muted-foreground"} />
       <div className="min-w-0">
         <div className="font-display text-base leading-tight">{title}</div>
         <div className="text-xs text-muted-foreground leading-tight truncate">

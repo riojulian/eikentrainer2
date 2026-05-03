@@ -41,36 +41,6 @@ export type Database = {
         }
         Relationships: []
       }
-      mission_attempts: {
-        Row: {
-          id: string
-          kind: string
-          mission_index: number | null
-          score: number
-          student_id: string
-          taken_at: string
-          total: number
-        }
-        Insert: {
-          id?: string
-          kind: string
-          mission_index?: number | null
-          score: number
-          student_id: string
-          taken_at?: string
-          total: number
-        }
-        Update: {
-          id?: string
-          kind?: string
-          mission_index?: number | null
-          score?: number
-          student_id?: string
-          taken_at?: string
-          total?: number
-        }
-        Relationships: []
-      }
       profiles: {
         Row: {
           created_at: string
@@ -121,6 +91,84 @@ export type Database = {
           },
         ]
       }
+      stage_attempts: {
+        Row: {
+          id: string
+          kind: string
+          score: number
+          stage_index: number | null
+          student_id: string
+          taken_at: string
+          total: number
+        }
+        Insert: {
+          id?: string
+          kind: string
+          score: number
+          stage_index?: number | null
+          student_id: string
+          taken_at?: string
+          total: number
+        }
+        Update: {
+          id?: string
+          kind?: string
+          score?: number
+          stage_index?: number | null
+          student_id?: string
+          taken_at?: string
+          total?: number
+        }
+        Relationships: []
+      }
+      student_badges: {
+        Row: {
+          badge_key: string
+          earned_at: string
+          id: string
+          student_id: string
+        }
+        Insert: {
+          badge_key: string
+          earned_at?: string
+          id?: string
+          student_id: string
+        }
+        Update: {
+          badge_key?: string
+          earned_at?: string
+          id?: string
+          student_id?: string
+        }
+        Relationships: []
+      }
+      student_stats: {
+        Row: {
+          current_streak: number
+          last_active_date: string | null
+          longest_streak: number
+          student_id: string
+          updated_at: string
+          xp: number
+        }
+        Insert: {
+          current_streak?: number
+          last_active_date?: string | null
+          longest_streak?: number
+          student_id: string
+          updated_at?: string
+          xp?: number
+        }
+        Update: {
+          current_streak?: number
+          last_active_date?: string | null
+          longest_streak?: number
+          student_id?: string
+          updated_at?: string
+          xp?: number
+        }
+        Relationships: []
+      }
       student_word_order: {
         Row: {
           created_at: string
@@ -144,20 +192,20 @@ export type Database = {
       }
       study_progress: {
         Row: {
-          current_mission: number
-          mission_size: number
+          current_stage: number
+          stage_size: number
           student_id: string
           updated_at: string
         }
         Insert: {
-          current_mission?: number
-          mission_size?: number
+          current_stage?: number
+          stage_size?: number
           student_id: string
           updated_at?: string
         }
         Update: {
-          current_mission?: number
-          mission_size?: number
+          current_stage?: number
+          stage_size?: number
           student_id?: string
           updated_at?: string
         }

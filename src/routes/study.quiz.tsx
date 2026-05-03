@@ -12,17 +12,30 @@ import {
   type MasteryOrUnseen,
 } from "@/lib/words";
 import { Button } from "@/components/ui/button";
-import { ArrowUp, ArrowDown, Trophy } from "lucide-react";
+import { ArrowUp, ArrowDown, Trophy, Star, Flame, Sparkles } from "lucide-react";
 import {
   ensureWordOrder,
-  missionize,
-  buildMissionQuiz,
+  stagize,
+  buildStageQuiz,
   buildPeriodicQuiz,
   recordAttempt,
   getProgress,
-  setCurrentMission,
-  MISSION_SIZE,
-} from "@/lib/missions";
+  setCurrentStage,
+  STAGE_SIZE,
+  starsForScore,
+  getStarsByStage,
+} from "@/lib/stages";
+import {
+  awardXp,
+  bumpStreak,
+  checkBadges,
+  XP_PER_CORRECT,
+  XP_BONUS_3STAR,
+  XP_WEEKLY,
+  XP_MONTHLY,
+  type BadgeDef,
+} from "@/lib/gamification";
+import { cn } from "@/lib/utils";
 
 type Mode = "mission" | "weekly" | "monthly";
 
@@ -55,13 +68,20 @@ function shuffle<T>(arr: T[]) {
 
 function buildQuizQuestions(pool: Word[], allWords: Word[]): Q[] {
   const usable = pool.filter((w) => w.example_sentence);
-  return usable.slice(0, MISSION_SIZE).map((w) => {
+  return usable.slice(0, STAGE_SIZE).map((w) => {
     const distractors = shuffle(allWords.filter((x) => x.id !== w.id)).slice(0, 3).map((x) => x.word);
     const options = shuffle([w.word, ...distractors]);
     const sentenceHtml = (w.example_sentence ?? "").replace(/<strong>.*?<\/strong>/i, "<strong>______</strong>");
     return { word: w, options, answer: w.word, sentenceHtml };
   });
 }
+
+type FinishResult = {
+  stars: 0 | 1 | 2 | 3;
+  xpGained: number;
+  newStreak: number;
+  newBadges: BadgeDef[];
+};
 
 function QuizPage() {
   const { user } = useAuth();
@@ -71,13 +91,13 @@ function QuizPage() {
 
   const [questions, setQuestions] = useState<Q[] | null>(null);
   const [statuses, setStatuses] = useState<Record<string, MasteryOrUnseen>>({});
-  const [missionIndex, setChunkIndex] = useState<number | null>(null);
+  const [stageIndex, setStageIndex] = useState<number | null>(null);
   const [idx, setIdx] = useState(0);
   const [picked, setPicked] = useState<string | null>(null);
   const [score, setScore] = useState(0);
   const [done, setDone] = useState(false);
   const [outcomes, setOutcomes] = useState<Outcome[]>([]);
-  const [recorded, setRecorded] = useState(false);
+  const [finished, setFinished] = useState<FinishResult | null>(null);
 
   useEffect(() => {
     if (!user) return;
@@ -87,12 +107,12 @@ function QuizPage() {
 
       if (mode === "mission") {
         const ordered = await ensureWordOrder(user.id);
-        const missions = missionize(ordered);
+        const stages = stagize(ordered);
         const progress = await getProgress(user.id);
-        const idxToUse = missionParam ?? progress.current_mission;
-        setChunkIndex(idxToUse);
-        if (missions.length === 0) { setQuestions([]); return; }
-        const pool = buildMissionQuiz(missions, idxToUse);
+        const idxToUse = missionParam ?? progress.current_stage;
+        setStageIndex(idxToUse);
+        if (stages.length === 0) { setQuestions([]); return; }
+        const pool = buildStageQuiz(stages, idxToUse);
         setQuestions(buildQuizQuestions(pool, allWords));
       } else {
         const days = mode === "weekly" ? 7 : 30;
@@ -103,6 +123,55 @@ function QuizPage() {
     })();
   }, [user, mode, missionParam]);
 
+  // Run finish logic exactly once when quiz transitions to done
+  useEffect(() => {
+    if (!done || !user || !questions || finished) return;
+    (async () => {
+      const total = questions.length;
+      const stars = mode === "mission" ? starsForScore(score, total) : 0;
+
+      // Record attempt
+      await recordAttempt(
+        user.id,
+        mode === "mission" ? "stage" : mode,
+        score,
+        total,
+        mode === "mission" ? stageIndex : null,
+      ).catch(() => {});
+
+      // XP
+      let xp = score * XP_PER_CORRECT;
+      if (mode === "mission" && stars === 3) xp += XP_BONUS_3STAR;
+      if (mode === "weekly") xp += XP_WEEKLY;
+      if (mode === "monthly") xp += XP_MONTHLY;
+      await awardXp(user.id, xp).catch(() => {});
+
+      // Streak
+      const after = await bumpStreak(user.id).catch(() => null);
+      const streak = after?.current_streak ?? 0;
+
+      // Badges
+      const starsByStage = await getStarsByStage(user.id);
+      const newBadges = await checkBadges(user.id, {
+        starsByStage,
+        streak,
+        justFinishedKind: mode === "mission" ? "stage" : mode,
+        justFinishedStageIndex: mode === "mission" ? stageIndex : null,
+        justFinishedStars: stars,
+      }).catch(() => [] as BadgeDef[]);
+
+      // Advance current stage if they just finished the suggested stage
+      if (mode === "mission" && stageIndex) {
+        const p = await getProgress(user.id);
+        if (stageIndex === p.current_stage) {
+          await setCurrentStage(user.id, stageIndex + 1).catch(() => {});
+        }
+      }
+
+      setFinished({ stars, xpGained: xp, newStreak: streak, newBadges });
+    })();
+  }, [done, user, questions, finished, mode, score, stageIndex]);
+
   if (!questions) return <main className="p-10 text-center text-muted-foreground">Loading…</main>;
 
   if (questions.length === 0) {
@@ -111,7 +180,7 @@ function QuizPage() {
         <h1 className="font-display text-3xl">Not enough words yet</h1>
         <p className="text-muted-foreground mt-2">
           {mode === "mission"
-            ? "Need at least a few words with example sentences in this mission."
+            ? "Need at least a few words with example sentences in this stage."
             : `Study at least 4 words in the last ${mode === "weekly" ? "7" : "30"} days to take this review.`}
         </p>
         <Button asChild className="mt-6"><Link to="/study">Back to study</Link></Button>
@@ -120,29 +189,70 @@ function QuizPage() {
   }
 
   if (done) {
-    if (!recorded && user) {
-      setRecorded(true);
-      recordAttempt(user.id, mode, score, questions.length, mode === "mission" ? missionIndex : null).catch(() => {});
-      // Advance current mission if they just finished the suggested mission
-      if (mode === "mission" && missionIndex) {
-        getProgress(user.id).then((p) => {
-          if (missionIndex === p.current_mission) {
-            setCurrentMission(user.id, missionIndex + 1).catch(() => {});
-          }
-        });
-      }
-    }
     const movedUp = outcomes.filter((o) => o.after > (o.before ?? 0)).length;
     const movedDown = outcomes.filter((o) => o.after < (o.before ?? 0)).length;
     const reachedMastered = outcomes.filter((o) => o.after === 3 && o.before !== 3).length;
-    const msg = score >= 8 ? "Brilliant!" : score >= 5 ? "Nice work!" : "Keep practicing — you've got this.";
+    const stars = finished?.stars ?? 0;
+    const msg =
+      stars === 3 ? "Flawless victory!" :
+      stars === 2 ? "Great work!" :
+      stars === 1 ? "Nice — you cleared it!" :
+      "Keep practicing — you've got this.";
+
     return (
       <main className="mx-auto max-w-xl px-4 py-6 text-center">
-        <div className="text-6xl mb-4">{score >= 8 ? "🎉" : score >= 5 ? "✨" : "🌱"}</div>
+        {/* Star reveal */}
+        {mode === "mission" && (
+          <div className="flex justify-center gap-3 mb-3">
+            {[1, 2, 3].map((n) => (
+              <Star
+                key={n}
+                className={cn(
+                  "h-14 w-14 transition-all duration-500",
+                  n <= stars
+                    ? "fill-gold text-gold drop-shadow-[0_0_12px_rgba(201,168,76,0.6)] animate-in zoom-in-50"
+                    : "text-muted-foreground/30",
+                )}
+                style={{ animationDelay: `${n * 200}ms` }}
+              />
+            ))}
+          </div>
+        )}
+
+        <div className="text-5xl mb-2">{score >= 8 ? "🎉" : score >= 5 ? "✨" : "🌱"}</div>
         <h1 className="font-display text-4xl">{score} / {questions.length}</h1>
         <p className="text-muted-foreground mt-2">{msg}</p>
 
-        <div className="mt-8 rounded-2xl border bg-card p-5 shadow-card text-left">
+        {/* XP + Streak strip */}
+        {finished && (
+          <div className="mt-5 flex justify-center gap-3 flex-wrap">
+            <div className="flex items-center gap-1.5 rounded-full border bg-gold/10 text-gold px-3 py-1.5 font-display animate-in fade-in slide-in-from-bottom-2 duration-500">
+              <Sparkles className="h-4 w-4" />
+              +{finished.xpGained} XP
+            </div>
+            <div className="flex items-center gap-1.5 rounded-full border bg-rose/10 text-rose px-3 py-1.5 font-display animate-in fade-in slide-in-from-bottom-2 duration-500" style={{ animationDelay: "100ms" }}>
+              <Flame className="h-4 w-4" />
+              {finished.newStreak} day{finished.newStreak === 1 ? "" : "s"}
+            </div>
+          </div>
+        )}
+
+        {/* New badges */}
+        {finished && finished.newBadges.length > 0 && (
+          <div className="mt-5 rounded-2xl border bg-gradient-to-br from-gold/10 to-amber-300/5 border-gold/40 p-4 animate-in fade-in zoom-in-95 duration-500">
+            <div className="text-xs uppercase tracking-widest text-gold font-medium mb-2">Achievements unlocked!</div>
+            <div className="flex flex-wrap gap-3 justify-center">
+              {finished.newBadges.map((b) => (
+                <div key={b.key} className="flex flex-col items-center w-20">
+                  <div className="text-3xl">{b.emoji}</div>
+                  <div className="mt-0.5 text-[11px] font-medium leading-tight">{b.name}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        <div className="mt-6 rounded-2xl border bg-card p-5 shadow-card text-left">
           <div className="text-sm font-medium mb-3">What changed</div>
           <ul className="space-y-2 text-sm">
             <li className="flex items-center gap-2">
@@ -163,18 +273,20 @@ function QuizPage() {
         </div>
 
         <div className="mt-8 flex flex-wrap justify-center gap-3">
-          {mode === "mission" && missionIndex ? (
+          {mode === "mission" && stageIndex ? (
             <>
               <Button asChild>
-                <Link to="/study/flashcards" search={{ mission: missionIndex + 1 }}>
-                  Study mission {missionIndex + 1}
+                <Link to="/study/flashcards" search={{ mission: stageIndex + 1 }}>
+                  Study stage {stageIndex + 1}
                 </Link>
               </Button>
-              <Button variant="outline" asChild>
-                <Link to="/study/quiz" search={{ mode: "mission" as const, mission: missionIndex }} reloadDocument>
-                  Retry mission {missionIndex} quiz
-                </Link>
-              </Button>
+              {stars < 3 && (
+                <Button variant="outline" asChild>
+                  <Link to="/study/quiz" search={{ mode: "mission" as const, mission: stageIndex }} reloadDocument>
+                    Retry for 3 stars
+                  </Link>
+                </Button>
+              )}
             </>
           ) : (
             <Button onClick={() => location.reload()}>Try again</Button>
@@ -208,8 +320,8 @@ function QuizPage() {
   };
 
   const headerLabel =
-    mode === "mission" && missionIndex
-      ? `Mission ${missionIndex} quiz`
+    mode === "mission" && stageIndex
+      ? `Stage ${stageIndex} quiz`
       : mode === "weekly"
       ? "Weekly review"
       : mode === "monthly"
