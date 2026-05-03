@@ -12,6 +12,23 @@ export type Word = {
   tier?: string | null;
 };
 
+/** Display labels for tier values (DB stays as `tier1`..`phrases`, UI shows "World N"). */
+export const TIER_LABELS: Record<string, string> = {
+  tier1: "World 1: Core",
+  tier2: "World 2: Topic Specific",
+  tier3: "World 3: Reading/Listening",
+  tier4: "World 4: Very Specific",
+  phrases: "World 5: Phrases",
+};
+
+export const TIER_SHORT: Record<string, string> = {
+  tier1: "World 1",
+  tier2: "World 2",
+  tier3: "World 3",
+  tier4: "World 4",
+  phrases: "World 5",
+};
+
 export type Mastery = 0 | 1 | 2 | 3;
 export type MasteryOrUnseen = Mastery | null;
 
