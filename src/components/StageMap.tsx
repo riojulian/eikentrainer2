@@ -6,7 +6,7 @@ export type StageMapProps = {
   total: number;
   currentStage: number;
   starsByStage: Record<number, 0 | 1 | 2 | 3>;
-  /** Tier of each stage's first word, used for color band */
+  /** World (DB tier value) of each stage's first word, used for color band */
   tierByStage?: (string | null)[];
 };
 
