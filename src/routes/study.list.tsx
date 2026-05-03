@@ -99,14 +99,14 @@ function ListPage() {
               ) : null}
               <div className="mt-4">
                 <div className="text-xs text-muted-foreground mb-1.5">Mastery level</div>
-                <div className="flex gap-1">
+                <div className="flex gap-1 min-w-0">
                   {([0, 1, 2, 3] as Mastery[]).map((m) => {
                     const active = s === m;
                     return (
                       <button
                         key={m}
                         onClick={() => setTier4(w.id, m)}
-                        className={`flex-1 h-7 rounded-md transition flex items-center justify-center px-1 text-[10px] font-medium leading-none truncate ${active ? `${MASTERY_BG[m]} text-white` : "bg-muted text-muted-foreground hover:bg-muted-foreground/20"}`}
+                        className={`flex-1 min-w-0 overflow-hidden h-7 rounded-md transition flex items-center justify-center px-1 text-[8px] sm:text-[10px] font-medium leading-none truncate ${active ? `${MASTERY_BG[m]} text-white` : "bg-muted text-muted-foreground hover:bg-muted-foreground/20"}`}
                         aria-label={MASTERY_LABELS[m]}
                         title={MASTERY_LABELS[m]}
                       >
