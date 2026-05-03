@@ -23,8 +23,8 @@ export const Route = createFileRoute("/study/flashcards")({
     const free = s.free === true || s.free === "1" || s.free === "true";
     return {
       mission: mission && Number.isFinite(mission) && mission > 0 ? mission : undefined,
-      free,
-    } as { mission?: number; free: boolean };
+      free: free || undefined,
+    } as { mission?: number; free?: boolean };
   },
   component: Flashcards,
 });
