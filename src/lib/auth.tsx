@@ -57,7 +57,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // so role promotions in the DB take effect without re-login.
   useEffect(() => {
     const refresh = () => {
-      const uid = supabase.auth.getSession ? null : null;
       if (user?.id) loadProfile(user.id);
     };
     const onVis = () => {
