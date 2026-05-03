@@ -98,9 +98,7 @@ function ListPage() {
                 <p className="mt-2 text-sm italic text-muted-foreground" dangerouslySetInnerHTML={{ __html: w.example_sentence }} />
               ) : null}
               <div className="mt-4">
-                <div className="text-xs text-muted-foreground mb-1.5">
-                  {s === null || s === undefined ? "Set mastery" : MASTERY_LABELS[s as Mastery]}
-                </div>
+                <div className="text-xs text-muted-foreground mb-1.5">Mastery level</div>
                 <div className="flex gap-1">
                   {([0, 1, 2, 3] as Mastery[]).map((m) => {
                     const active = s === m;
@@ -108,10 +106,12 @@ function ListPage() {
                       <button
                         key={m}
                         onClick={() => setTier4(w.id, m)}
-                        className={`flex-1 h-2.5 rounded-full transition ${active ? MASTERY_BG[m] : "bg-muted hover:bg-muted-foreground/30"}`}
+                        className={`flex-1 h-7 rounded-md transition flex items-center justify-center px-1 text-[10px] font-medium leading-none truncate ${active ? `${MASTERY_BG[m]} text-white` : "bg-muted text-muted-foreground hover:bg-muted-foreground/20"}`}
                         aria-label={MASTERY_LABELS[m]}
                         title={MASTERY_LABELS[m]}
-                      />
+                      >
+                        {MASTERY_LABELS[m]}
+                      </button>
                     );
                   })}
                 </div>
