@@ -4,8 +4,9 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { toast } from "sonner";
-import { Upload, Loader2, Trash2, Check, Camera, ImagePlus } from "lucide-react";
+import { Upload, Loader2, Trash2, Check, Camera, ImagePlus, Sparkles } from "lucide-react";
 
 export const Route = createFileRoute("/admin/upload")({
   component: UploadPage,
@@ -27,6 +28,7 @@ function UploadPage() {
   const [imageId, setImageId] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [rows, setRows] = useState<Extracted[]>([]);
+  const [wordList, setWordList] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
 
@@ -57,6 +59,28 @@ function UploadPage() {
     }
   };
 
+  const onEnrich = async () => {
+    const words = Array.from(new Set(
+      wordList.split(/[\s,;\n\r\t]+/).map((w) => w.trim().toLowerCase()).filter(Boolean)
+    ));
+    if (words.length === 0) return toast.error("Paste at least one word");
+    setBusy(true);
+    try {
+      toast.info(`Enriching ${words.length} word${words.length === 1 ? "" : "s"}…`);
+      const { data, error } = await supabase.functions.invoke("enrich-words", { body: { words } });
+      if (error) throw error;
+      if ((data as { error?: string })?.error) throw new Error((data as { error: string }).error);
+      setRows(((data as { words: Extracted[] }).words ?? []).map((w) => ({ ...w, word: w.word.toLowerCase() })));
+      setImageId(null);
+      setPreviewUrl(null);
+      toast.success(`Enriched ${(data as { words: Extracted[] }).words?.length ?? 0} words`);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Enrich failed");
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const update = (i: number, patch: Partial<Extracted>) => setRows((r) => r.map((row, idx) => (idx === i ? { ...row, ...patch } : row)));
   const remove = (i: number) => setRows((r) => r.filter((_, idx) => idx !== i));
   const addManual = () => setRows((r) => [...r, { word: "", part_of_speech: "noun", definition: "", definition_ja: "", example_sentence: "", category: "Abstract Concepts" }]);
@@ -70,14 +94,20 @@ function UploadPage() {
     setBusy(false);
     if (error) return toast.error(error.message);
     toast.success("Saved to word bank");
-    setRows([]); setFile(null); setPreviewUrl(null); setImageId(null); setLabel("");
+    setRows([]); setFile(null); setPreviewUrl(null); setImageId(null); setLabel(""); setWordList("");
   };
 
   return (
     <div className="space-y-6">
       <h1 className="font-display text-3xl">Upload exam page</h1>
 
-      <div className="rounded-xl border bg-card p-5 shadow-card space-y-3">
+      <Tabs defaultValue="image" className="w-full">
+        <TabsList>
+          <TabsTrigger value="image">From image</TabsTrigger>
+          <TabsTrigger value="list">From word list</TabsTrigger>
+        </TabsList>
+        <TabsContent value="image">
+          <div className="rounded-xl border bg-card p-5 shadow-card space-y-3">
         <Input placeholder="Label, e.g. Mock Test p.138" value={label} onChange={(e) => setLabel(e.target.value)} />
         <input
           ref={fileInputRef}
@@ -108,14 +138,33 @@ function UploadPage() {
         <Button disabled={!file || busy} onClick={onUpload}>
           {busy ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <Upload className="h-4 w-4 mr-1" />} Upload & extract
         </Button>
-      </div>
-
-      {previewUrl ? (
-        <div className="grid lg:grid-cols-2 gap-6">
-          <div>
-            <div className="text-xs uppercase tracking-widest text-muted-foreground mb-2">Source image</div>
-            <img src={previewUrl} alt="exam page" className="rounded-xl border max-h-[80vh] object-contain w-full" />
           </div>
+        </TabsContent>
+        <TabsContent value="list">
+          <div className="rounded-xl border bg-card p-5 shadow-card space-y-3">
+            <Textarea
+              placeholder={"Paste words here. One per line, or separated by spaces/commas.\n\nexample:\nambiguous resilient\nmitigate, ubiquitous\nprofound"}
+              value={wordList}
+              onChange={(e) => setWordList(e.target.value)}
+              rows={8}
+            />
+            <Button disabled={busy || !wordList.trim()} onClick={onEnrich}>
+              {busy ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <Sparkles className="h-4 w-4 mr-1" />} Enrich with AI
+            </Button>
+          </div>
+        </TabsContent>
+      </Tabs>
+
+      {previewUrl || rows.length > 0 ? (
+        <div className="grid lg:grid-cols-2 gap-6">
+          {previewUrl ? (
+            <div>
+              <div className="text-xs uppercase tracking-widest text-muted-foreground mb-2">Source image</div>
+              <img src={previewUrl} alt="exam page" className="rounded-xl border max-h-[80vh] object-contain w-full" />
+            </div>
+          ) : (
+            <div className="hidden lg:block" />
+          )}
           <div className="space-y-3">
             <div className="flex items-center justify-between">
               <div className="font-display text-xl">Extracted words ({rows.length})</div>
