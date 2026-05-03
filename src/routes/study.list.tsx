@@ -1,7 +1,17 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { useAuth } from "@/lib/auth";
-import { fetchActiveWords, fetchStatuses, setStatus, type Word, type WordStatus } from "@/lib/words";
+import {
+  fetchActiveWords,
+  fetchStatuses,
+  setMastery,
+  MASTERY_LABELS,
+  MASTERY_BORDER,
+  MASTERY_BG,
+  type Word,
+  type Mastery,
+  type MasteryOrUnseen,
+} from "@/lib/words";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
@@ -9,18 +19,13 @@ export const Route = createFileRoute("/study/list")({
   component: ListPage,
 });
 
-function nextStatus(s: WordStatus): WordStatus {
-  if (s === null) return "known";
-  if (s === "known") return "review";
-  return null;
-}
-
 function ListPage() {
   const { user } = useAuth();
   const [words, setWords] = useState<Word[]>([]);
-  const [statuses, setStatuses] = useState<Record<string, WordStatus>>({});
+  const [statuses, setStatuses] = useState<Record<string, MasteryOrUnseen>>({});
   const [q, setQ] = useState("");
   const [cat, setCat] = useState("all");
+  const [tier, setTier] = useState<string>("all");
 
   useEffect(() => {
     if (!user) return;
@@ -35,36 +40,54 @@ function ListPage() {
 
   const filtered = words.filter((w) => {
     if (cat !== "all" && w.category !== cat) return false;
+    if (tier !== "all") {
+      const s = statuses[w.id];
+      if (tier === "unseen") {
+        if (s !== undefined && s !== null) return false;
+      } else {
+        if (s !== Number(tier)) return false;
+      }
+    }
     if (q && !w.word.toLowerCase().includes(q.toLowerCase()) && !w.definition.toLowerCase().includes(q.toLowerCase())) return false;
     return true;
   });
 
-  const cycle = async (id: string) => {
+  const setTier4 = async (id: string, m: Mastery) => {
     if (!user) return;
-    const s = nextStatus(statuses[id] ?? null);
-    setStatuses((p) => ({ ...p, [id]: s }));
-    setStatus(user.id, id, s).catch(() => {});
+    setStatuses((p) => ({ ...p, [id]: m }));
+    setMastery(user.id, id, m).catch(() => {});
   };
 
   return (
     <main className="mx-auto max-w-5xl px-4 py-8">
       <h1 className="font-display text-3xl mb-4">Word List</h1>
-      <div className="flex gap-3 mb-6">
+      <div className="flex flex-wrap gap-3 mb-6">
         <Input placeholder="Search words…" value={q} onChange={(e) => setQ(e.target.value)} className="max-w-sm" />
         <Select value={cat} onValueChange={setCat}>
-          <SelectTrigger className="w-56"><SelectValue placeholder="Category" /></SelectTrigger>
+          <SelectTrigger className="w-48"><SelectValue placeholder="Category" /></SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All categories</SelectItem>
             {categories.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
           </SelectContent>
         </Select>
+        <Select value={tier} onValueChange={setTier}>
+          <SelectTrigger className="w-52"><SelectValue placeholder="Mastery" /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All mastery levels</SelectItem>
+            <SelectItem value="0">{MASTERY_LABELS[0]}</SelectItem>
+            <SelectItem value="1">{MASTERY_LABELS[1]}</SelectItem>
+            <SelectItem value="2">{MASTERY_LABELS[2]}</SelectItem>
+            <SelectItem value="3">{MASTERY_LABELS[3]}</SelectItem>
+            <SelectItem value="unseen">Unseen</SelectItem>
+          </SelectContent>
+        </Select>
       </div>
       <div className="grid gap-4 sm:grid-cols-2">
         {filtered.map((w) => {
-          const s = statuses[w.id] ?? null;
-          const border = s === "known" ? "border-l-sage" : s === "review" ? "border-l-rose" : "border-l-muted";
+          const s = statuses[w.id];
+          const border = (s === null || s === undefined) ? "border-l-muted" : MASTERY_BORDER[s as Mastery];
           return (
-            <button key={w.id} onClick={() => cycle(w.id)} className={`text-left rounded-xl border bg-card p-5 shadow-card border-l-4 ${border} transition hover:shadow-glow`}>
+            <div key={w.id} className={`rounded-xl border bg-card p-5 shadow-card border-l-4 ${border}`}>
               <div className="flex items-baseline justify-between">
                 <div className="font-display text-2xl">{w.word}</div>
                 <span className="text-xs text-muted-foreground">{w.part_of_speech}</span>
@@ -74,10 +97,26 @@ function ListPage() {
               {w.example_sentence ? (
                 <p className="mt-2 text-sm italic text-muted-foreground" dangerouslySetInnerHTML={{ __html: w.example_sentence }} />
               ) : null}
-              <div className="mt-3 text-xs">
-                {s === "known" ? <span className="text-sage">✓ Known</span> : s === "review" ? <span className="text-rose">↻ Review</span> : <span className="text-muted-foreground">Tap to mark</span>}
+              <div className="mt-4">
+                <div className="text-xs text-muted-foreground mb-1.5">
+                  {s === null || s === undefined ? "Set mastery" : MASTERY_LABELS[s as Mastery]}
+                </div>
+                <div className="flex gap-1">
+                  {([0, 1, 2, 3] as Mastery[]).map((m) => {
+                    const active = s === m;
+                    return (
+                      <button
+                        key={m}
+                        onClick={() => setTier4(w.id, m)}
+                        className={`flex-1 h-2.5 rounded-full transition ${active ? MASTERY_BG[m] : "bg-muted hover:bg-muted-foreground/30"}`}
+                        aria-label={MASTERY_LABELS[m]}
+                        title={MASTERY_LABELS[m]}
+                      />
+                    );
+                  })}
+                </div>
               </div>
-            </button>
+            </div>
           );
         })}
       </div>
