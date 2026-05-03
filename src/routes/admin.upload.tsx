@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
 import { Upload, Loader2, Trash2, Check, Camera, ImagePlus, Sparkles } from "lucide-react";
 
@@ -12,14 +13,34 @@ export const Route = createFileRoute("/admin/upload")({
   component: UploadPage,
 });
 
+type Tier = "tier1" | "tier2" | "tier3" | "tier4" | "phrases" | "";
 type Extracted = {
   word: string;
+  tier: Tier;
   part_of_speech: string;
   definition: string;
   definition_ja: string;
   example_sentence: string;
   category: string;
 };
+
+const TIER_META: Record<Exclude<Tier, "">, { label: string; emoji: string; desc: string; cls: string }> = {
+  tier1:    { label: "Tier 1", emoji: "🔴", desc: "Core high-frequency",    cls: "bg-red-500/15 text-red-600 border-red-500/30" },
+  tier2:    { label: "Tier 2", emoji: "🟠", desc: "Topic-specific frequent", cls: "bg-orange-500/15 text-orange-600 border-orange-500/30" },
+  tier3:    { label: "Tier 3", emoji: "🟢", desc: "Reading/Listening vocab", cls: "bg-green-500/15 text-green-600 border-green-500/30" },
+  tier4:    { label: "Tier 4", emoji: "🟣", desc: "Lower priority",          cls: "bg-purple-500/15 text-purple-600 border-purple-500/30" },
+  phrases:  { label: "Phrases", emoji: "🔵", desc: "Phrasal verbs",          cls: "bg-blue-500/15 text-blue-600 border-blue-500/30" },
+};
+
+function normalizeTier(raw: string): Tier | null {
+  const t = raw.trim().toLowerCase().replace(/^tier/, "").replace(/^t/, "");
+  if (t === "1") return "tier1";
+  if (t === "2") return "tier2";
+  if (t === "3") return "tier3";
+  if (t === "4") return "tier4";
+  if (["p", "phrase", "phrases"].includes(raw.trim().toLowerCase())) return "phrases";
+  return null;
+}
 
 function UploadPage() {
   const [file, setFile] = useState<File | null>(null);
@@ -50,7 +71,7 @@ function UploadPage() {
       const { data, error } = await supabase.functions.invoke("extract-words", { body: { imageUrl: signed?.signedUrl } });
       if (error) throw error;
       if ((data as { error?: string })?.error) throw new Error((data as { error: string }).error);
-      setRows(((data as { words: Extracted[] }).words ?? []).map((w) => ({ ...w, word: w.word.toLowerCase() })));
+      setRows(((data as { words: Extracted[] }).words ?? []).map((w) => ({ ...w, tier: (w.tier ?? "") as Tier, word: w.word.toLowerCase() })));
       toast.success(`Found ${(data as { words: Extracted[] }).words?.length ?? 0} words`);
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Upload failed");
@@ -60,17 +81,30 @@ function UploadPage() {
   };
 
   const onEnrich = async () => {
-    const words = Array.from(new Set(
-      wordList.split(/[\s,;\n\r\t]+/).map((w) => w.trim().toLowerCase()).filter(Boolean)
-    ));
-    if (words.length === 0) return toast.error("Paste at least one word");
+    const lines = wordList.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
+    const seen = new Set<string>();
+    const items: { word: string; tier: Tier }[] = [];
+    let skipped = 0;
+    for (const line of lines) {
+      const parts = line.split(/[\s,\t]+/).filter(Boolean);
+      if (parts.length < 2) { skipped++; continue; }
+      const tier = normalizeTier(parts[0]);
+      if (!tier) { skipped++; continue; }
+      const word = parts.slice(1).join(" ").toLowerCase();
+      const key = `${tier}:${word}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      items.push({ word, tier });
+    }
+    if (items.length === 0) return toast.error("No valid lines. Format: <tier> <word>, e.g. '1 ambiguous'");
+    if (skipped > 0) toast.warning(`Skipped ${skipped} unparseable line${skipped === 1 ? "" : "s"}`);
     setBusy(true);
     try {
-      toast.info(`Enriching ${words.length} word${words.length === 1 ? "" : "s"}…`);
-      const { data, error } = await supabase.functions.invoke("enrich-words", { body: { words } });
+      toast.info(`Enriching ${items.length} item${items.length === 1 ? "" : "s"}…`);
+      const { data, error } = await supabase.functions.invoke("enrich-words", { body: { items } });
       if (error) throw error;
       if ((data as { error?: string })?.error) throw new Error((data as { error: string }).error);
-      setRows(((data as { words: Extracted[] }).words ?? []).map((w) => ({ ...w, word: w.word.toLowerCase() })));
+      setRows(((data as { words: Extracted[] }).words ?? []).map((w) => ({ ...w, tier: (w.tier ?? "") as Tier, word: w.word.toLowerCase() })));
       setImageId(null);
       setPreviewUrl(null);
       toast.success(`Enriched ${(data as { words: Extracted[] }).words?.length ?? 0} words`);
@@ -83,12 +117,17 @@ function UploadPage() {
 
   const update = (i: number, patch: Partial<Extracted>) => setRows((r) => r.map((row, idx) => (idx === i ? { ...row, ...patch } : row)));
   const remove = (i: number) => setRows((r) => r.filter((_, idx) => idx !== i));
-  const addManual = () => setRows((r) => [...r, { word: "", part_of_speech: "noun", definition: "", definition_ja: "", example_sentence: "", category: "Abstract Concepts" }]);
+  const addManual = () => setRows((r) => [...r, { word: "", tier: "", part_of_speech: "noun", definition: "", definition_ja: "", example_sentence: "", category: "Abstract Concepts" }]);
 
   const saveAll = async () => {
     if (rows.length === 0) return;
     setBusy(true);
-    const payload = rows.map((r) => ({ ...r, source_image_id: imageId, is_active: true }));
+    const payload = rows.map((r) => ({
+      ...r,
+      tier: r.tier === "" ? null : r.tier,
+      source_image_id: imageId,
+      is_active: true,
+    }));
     const { error } = await supabase.from("words").insert(payload);
     if (imageId) await supabase.from("images").update({ processed: true }).eq("id", imageId);
     setBusy(false);
@@ -142,11 +181,20 @@ function UploadPage() {
         </TabsContent>
         <TabsContent value="list">
           <div className="rounded-xl border bg-card p-5 shadow-card space-y-3">
+            <div className="flex flex-wrap gap-2 text-xs">
+              {(Object.entries(TIER_META) as [Exclude<Tier,"">, typeof TIER_META["tier1"]][]).map(([k, m]) => (
+                <span key={k} className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 ${m.cls}`}>
+                  <span>{m.emoji}</span><span className="font-medium">{m.label}</span>
+                  <span className="text-muted-foreground">— {m.desc}</span>
+                </span>
+              ))}
+            </div>
             <Textarea
-              placeholder={"Paste words here. One per line, or separated by spaces/commas.\n\nexample:\nambiguous resilient\nmitigate, ubiquitous\nprofound"}
+              placeholder={"One per line: <tier> <word>\n\nexample:\n1 ambiguous\n1 resilient\n2 mitigate\n3 profound\n4 esoteric\nphrases give up"}
               value={wordList}
               onChange={(e) => setWordList(e.target.value)}
-              rows={8}
+              rows={10}
+              className="font-mono"
             />
             <Button disabled={busy || !wordList.trim()} onClick={onEnrich}>
               {busy ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <Sparkles className="h-4 w-4 mr-1" />} Enrich with AI
@@ -180,6 +228,15 @@ function UploadPage() {
                 <div key={i} className="rounded-lg border bg-card p-3 space-y-2">
                   <div className="flex gap-2">
                     <Input value={r.word} onChange={(e) => update(i, { word: e.target.value })} placeholder="word" />
+                    <Select value={r.tier === "" ? "none" : r.tier} onValueChange={(v) => update(i, { tier: v === "none" ? "" : (v as Tier) })}>
+                      <SelectTrigger className="w-32"><SelectValue placeholder="Tier" /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="none">— No tier —</SelectItem>
+                        {(Object.entries(TIER_META) as [Exclude<Tier,"">, typeof TIER_META["tier1"]][]).map(([k, m]) => (
+                          <SelectItem key={k} value={k}>{m.emoji} {m.label}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                     <Input value={r.part_of_speech} onChange={(e) => update(i, { part_of_speech: e.target.value })} className="w-32" placeholder="POS" />
                     <Button variant="ghost" size="icon" onClick={() => remove(i)}><Trash2 className="h-4 w-4" /></Button>
                   </div>
