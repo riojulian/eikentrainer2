@@ -6,9 +6,19 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-const SYSTEM_PROMPT = `You are an English vocabulary extractor for Japanese students preparing for Eiken Pre-1.
+const SYSTEM_PROMPT = `You are an English vocabulary extractor for Japanese students (ages 10–17, non-native English learners) preparing for Eiken Pre-1.
 Analyze the image (mock exam page, vocabulary list, or reading comprehension page) and extract every English vocabulary word that is appropriate for Eiken Pre-1 level (or slightly below/above).
-Skip stopwords and trivial words. Use lowercase for the word itself.`;
+Skip stopwords and trivial words. Use lowercase for the word itself.
+
+DEFINITION RULES (very important):
+- Write the English definition in SIMPLE English a 10–17 year old non-native learner can understand.
+- Use common, everyday words (around CEFR A2–B1). Avoid advanced or academic vocabulary.
+- Keep it short: ideally 1 sentence, max ~15 words.
+- Do NOT define a hard word using other hard words.
+- Prefer concrete phrasing ("someone who...", "the feeling of...", "to make something...") over abstract jargon.
+- No circular definitions (don't reuse the target word or its forms).
+- Japanese definition (definition_ja) stays natural Japanese with kanji appropriate for ~11 year olds.
+- Example sentence stays natural and clearly shows the word's meaning in context.`;
 
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
@@ -35,7 +45,7 @@ serve(async (req) => {
                 properties: {
                   word: { type: "string" },
                   part_of_speech: { type: "string", enum: ["noun","verb","adj","adverb","phrasal verb"] },
-                  definition: { type: "string", description: "Clear English definition for an 11-year-old Japanese student." },
+                  definition: { type: "string", description: "Simple English definition (CEFR A2–B1) understandable by a 10–17 year old non-native learner. ~1 short sentence, no advanced words, no circular definitions." },
                   definition_ja: { type: "string", description: "Japanese definition with appropriate kanji for an 11-year-old." },
                   example_sentence: { type: "string", description: "Natural sentence using the word, target word wrapped in <strong> tags." },
                   category: { type: "string", enum: [
