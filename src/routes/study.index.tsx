@@ -309,36 +309,3 @@ function StudyHome() {
   );
 }
 
-function ReviewTile({
-  icon: Icon,
-  title,
-  desc,
-  eligible,
-  search,
-}: {
-  icon: typeof CalendarDays;
-  title: string;
-  desc: string;
-  eligible: boolean;
-  search: { mode: "weekly" | "monthly" };
-}) {
-  const inner = (
-    <div className="flex items-center gap-3">
-      <Icon className={eligible ? "h-6 w-6 text-gold" : "h-6 w-6 text-muted-foreground"} />
-      <div className="min-w-0">
-        <div className="font-display text-base leading-tight">{title}</div>
-        <div className="text-xs text-muted-foreground leading-tight truncate">
-          {eligible ? desc : "Study at least 4 words to unlock"}
-        </div>
-      </div>
-    </div>
-  );
-  if (!eligible) {
-    return <div className="rounded-xl border bg-card p-3 shadow-card opacity-60">{inner}</div>;
-  }
-  return (
-    <Link to="/study/quiz" search={search} className="rounded-xl border bg-card p-3 shadow-card transition hover:border-gold hover:shadow-glow">
-      {inner}
-    </Link>
-  );
-}
