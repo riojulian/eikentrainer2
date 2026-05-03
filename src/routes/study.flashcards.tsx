@@ -14,17 +14,17 @@ import { Shuffle, Check, RotateCcw, ChevronLeft, SkipForward, Keyboard, Undo2, T
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
-import { ensureWordOrder, chunkize } from "@/lib/chunks";
+import { ensureWordOrder, missionize } from "@/lib/missions";
 
 export const Route = createFileRoute("/study/flashcards")({
   validateSearch: (s: Record<string, unknown>) => {
-    const chunkRaw = s.chunk;
-    const chunk = typeof chunkRaw === "number" ? chunkRaw : typeof chunkRaw === "string" ? Number(chunkRaw) : undefined;
+    const missionRaw = s.mission;
+    const mission = typeof missionRaw === "number" ? missionRaw : typeof missionRaw === "string" ? Number(missionRaw) : undefined;
     const free = s.free === true || s.free === "1" || s.free === "true";
     return {
-      chunk: chunk && Number.isFinite(chunk) && chunk > 0 ? chunk : undefined,
+      mission: mission && Number.isFinite(mission) && mission > 0 ? mission : undefined,
       free,
-    } as { chunk?: number; free: boolean };
+    } as { mission?: number; free: boolean };
   },
   component: Flashcards,
 });
@@ -52,8 +52,8 @@ function nextOnKnown(curr: MasteryOrUnseen): Mastery {
 function Flashcards() {
   const { user } = useAuth();
   const search = Route.useSearch();
-  const chunkParam = search.chunk;
-  const freeMode = search.free || chunkParam === undefined;
+  const missionParam = search.mission;
+  const freeMode = search.free || missionParam === undefined;
   const [words, setWords] = useState<Word[]>([]);
   const [statuses, setStatuses] = useState<Record<string, MasteryOrUnseen>>({});
   const [filter, setFilter] = useState<"all" | "learning" | "known" | "mastered" | "unseen">("all");
@@ -68,15 +68,15 @@ function Flashcards() {
     if (!user) return;
     (async () => {
       const [ordered, s] = await Promise.all([ensureWordOrder(user.id), fetchStatuses(user.id)]);
-      if (chunkParam && !freeMode) {
-        const chunks = chunkize(ordered);
-        setWords(chunks[chunkParam - 1] ?? []);
+      if (missionParam && !freeMode) {
+        const missions = missionize(ordered);
+        setWords(missions[missionParam - 1] ?? []);
       } else {
         setWords(ordered);
       }
       setStatuses(s);
     })();
-  }, [user, chunkParam, freeMode]);
+  }, [user, missionParam, freeMode]);
 
   const filtered = useMemo(() => {
     return words.filter((w) => {
@@ -227,10 +227,10 @@ function Flashcards() {
           <span className="text-rose font-medium">{session.review} still learning</span>.
         </p>
         <div className="flex flex-wrap gap-3 justify-center">
-          {chunkParam && !freeMode && (
+          {missionParam && !freeMode && (
             <Button asChild>
-              <Link to="/study/quiz" search={{ mode: "chunk" as const, chunk: chunkParam }}>
-                <Trophy className="h-4 w-4 mr-1" /> Take chunk {chunkParam} quiz
+              <Link to="/study/quiz" search={{ mode: "mission" as const, mission: missionParam }}>
+                <Trophy className="h-4 w-4 mr-1" /> Take mission {missionParam} quiz
               </Link>
             </Button>
           )}
@@ -258,11 +258,11 @@ function Flashcards() {
           <ChevronLeft className="h-5 w-5" />
         </Button>
         <div className="text-sm text-muted-foreground tabular-nums">
-          {chunkParam && !freeMode ? <span className="mr-2 rounded-full bg-gold/15 text-gold px-2 py-0.5 text-xs font-medium">Chunk {chunkParam}</span> : null}
+          {missionParam && !freeMode ? <span className="mr-2 rounded-full bg-gold/15 text-gold px-2 py-0.5 text-xs font-medium">Mission {missionParam}</span> : null}
           {idx + 1} / {order.length}
         </div>
         <div className="ml-auto flex items-center gap-2">
-          {chunkParam && !freeMode ? (
+          {missionParam && !freeMode ? (
             <Button asChild variant="ghost" size="sm">
               <Link to="/study/flashcards" search={{ free: true }}>Free study</Link>
             </Button>
