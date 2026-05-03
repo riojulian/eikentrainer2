@@ -30,7 +30,7 @@ export function WorldPicker({
 }) {
   const ordered = WORLD_ORDER.map((w) => summaries.find((s) => s.world === w)).filter(Boolean) as WorldSummary[];
   return (
-    <div className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1 snap-x">
+    <div className="grid grid-cols-5 gap-1.5 sm:gap-2">
       {ordered.map((s) => {
         const empty = s.totalStages === 0;
         const isActive = s.world === active;
@@ -44,7 +44,7 @@ export function WorldPicker({
             onClick={() => !empty && onChange(s.world)}
             disabled={empty}
             className={cn(
-              "snap-start min-w-[140px] shrink-0 rounded-2xl border bg-gradient-to-br p-3 text-left shadow-card transition",
+              "min-w-0 rounded-2xl border bg-gradient-to-br p-2 sm:p-3 text-left shadow-card transition",
               WORLD_ACCENT[s.world] ?? "from-muted to-muted/30 border-muted-foreground/30",
               empty && "opacity-50 cursor-not-allowed",
               isActive && "ring-2 ring-gold scale-[1.02]",
@@ -52,18 +52,19 @@ export function WorldPicker({
             )}
           >
             <div className="flex items-center justify-between">
-              <div className="font-display text-base">{short}</div>
-              {empty ? <Lock className="h-3.5 w-3.5 text-muted-foreground" /> : null}
+              <div className="font-display text-sm sm:text-base truncate">{short}</div>
+              {empty ? <Lock className="h-3 w-3 text-muted-foreground shrink-0" /> : null}
             </div>
-            <div className="text-[11px] text-muted-foreground line-clamp-1">{label}</div>
+            <div className="text-[10px] sm:text-[11px] text-muted-foreground line-clamp-1">{label}</div>
             {!empty && (
               <>
-                <div className="mt-1.5 text-xs tabular-nums">
-                  Stage <span className="font-medium text-foreground">{Math.min(s.currentStage, s.totalStages)}</span>
+                <div className="mt-1.5 text-[11px] sm:text-xs tabular-nums truncate">
+                  <span className="hidden sm:inline">Stage </span>
+                  <span className="font-medium text-foreground">{Math.min(s.currentStage, s.totalStages)}</span>
                   <span className="text-muted-foreground"> / {s.totalStages}</span>
                 </div>
-                <div className="mt-1 flex items-center gap-1 text-xs text-gold">
-                  <Star className="h-3 w-3 fill-gold" />
+                <div className="mt-1 flex items-center gap-1 text-[11px] sm:text-xs text-gold">
+                  <Star className="h-3 w-3 fill-gold shrink-0" />
                   <span className="tabular-nums">{s.starsEarned}<span className="text-muted-foreground">/{s.starsMax}</span></span>
                 </div>
                 <div className="mt-1 h-1 w-full overflow-hidden rounded-full bg-background/60">
@@ -71,7 +72,7 @@ export function WorldPicker({
                 </div>
               </>
             )}
-            {empty && <div className="mt-1.5 text-xs text-muted-foreground">No words yet</div>}
+            {empty && <div className="mt-1.5 text-[10px] sm:text-xs text-muted-foreground">Empty</div>}
           </button>
         );
       })}
