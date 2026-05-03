@@ -14,36 +14,6 @@ export type Database = {
   }
   public: {
     Tables: {
-      chunk_attempts: {
-        Row: {
-          chunk_index: number | null
-          id: string
-          kind: string
-          score: number
-          student_id: string
-          taken_at: string
-          total: number
-        }
-        Insert: {
-          chunk_index?: number | null
-          id?: string
-          kind: string
-          score: number
-          student_id: string
-          taken_at?: string
-          total: number
-        }
-        Update: {
-          chunk_index?: number | null
-          id?: string
-          kind?: string
-          score?: number
-          student_id?: string
-          taken_at?: string
-          total?: number
-        }
-        Relationships: []
-      }
       images: {
         Row: {
           id: string
@@ -68,6 +38,36 @@ export type Database = {
           storage_path?: string
           uploaded_at?: string
           uploaded_by?: string | null
+        }
+        Relationships: []
+      }
+      mission_attempts: {
+        Row: {
+          id: string
+          kind: string
+          mission_index: number | null
+          score: number
+          student_id: string
+          taken_at: string
+          total: number
+        }
+        Insert: {
+          id?: string
+          kind: string
+          mission_index?: number | null
+          score: number
+          student_id: string
+          taken_at?: string
+          total: number
+        }
+        Update: {
+          id?: string
+          kind?: string
+          mission_index?: number | null
+          score?: number
+          student_id?: string
+          taken_at?: string
+          total?: number
         }
         Relationships: []
       }
@@ -144,20 +144,20 @@ export type Database = {
       }
       study_progress: {
         Row: {
-          chunk_size: number
-          current_chunk: number
+          current_mission: number
+          mission_size: number
           student_id: string
           updated_at: string
         }
         Insert: {
-          chunk_size?: number
-          current_chunk?: number
+          current_mission?: number
+          mission_size?: number
           student_id: string
           updated_at?: string
         }
         Update: {
-          chunk_size?: number
-          current_chunk?: number
+          current_mission?: number
+          mission_size?: number
           student_id?: string
           updated_at?: string
         }
