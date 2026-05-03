@@ -1,77 +1,125 @@
-## Problem with the current flashcards
+## Goal
 
-The bottom row mixes three unrelated concepts in confusing ways:
+Replace the current binary "review / known" tagging with a 4-tier **mastery** scale, and use quiz results to automatically move words up and down that scale.
 
-- **Review** is colored like a "wrong" button but actually means "mark this card for review" (a status), not "I got it wrong."
-- **Know it** marks the card as known AND advances — but visually it looks parallel to "Next," so users don't realize it's a judgment.
-- **Next** advances without a judgment, which silently skips learning signal.
-- **Previous** is hidden underneath, and **Tap to reveal** is a tiny hint at the bottom that's easy to miss.
-
-Result: people tap "Review" thinking it goes back, tap "Next" instead of rating, and never build a real review queue.
-
-## Proposed redesign
-
-A classic two-phase flashcard loop, inspired by Anki / Quizlet, but kept minimal.
-
-### Phase 1 — Front of card (not revealed)
-
-- Big word, category/POS chips, nothing else.
-- Single primary CTA: **"Show answer"** (full-width button) — replaces the tiny "Tap card to reveal" hint.
-- Card is still tappable to flip; spacebar also flips.
-- Top bar keeps filter + shuffle + progress.
-- Small **Skip** ghost link in the corner (advances without rating, for cards you can't judge).
-
-### Phase 2 — Back of card (revealed)
-
-Card shows definition + example as today. The action row swaps to **two clear rating buttons**:
+## The mastery scale
 
 ```text
-[  Still learning  ]   [  I knew it  ]
-     (rose)                 (sage)
+0  Still learning        (rose)
+1  Understanding better  (amber)
+2  I know it             (sage)        ← what "known" used to mean
+3  I've mastered it      (gold)
 ```
 
-- **Still learning** → marks `review`, advances.
-- **I knew it** → marks `known`, advances.
-- That's it. No third "Next" button — rating *is* advancing, which removes the ambiguity.
+`Unseen` is not a tier — it just means no row exists in `word_status` yet.
 
-Optional third tier later (Easy / Good / Hard) if the user wants real SRS, but two buttons match the existing `review | known` data model exactly.
+## How quiz feeds back into mastery
 
-### Navigation that's actually navigation
+At the end of `study/quiz.tsx`, before showing the score screen, batch-update each answered word:
 
-- **Previous** moves to a separate, unambiguous spot: a small chevron button in the **top-left** of the card area, paired with the progress counter. It does not look like a rating.
-- Add a tiny **Undo last rating** link that appears for ~4s after a rating (toast-style), so a misclick is recoverable without leaving the flow.
+- **Correct** → `mastery = min(3, current + 1)`
+- **Wrong** → `mastery = max(0, current - 1)`
+- Words that were unseen get a new row: tier 1 if correct, tier 0 if wrong.
+- Special case: getting a tier-3 word wrong drops it to tier 1 (not all the way to 0) so a single misclick on a mastered word doesn't nuke it.
 
-### Keyboard + gesture shortcuts
+The score screen gets a small "What changed" block:
 
-- `Space` / `Enter` — reveal, then on second press = "I knew it."
-- `1` or `←` — Still learning.
-- `2` or `→` — I knew it.
-- `S` — skip.
-- Touch: swipe left = still learning, swipe right = knew it, tap = reveal. (Use a small `useSwipe` handler, no new dependency.)
-- A subtle "Shortcuts" popover (?) documents these.
+```text
+↑ 4 words moved up
+↓ 1 word slipped back to Still learning
+✓ 1 reached Mastered
+```
 
-### End-of-deck screen
+## How flashcards feed in
 
-When `idx` passes the last card, show a summary instead of getting stuck on the last card:
+Two-button model is kept but rewired:
 
-- "You reviewed N cards — X knew, Y to review."
-- Buttons: **Review the X again**, **Shuffle and restart**, **Back to study**.
+- **Still learning** → set tier 0
+- **I knew it** → if current tier < 2, jump to 2; if already ≥ 2, bump by 1 (so repeated "I knew it" eventually reaches Mastered).
 
-### Visual cleanup
+No new third button for now — the quiz is the path to Mastered.
 
-- Remove the green border/red border from action buttons — use solid backgrounds (sage / rose) so they read as decisions, not outlined secondary actions.
-- Card gets a subtle flip animation (CSS transform on reveal) so the two phases feel distinct.
-- "Tap card to reveal" hint removed (replaced by the explicit button).
+## Data model
 
-## Files to change
+Drop the old `status` text and replace with a numeric tier.
 
-- `src/routes/study.flashcards.tsx` — main rewrite of the action area, phase-based rendering, keyboard handler, swipe handler, end-of-deck summary, undo toast.
-- No DB or schema changes — still writes `review` / `known` via existing `setStatus`.
+Migration:
 
-## Out of scope (ask later if wanted)
+```sql
+-- 1. add new column
+alter table public.word_status
+  add column mastery smallint not null default 0;
 
-- True SRS scheduling (Easy/Good/Hard/Again with intervals).
-- Audio playback of the word.
-- Per-session stats persisted to the DB.
+-- 2. backfill from old status
+update public.word_status set mastery = 2 where status = 'known';
+update public.word_status set mastery = 0 where status = 'review';
 
-Want me to also add a 4-button SRS rating now, or keep the two-button model that matches your existing `review | known` schema?
+-- 3. drop old column
+alter table public.word_status drop column status;
+
+-- 4. validation trigger (no CHECK, per project rules)
+create or replace function public.validate_mastery()
+returns trigger language plpgsql as $$
+begin
+  if new.mastery < 0 or new.mastery > 3 then
+    raise exception 'mastery must be 0..3';
+  end if;
+  return new;
+end $$;
+
+create trigger word_status_mastery_check
+before insert or update on public.word_status
+for each row execute function public.validate_mastery();
+```
+
+Existing RLS policies on `word_status` already cover the row, no policy changes needed.
+
+## UI changes
+
+### Student dashboard (`src/routes/study.index.tsx`)
+
+Replace the two-line "Known / Review" summary with a single 5-segment bar (4 tiers + Unseen) and a legend:
+
+```text
+[██ Still learning 12 │ ██ Understanding 7 │ ███ Know it 5 │ █ Mastered 2 │ ░░░ Unseen 24]
+```
+
+The % ring becomes "% truly known" = `(tier ≥ 2) / total`.
+
+### Word List (`src/routes/study.list.tsx`)
+
+- Replace the cycle-on-tap with a small 4-segment control on each card (taps set absolute tier).
+- Filter dropdown gains: All / Still learning / Understanding / Know it / Mastered / Unseen.
+- Left border color reflects tier.
+
+### Quiz (`src/routes/study.quiz.tsx`)
+
+- After last question, run `applyQuizResults()` then show score + "What changed" block.
+
+### Flashcards (`src/routes/study.flashcards.tsx`)
+
+- Buttons stay; rewired through new helper. Filter dropdown updated to use mastery tiers.
+
+### Admin progress (`src/routes/admin.progress.tsx`)
+
+- Replace 4 stat cards (Total / Known / Review / Unseen) with 5 (Total + 4 tiers).
+- Add a stacked-bar mastery distribution.
+- "Words to revisit" unchanged.
+
+## Code changes
+
+- `src/lib/words.ts`
+  - `WordStatus` removed; new `Mastery = 0 | 1 | 2 | 3 | null` (null = unseen).
+  - `fetchStatuses` returns `Record<string, Mastery>`.
+  - New helpers: `setMastery`, `bumpMastery(delta, opts?)`, `applyQuizResult(wordId, correct)`.
+  - Constants `MASTERY_LABELS`, `MASTERY_COLORS`, `MASTERY_BORDERS`.
+- All four routes above updated to use the new helpers and labels.
+- `src/integrations/supabase/types.ts` regenerates automatically after migration.
+
+## Out of scope (ask later)
+
+- True SRS scheduling / per-tier review intervals.
+- Decay over time (mastered words slipping back if untouched for N days).
+- Per-session quiz history persistence beyond `quiz_results` (already stored).
+
+Approve and I'll run the migration and ship the code in one pass.

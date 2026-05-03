@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from "recharts";
+import { MASTERY_LABELS, MASTERY_BG, type Mastery } from "@/lib/words";
 
 export const Route = createFileRoute("/admin/progress")({
   component: Progress,
@@ -9,8 +10,7 @@ export const Route = createFileRoute("/admin/progress")({
 
 type Stats = {
   totalWords: number;
-  known: number;
-  review: number;
+  tiers: Record<Mastery, number>;
   unseen: number;
   daily: { date: string; correct: number; total: number; accuracy: number }[];
   weakest: { word: string; correct: number; total: number; accuracy: number }[];
@@ -23,13 +23,17 @@ function Progress() {
     (async () => {
       const [{ data: words }, { data: statuses }, { data: results }] = await Promise.all([
         supabase.from("words").select("id,word").eq("is_active", true),
-        supabase.from("word_status").select("status,word_id"),
+        supabase.from("word_status").select("mastery,word_id"),
         supabase.from("quiz_results").select("word_id,correct,taken_at").order("taken_at", { ascending: true }),
       ]);
       const totalWords = words?.length ?? 0;
-      let known = 0, review = 0;
-      statuses?.forEach((r) => { if (r.status === "known") known++; else if (r.status === "review") review++; });
-      const unseen = totalWords - known - review;
+      const tiers: Record<Mastery, number> = { 0: 0, 1: 0, 2: 0, 3: 0 };
+      let seen = 0;
+      statuses?.forEach((r) => {
+        const m = r.mastery as Mastery;
+        if (m >= 0 && m <= 3) { tiers[m]++; seen++; }
+      });
+      const unseen = totalWords - seen;
 
       const byDay = new Map<string, { c: number; t: number }>();
       results?.forEach((r) => {
@@ -53,7 +57,7 @@ function Progress() {
         .sort((a, b) => a.accuracy - b.accuracy)
         .slice(0, 8);
 
-      setS({ totalWords, known, review, unseen, daily, weakest });
+      setS({ totalWords, tiers, unseen, daily, weakest });
     })();
   }, []);
 
@@ -66,14 +70,45 @@ function Progress() {
     </div>
   );
 
+  const segments = [
+    { label: MASTERY_LABELS[0], count: s.tiers[0], cls: MASTERY_BG[0] },
+    { label: MASTERY_LABELS[1], count: s.tiers[1], cls: MASTERY_BG[1] },
+    { label: MASTERY_LABELS[2], count: s.tiers[2], cls: MASTERY_BG[2] },
+    { label: MASTERY_LABELS[3], count: s.tiers[3], cls: MASTERY_BG[3] },
+    { label: "Unseen", count: s.unseen, cls: "bg-muted" },
+  ];
+
   return (
     <div className="space-y-6">
       <h1 className="font-display text-3xl">Rinka's Progress</h1>
-      <div className="grid gap-4 sm:grid-cols-4">
-        {stat("Total words", s.totalWords)}
-        {stat("Known", s.known, "text-sage")}
-        {stat("Review", s.review, "text-rose")}
-        {stat("Unseen", s.unseen, "text-muted-foreground")}
+      <div className="grid gap-4 sm:grid-cols-3 lg:grid-cols-5">
+        {stat("Total", s.totalWords)}
+        {stat(MASTERY_LABELS[0], s.tiers[0], "text-rose")}
+        {stat(MASTERY_LABELS[1], s.tiers[1], "text-gold")}
+        {stat(MASTERY_LABELS[2], s.tiers[2], "text-sage")}
+        {stat(MASTERY_LABELS[3], s.tiers[3], "text-gold")}
+      </div>
+
+      <div className="rounded-xl border bg-card p-5 shadow-card">
+        <div className="font-display text-xl mb-3">Mastery distribution</div>
+        {s.totalWords > 0 ? (
+          <>
+            <div className="flex h-4 w-full overflow-hidden rounded-full bg-muted">
+              {segments.map((seg) => seg.count > 0 && (
+                <div key={seg.label} className={seg.cls} style={{ width: `${(seg.count / s.totalWords) * 100}%` }} title={`${seg.label}: ${seg.count}`} />
+              ))}
+            </div>
+            <div className="mt-3 grid grid-cols-2 sm:grid-cols-5 gap-2 text-xs">
+              {segments.map((seg) => (
+                <div key={seg.label} className="flex items-center gap-1.5">
+                  <span className={`inline-block h-2.5 w-2.5 rounded-full ${seg.cls}`} />
+                  <span className="text-muted-foreground">{seg.label}</span>
+                  <span className="ml-auto font-medium">{seg.count}</span>
+                </div>
+              ))}
+            </div>
+          </>
+        ) : <p className="text-muted-foreground text-sm">No words yet.</p>}
       </div>
 
       <div className="rounded-xl border bg-card p-5 shadow-card">

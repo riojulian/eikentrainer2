@@ -112,21 +112,21 @@ export type Database = {
       word_status: {
         Row: {
           id: string
-          status: string | null
+          mastery: number
           student_id: string
           updated_at: string
           word_id: string
         }
         Insert: {
           id?: string
-          status?: string | null
+          mastery?: number
           student_id: string
           updated_at?: string
           word_id: string
         }
         Update: {
           id?: string
-          status?: string | null
+          mastery?: number
           student_id?: string
           updated_at?: string
           word_id?: string

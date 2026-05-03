@@ -11,7 +11,35 @@ export type Word = {
   is_active: boolean;
 };
 
-export type WordStatus = "known" | "review" | null;
+export type Mastery = 0 | 1 | 2 | 3;
+export type MasteryOrUnseen = Mastery | null;
+
+export const MASTERY_LABELS: Record<Mastery, string> = {
+  0: "Still learning",
+  1: "Understanding better",
+  2: "I know it",
+  3: "Mastered",
+};
+
+// Tailwind classes referencing existing tokens
+export const MASTERY_BG: Record<Mastery, string> = {
+  0: "bg-rose",
+  1: "bg-gold/50",
+  2: "bg-sage",
+  3: "bg-gold",
+};
+export const MASTERY_TEXT: Record<Mastery, string> = {
+  0: "text-rose",
+  1: "text-gold",
+  2: "text-sage",
+  3: "text-gold",
+};
+export const MASTERY_BORDER: Record<Mastery, string> = {
+  0: "border-l-rose",
+  1: "border-l-gold/60",
+  2: "border-l-sage",
+  3: "border-l-gold",
+};
 
 export async function fetchActiveWords() {
   const { data, error } = await supabase
@@ -26,21 +54,54 @@ export async function fetchActiveWords() {
 export async function fetchStatuses(studentId: string) {
   const { data, error } = await supabase
     .from("word_status")
-    .select("word_id,status")
+    .select("word_id,mastery")
     .eq("student_id", studentId);
   if (error) throw error;
-  const map: Record<string, WordStatus> = {};
-  data?.forEach((r) => { map[r.word_id] = r.status as WordStatus; });
+  const map: Record<string, MasteryOrUnseen> = {};
+  data?.forEach((r) => { map[r.word_id] = r.mastery as Mastery; });
   return map;
 }
 
-export async function setStatus(studentId: string, wordId: string, status: WordStatus) {
-  if (status === null) {
+const clamp = (n: number): Mastery => Math.max(0, Math.min(3, n)) as Mastery;
+
+export async function setMastery(studentId: string, wordId: string, mastery: MasteryOrUnseen) {
+  if (mastery === null) {
     await supabase.from("word_status").delete().eq("student_id", studentId).eq("word_id", wordId);
     return;
   }
   await supabase.from("word_status").upsert(
-    { student_id: studentId, word_id: wordId, status, updated_at: new Date().toISOString() },
+    { student_id: studentId, word_id: wordId, mastery, updated_at: new Date().toISOString() },
     { onConflict: "word_id,student_id" }
   );
+}
+
+export async function bumpMastery(
+  studentId: string,
+  wordId: string,
+  current: MasteryOrUnseen,
+  delta: number,
+): Promise<Mastery> {
+  const base = current ?? 0;
+  const next = clamp(base + delta);
+  await setMastery(studentId, wordId, next);
+  return next;
+}
+
+/** Apply a single quiz outcome and return the new tier. */
+export async function applyQuizResult(
+  studentId: string,
+  wordId: string,
+  current: MasteryOrUnseen,
+  correct: boolean,
+): Promise<Mastery> {
+  let next: Mastery;
+  if (correct) {
+    next = clamp((current ?? 0) + 1);
+  } else {
+    // Don't nuke a mastered word from one mistake — drop to 1.
+    if (current === 3) next = 1;
+    else next = clamp((current ?? 0) - 1);
+  }
+  await setMastery(studentId, wordId, next);
+  return next;
 }

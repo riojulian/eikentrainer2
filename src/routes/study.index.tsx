@@ -1,7 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { useAuth } from "@/lib/auth";
-import { fetchActiveWords, fetchStatuses } from "@/lib/words";
+import { fetchActiveWords, fetchStatuses, MASTERY_LABELS, MASTERY_BG, type Mastery } from "@/lib/words";
 import { BookOpen, ScrollText, Trophy } from "lucide-react";
 
 export const Route = createFileRoute("/study/")({
@@ -10,21 +10,38 @@ export const Route = createFileRoute("/study/")({
 
 function StudyHome() {
   const { user, displayName } = useAuth();
-  const [stats, setStats] = useState({ total: 0, known: 0, review: 0 });
+  const [stats, setStats] = useState<{ total: number; tiers: Record<Mastery, number>; unseen: number }>({
+    total: 0,
+    tiers: { 0: 0, 1: 0, 2: 0, 3: 0 },
+    unseen: 0,
+  });
 
   useEffect(() => {
     if (!user) return;
     (async () => {
       const words = await fetchActiveWords();
       const statuses = await fetchStatuses(user.id);
-      let known = 0, review = 0;
-      Object.values(statuses).forEach((s) => { if (s === "known") known++; else if (s === "review") review++; });
-      setStats({ total: words.length, known, review });
+      const tiers: Record<Mastery, number> = { 0: 0, 1: 0, 2: 0, 3: 0 };
+      let seen = 0;
+      Object.values(statuses).forEach((s) => {
+        if (s === null || s === undefined) return;
+        tiers[s as Mastery]++;
+        seen++;
+      });
+      setStats({ total: words.length, tiers, unseen: words.length - seen });
     })();
   }, [user]);
 
-  const studied = stats.known + stats.review;
-  const pct = stats.total ? Math.round((studied / stats.total) * 100) : 0;
+  const masteredish = stats.tiers[2] + stats.tiers[3];
+  const pct = stats.total ? Math.round((masteredish / stats.total) * 100) : 0;
+
+  const segments: { key: string; count: number; cls: string; label: string }[] = [
+    { key: "0", count: stats.tiers[0], cls: MASTERY_BG[0], label: MASTERY_LABELS[0] },
+    { key: "1", count: stats.tiers[1], cls: MASTERY_BG[1], label: MASTERY_LABELS[1] },
+    { key: "2", count: stats.tiers[2], cls: MASTERY_BG[2], label: MASTERY_LABELS[2] },
+    { key: "3", count: stats.tiers[3], cls: MASTERY_BG[3], label: MASTERY_LABELS[3] },
+    { key: "u", count: stats.unseen, cls: "bg-muted", label: "Unseen" },
+  ];
 
   return (
     <main className="mx-auto max-w-3xl px-4 py-12">
@@ -34,8 +51,8 @@ function StudyHome() {
       <div className="mt-8 rounded-2xl border bg-card p-6 shadow-card">
         <div className="flex items-center justify-between">
           <div>
-            <div className="text-sm text-muted-foreground">Today's progress</div>
-            <div className="font-display text-3xl">{studied} <span className="text-muted-foreground text-xl">/ {stats.total}</span></div>
+            <div className="text-sm text-muted-foreground">Words you know</div>
+            <div className="font-display text-3xl">{masteredish} <span className="text-muted-foreground text-xl">/ {stats.total}</span></div>
           </div>
           <div className="relative h-20 w-20">
             <svg viewBox="0 0 36 36" className="h-20 w-20 -rotate-90">
@@ -45,10 +62,26 @@ function StudyHome() {
             <div className="absolute inset-0 grid place-items-center font-display text-lg">{pct}%</div>
           </div>
         </div>
-        <div className="mt-4 flex gap-4 text-sm">
-          <span className="text-sage">✓ {stats.known} Known</span>
-          <span className="text-rose">↻ {stats.review} Review</span>
-        </div>
+
+        {/* Mastery distribution bar */}
+        {stats.total > 0 && (
+          <>
+            <div className="mt-5 flex h-3 w-full overflow-hidden rounded-full bg-muted">
+              {segments.map((s) => s.count > 0 && (
+                <div key={s.key} className={s.cls} style={{ width: `${(s.count / stats.total) * 100}%` }} title={`${s.label}: ${s.count}`} />
+              ))}
+            </div>
+            <div className="mt-3 grid grid-cols-2 sm:grid-cols-5 gap-2 text-xs">
+              {segments.map((s) => (
+                <div key={s.key} className="flex items-center gap-1.5">
+                  <span className={`inline-block h-2.5 w-2.5 rounded-full ${s.cls}`} />
+                  <span className="text-muted-foreground">{s.label}</span>
+                  <span className="ml-auto font-medium">{s.count}</span>
+                </div>
+              ))}
+            </div>
+          </>
+        )}
       </div>
 
       <div className="mt-6 grid gap-4 sm:grid-cols-3">
