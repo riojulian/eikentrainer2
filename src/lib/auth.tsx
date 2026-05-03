@@ -25,8 +25,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
   const [roleLoading, setRoleLoading] = useState(true);
 
-  const loadProfile = async (uid: string) => {
-    setRoleLoading(true);
+  const loadProfile = async (uid: string, { background = false }: { background?: boolean } = {}) => {
+    if (!background) setRoleLoading(true);
     const [{ data: roles }, { data: profile }] = await Promise.all([
       supabase.from("user_roles").select("role").eq("user_id", uid),
       supabase.from("profiles").select("display_name").eq("id", uid).maybeSingle(),
@@ -34,7 +34,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const isAdmin = roles?.some((r) => r.role === "admin");
     setRole(isAdmin ? "admin" : "student");
     setDisplayName(profile?.display_name ?? null);
-    setRoleLoading(false);
+    if (!background) setRoleLoading(false);
   };
 
   useEffect(() => {
@@ -62,7 +62,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // so role promotions in the DB take effect without re-login.
   useEffect(() => {
     const refresh = () => {
-      if (user?.id) loadProfile(user.id);
+      if (user?.id) loadProfile(user.id, { background: true });
     };
     const onVis = () => {
       if (document.visibilityState === "visible") refresh();
