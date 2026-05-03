@@ -25,7 +25,8 @@ function Index() {
             Rinka's Vocabulary <em className="text-gold not-italic">Atelier</em>
           </h1>
           <p className="mx-auto mt-6 max-w-xl text-lg text-muted-foreground">
-            A quiet, beautiful place to learn the words that open up the Eiken Pre-1 exam — flashcards, lists, and quizzes built for focused study.
+            A quiet, beautiful place to learn the words that open up the Eiken Pre-1 exam — flashcards, lists, and
+            quizzes built for focused study.
           </p>
           <div className="mt-10 flex items-center justify-center gap-3">
             <Button asChild size="lg">
