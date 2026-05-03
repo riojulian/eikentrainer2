@@ -25,10 +25,10 @@ type Extracted = {
 };
 
 const TIER_META: Record<Exclude<Tier, "">, { label: string; emoji: string; desc: string; cls: string }> = {
-  tier1:    { label: "Tier 1", emoji: "🔴", desc: "Core high-frequency",    cls: "bg-red-500/15 text-red-600 border-red-500/30" },
-  tier2:    { label: "Tier 2", emoji: "🟠", desc: "Topic-specific frequent", cls: "bg-orange-500/15 text-orange-600 border-orange-500/30" },
-  tier3:    { label: "Tier 3", emoji: "🟢", desc: "Reading/Listening vocab", cls: "bg-green-500/15 text-green-600 border-green-500/30" },
-  tier4:    { label: "Tier 4", emoji: "🟣", desc: "Lower priority",          cls: "bg-purple-500/15 text-purple-600 border-purple-500/30" },
+  tier1:    { label: "World 1", emoji: "🔴", desc: "Core",                   cls: "bg-red-500/15 text-red-600 border-red-500/30" },
+  tier2:    { label: "World 2", emoji: "🟠", desc: "Topic Specific",         cls: "bg-orange-500/15 text-orange-600 border-orange-500/30" },
+  tier3:    { label: "World 3", emoji: "🟢", desc: "Reading/Listening",      cls: "bg-green-500/15 text-green-600 border-green-500/30" },
+  tier4:    { label: "World 4", emoji: "🟣", desc: "Very Specific",          cls: "bg-purple-500/15 text-purple-600 border-purple-500/30" },
   phrases:  { label: "Phrases", emoji: "🔵", desc: "Phrasal verbs",          cls: "bg-blue-500/15 text-blue-600 border-blue-500/30" },
 };
 
