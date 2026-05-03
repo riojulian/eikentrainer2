@@ -68,7 +68,7 @@ function QuizPage() {
 
   if (questions.length === 0) {
     return (
-      <main className="mx-auto max-w-xl px-4 py-16 text-center">
+      <main className="mx-auto max-w-xl px-4 py-6 text-center">
         <h1 className="font-display text-3xl">Not enough words yet</h1>
         <p className="text-muted-foreground mt-2">Need at least 4 words with example sentences to run a quiz.</p>
         <Button asChild className="mt-6"><Link to="/study/flashcards">Open flashcards</Link></Button>
@@ -82,7 +82,7 @@ function QuizPage() {
     const reachedMastered = outcomes.filter((o) => o.after === 3 && o.before !== 3).length;
     const msg = score >= 8 ? "Brilliant!" : score >= 5 ? "Nice work!" : "Keep practicing — you've got this.";
     return (
-      <main className="mx-auto max-w-xl px-4 py-16 text-center">
+      <main className="mx-auto max-w-xl px-4 py-6 text-center">
         <div className="text-6xl mb-4">{score >= 8 ? "🎉" : score >= 5 ? "✨" : "🌱"}</div>
         <h1 className="font-display text-4xl">{score} / {questions.length}</h1>
         <p className="text-muted-foreground mt-2">{msg}</p>
@@ -140,7 +140,7 @@ function QuizPage() {
   };
 
   return (
-    <main className="mx-auto max-w-xl px-4 py-8">
+    <main className="mx-auto max-w-xl px-4 py-4">
       <div className="text-sm text-muted-foreground mb-2">Question {idx + 1} of {questions.length}</div>
       <div className="h-1.5 w-full rounded-full bg-muted overflow-hidden mb-6">
         <div className="h-full bg-gold" style={{ width: `${((idx + 1) / questions.length) * 100}%` }} />

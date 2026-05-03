@@ -191,7 +191,7 @@ function Flashcards() {
 
   if (!current && phase !== "done") {
     return (
-      <main className="mx-auto max-w-2xl px-4 py-16 text-center">
+      <main className="mx-auto max-w-2xl px-4 py-6 text-center">
         <h1 className="font-display text-3xl mb-4">No cards here</h1>
         <p className="text-muted-foreground mb-6">Try a different filter or add some words.</p>
         <Button asChild><Link to="/study">Back to study</Link></Button>
@@ -202,7 +202,7 @@ function Flashcards() {
   if (phase === "done") {
     const total = session.known + session.review;
     return (
-      <main className="mx-auto max-w-2xl px-4 py-16 text-center">
+      <main className="mx-auto max-w-2xl px-4 py-6 text-center">
         <h1 className="font-display text-4xl mb-3">Deck complete</h1>
         <p className="text-muted-foreground mb-8">
           You reviewed {total} card{total === 1 ? "" : "s"} —{" "}
@@ -228,7 +228,7 @@ function Flashcards() {
   const currentMastery: MasteryOrUnseen = current ? statuses[current.id] ?? null : null;
 
   return (
-    <main className="mx-auto max-w-2xl px-4 py-8">
+    <main className="mx-auto max-w-2xl px-4 py-4">
       <div className="flex items-center gap-2 mb-4">
         <Button variant="ghost" size="icon" onClick={prev} disabled={idx === 0} aria-label="Previous card">
           <ChevronLeft className="h-5 w-5" />
