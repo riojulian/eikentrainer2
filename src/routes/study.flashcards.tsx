@@ -10,7 +10,7 @@ import {
   type MasteryOrUnseen,
 } from "@/lib/words";
 import { Button } from "@/components/ui/button";
-import { Shuffle, Check, RotateCcw, ChevronLeft, SkipForward, Keyboard, Undo2 } from "lucide-react";
+import { Shuffle, Check, RotateCcw, ChevronLeft, SkipForward, Keyboard, Undo2, Trophy } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
