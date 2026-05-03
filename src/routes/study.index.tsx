@@ -35,12 +35,11 @@ function StudyHome() {
   const masteredish = stats.tiers[2] + stats.tiers[3];
   const pct = stats.total ? Math.round((masteredish / stats.total) * 100) : 0;
 
-  const segments: { key: string; count: number; cls: string; label: string }[] = [
-    { key: "0", count: stats.tiers[0], cls: MASTERY_BG[0], label: MASTERY_LABELS[0] },
-    { key: "1", count: stats.tiers[1], cls: MASTERY_BG[1], label: MASTERY_LABELS[1] },
-    { key: "2", count: stats.tiers[2], cls: MASTERY_BG[2], label: MASTERY_LABELS[2] },
-    { key: "3", count: stats.tiers[3], cls: MASTERY_BG[3], label: MASTERY_LABELS[3] },
-    { key: "u", count: stats.unseen, cls: "bg-muted", label: "Unseen" },
+  const tiers: { key: Mastery; count: number; cls: string; label: string }[] = [
+    { key: 0, count: stats.tiers[0], cls: MASTERY_BG[0], label: MASTERY_LABELS[0] },
+    { key: 1, count: stats.tiers[1], cls: MASTERY_BG[1], label: MASTERY_LABELS[1] },
+    { key: 2, count: stats.tiers[2], cls: MASTERY_BG[2], label: MASTERY_LABELS[2] },
+    { key: 3, count: stats.tiers[3], cls: MASTERY_BG[3], label: MASTERY_LABELS[3] },
   ];
 
   return (
@@ -63,24 +62,32 @@ function StudyHome() {
           </div>
         </div>
 
-        {/* Mastery distribution bar */}
+        {/* Mastery pill bar */}
         {stats.total > 0 && (
-          <>
-            <div className="mt-5 flex h-3 w-full overflow-hidden rounded-full bg-muted">
-              {segments.map((s) => s.count > 0 && (
-                <div key={s.key} className={s.cls} style={{ width: `${(s.count / stats.total) * 100}%` }} title={`${s.label}: ${s.count}`} />
-              ))}
-            </div>
-            <div className="mt-3 grid grid-cols-2 sm:grid-cols-5 gap-2 text-xs">
-              {segments.map((s) => (
-                <div key={s.key} className="flex items-center gap-1.5">
-                  <span className={`inline-block h-2.5 w-2.5 rounded-full ${s.cls}`} />
-                  <span className="text-muted-foreground">{s.label}</span>
-                  <span className="ml-auto font-medium">{s.count}</span>
+          <div className="mt-5">
+            <div className="flex w-full gap-1 overflow-hidden rounded-full">
+              {tiers.map((s) => (
+                <div
+                  key={s.key}
+                  className={`${s.cls} flex h-6 min-w-0 flex-1 items-center justify-center overflow-hidden px-1 text-[8px] sm:text-[10px] font-medium text-white/95 whitespace-nowrap`}
+                  title={`${s.label}: ${s.count}`}
+                >
+                  <span className="truncate">{s.label}</span>
                 </div>
               ))}
             </div>
-          </>
+            <div className="mt-1.5 flex w-full gap-1">
+              {tiers.map((s) => (
+                <div key={s.key} className="flex min-w-0 flex-1 justify-center font-display text-lg">
+                  {s.count}
+                </div>
+              ))}
+            </div>
+            <div className="mt-3 flex items-center justify-between rounded-lg border border-dashed border-muted-foreground/30 bg-muted/30 px-3 py-2 text-sm">
+              <span className="text-muted-foreground">未勉強</span>
+              <span className="font-display text-lg">{stats.unseen}</span>
+            </div>
+          </div>
         )}
       </div>
 
