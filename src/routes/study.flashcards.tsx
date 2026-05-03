@@ -14,7 +14,7 @@ import { Shuffle, Check, RotateCcw, ChevronLeft, SkipForward, Keyboard, Undo2, T
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
-import { ensureWordOrder, chunkize, CHUNK_SIZE } from "@/lib/chunks";
+import { ensureWordOrder, chunkize } from "@/lib/chunks";
 
 export const Route = createFileRoute("/study/flashcards")({
   validateSearch: (s: Record<string, unknown>) => {
