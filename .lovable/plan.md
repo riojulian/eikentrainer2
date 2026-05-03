@@ -1,39 +1,77 @@
-I found two concrete causes behind the “loading all the time” and admin redirect behavior:
+## Problem with the current flashcards
 
-1. The backend function used by role-based security still does not have execute permission for signed-in users in the live database. Recent requests are failing with `permission denied for function has_role`, which breaks role loading, profile loading, admin checks, and word status reads.
-2. The frontend is doing repeated uncached reads for words/statuses and role/profile data. When one of those role/status reads fails or races, admin routes can temporarily think the user is not admin and redirect back to `/study`.
+The bottom row mixes three unrelated concepts in confusing ways:
 
-Plan to fix it carefully:
+- **Review** is colored like a "wrong" button but actually means "mark this card for review" (a status), not "I got it wrong."
+- **Know it** marks the card as known AND advances — but visually it looks parallel to "Next," so users don't realize it's a judgment.
+- **Next** advances without a judgment, which silently skips learning signal.
+- **Previous** is hidden underneath, and **Tap to reveal** is a tiny hint at the bottom that's easy to miss.
 
-1. Repair backend role permissions
-   - Add a new migration that definitely grants execute access on `public.has_role(uuid, public.app_role)` to signed-in users.
-   - Keep `handle_new_user` locked down.
-   - Add missing performance indexes for common student-status/admin queries, especially `word_status(student_id)` and `quiz_results(word_id)`.
-   - Verify the database reports that signed-in users can execute `has_role` before relying on the UI.
+Result: people tap "Review" thinking it goes back, tap "Next" instead of rating, and never build a real review queue.
 
-2. Make auth and role loading stable
-   - Update `src/lib/auth.tsx` so role/profile loading handles errors explicitly instead of silently falling back to `student`.
-   - Prevent duplicate initial role loads from `onAuthStateChange` plus `getSession` running at the same time.
-   - Debounce or limit focus/visibility role refreshes so the app does not keep flipping into loading states.
-   - Keep the last known role during background refreshes, so an admin is not briefly treated as a student.
+## Proposed redesign
 
-3. Stop admin route redirect loops
-   - Update `RequireAuth` so admin pages wait for role resolution and show a stable loading/error state instead of redirecting to `/study` when role loading fails.
-   - If role loading fails because permissions are broken, show a clear retry message rather than bouncing routes.
-   - Keep `/admin` and `/admin/upload` accessible once the resolved role is `admin`.
+A classic two-phase flashcard loop, inspired by Anki / Quizlet, but kept minimal.
 
-4. Speed up study data loading
-   - Add shared cached query helpers for active words and the signed-in user’s word statuses using TanStack Query.
-   - Wire the QueryClient provider into the root route/router setup.
-   - Convert `/study`, `/study/list`, `/study/flashcards`, and `/study/quiz` to use the shared cache instead of each page refetching words and statuses independently.
-   - Add proper loading/error states so failed status reads do not make the word list look empty.
+### Phase 1 — Front of card (not revealed)
 
-5. Improve admin data loading resilience
-   - Update admin word/progress pages to surface backend errors with retry controls instead of staying on “Loading…” forever.
-   - Keep admin word-bank reads lightweight and cached where appropriate.
+- Big word, category/POS chips, nothing else.
+- Single primary CTA: **"Show answer"** (full-width button) — replaces the tiny "Tap card to reveal" hint.
+- Card is still tappable to flip; spacebar also flips.
+- Top bar keeps filter + shuffle + progress.
+- Small **Skip** ghost link in the corner (advances without rating, for cards you can't judge).
 
-6. Verify after implementation
-   - Confirm the database permission check for `has_role` returns true for signed-in users.
-   - Confirm `/study/list` shows the 5 active words quickly.
-   - Confirm `/admin` resolves to the admin area and `/admin/upload` does not redirect to `/study` for Rio’s admin account.
-   - Check browser network/errors for remaining 403s or stuck loading states.
+### Phase 2 — Back of card (revealed)
+
+Card shows definition + example as today. The action row swaps to **two clear rating buttons**:
+
+```text
+[  Still learning  ]   [  I knew it  ]
+     (rose)                 (sage)
+```
+
+- **Still learning** → marks `review`, advances.
+- **I knew it** → marks `known`, advances.
+- That's it. No third "Next" button — rating *is* advancing, which removes the ambiguity.
+
+Optional third tier later (Easy / Good / Hard) if the user wants real SRS, but two buttons match the existing `review | known` data model exactly.
+
+### Navigation that's actually navigation
+
+- **Previous** moves to a separate, unambiguous spot: a small chevron button in the **top-left** of the card area, paired with the progress counter. It does not look like a rating.
+- Add a tiny **Undo last rating** link that appears for ~4s after a rating (toast-style), so a misclick is recoverable without leaving the flow.
+
+### Keyboard + gesture shortcuts
+
+- `Space` / `Enter` — reveal, then on second press = "I knew it."
+- `1` or `←` — Still learning.
+- `2` or `→` — I knew it.
+- `S` — skip.
+- Touch: swipe left = still learning, swipe right = knew it, tap = reveal. (Use a small `useSwipe` handler, no new dependency.)
+- A subtle "Shortcuts" popover (?) documents these.
+
+### End-of-deck screen
+
+When `idx` passes the last card, show a summary instead of getting stuck on the last card:
+
+- "You reviewed N cards — X knew, Y to review."
+- Buttons: **Review the X again**, **Shuffle and restart**, **Back to study**.
+
+### Visual cleanup
+
+- Remove the green border/red border from action buttons — use solid backgrounds (sage / rose) so they read as decisions, not outlined secondary actions.
+- Card gets a subtle flip animation (CSS transform on reveal) so the two phases feel distinct.
+- "Tap card to reveal" hint removed (replaced by the explicit button).
+
+## Files to change
+
+- `src/routes/study.flashcards.tsx` — main rewrite of the action area, phase-based rendering, keyboard handler, swipe handler, end-of-deck summary, undo toast.
+- No DB or schema changes — still writes `review` / `known` via existing `setStatus`.
+
+## Out of scope (ask later if wanted)
+
+- True SRS scheduling (Easy/Good/Hard/Again with intervals).
+- Audio playback of the word.
+- Per-session stats persisted to the DB.
+
+Want me to also add a 4-button SRS rating now, or keep the two-button model that matches your existing `review | known` schema?
