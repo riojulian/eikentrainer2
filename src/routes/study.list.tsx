@@ -15,6 +15,15 @@ import {
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
+
+const TIER_META: Record<string, { label: string; cls: string }> = {
+  tier1: { label: "Tier 1", cls: "bg-rose/15 text-rose border-rose/40" },
+  tier2: { label: "Tier 2", cls: "bg-gold/15 text-gold border-gold/40" },
+  tier3: { label: "Tier 3", cls: "bg-sage/15 text-sage border-sage/40" },
+  tier4: { label: "Tier 4", cls: "bg-purple-500/15 text-purple-500 border-purple-500/40" },
+  phrases: { label: "Phrases", cls: "bg-blue-500/15 text-blue-500 border-blue-500/40" },
+};
+
 export const Route = createFileRoute("/study/list")({
   component: ListPage,
 });
@@ -25,6 +34,7 @@ function ListPage() {
   const [statuses, setStatuses] = useState<Record<string, MasteryOrUnseen>>({});
   const [q, setQ] = useState("");
   const [cat, setCat] = useState("all");
+  const [mastery, setMasteryFilter] = useState<string>("all");
   const [tier, setTier] = useState<string>("all");
 
   useEffect(() => {
@@ -41,11 +51,15 @@ function ListPage() {
   const filtered = words.filter((w) => {
     if (cat !== "all" && w.category !== cat) return false;
     if (tier !== "all") {
+      const t = w.tier ?? "_none";
+      if (tier === "none" ? t !== "_none" : t !== tier) return false;
+    }
+    if (mastery !== "all") {
       const s = statuses[w.id];
-      if (tier === "unseen") {
+      if (mastery === "unseen") {
         if (s !== undefined && s !== null) return false;
       } else {
-        if (s !== Number(tier)) return false;
+        if (s !== Number(mastery)) return false;
       }
     }
     if (q && !w.word.toLowerCase().includes(q.toLowerCase()) && !w.definition.toLowerCase().includes(q.toLowerCase())) return false;
@@ -71,6 +85,18 @@ function ListPage() {
           </SelectContent>
         </Select>
         <Select value={tier} onValueChange={setTier}>
+          <SelectTrigger className="w-44"><SelectValue placeholder="Tier" /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All tiers</SelectItem>
+            <SelectItem value="tier1">Tier 1</SelectItem>
+            <SelectItem value="tier2">Tier 2</SelectItem>
+            <SelectItem value="tier3">Tier 3</SelectItem>
+            <SelectItem value="tier4">Tier 4</SelectItem>
+            <SelectItem value="phrases">Phrases</SelectItem>
+            <SelectItem value="none">No tier</SelectItem>
+          </SelectContent>
+        </Select>
+        <Select value={mastery} onValueChange={setMasteryFilter}>
           <SelectTrigger className="w-52"><SelectValue placeholder="Mastery" /></SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All mastery levels</SelectItem>
@@ -92,7 +118,14 @@ function ListPage() {
                 <div className="font-display text-2xl">{w.word}</div>
                 <span className="text-xs text-muted-foreground">{w.part_of_speech}</span>
               </div>
-              {w.category ? <div className="text-xs text-gold mt-1">{w.category}</div> : null}
+              <div className="mt-1 flex flex-wrap items-center gap-1.5">
+                {w.tier && TIER_META[w.tier] ? (
+                  <span className={`text-[10px] uppercase tracking-wider rounded-full border px-2 py-0.5 ${TIER_META[w.tier].cls}`}>
+                    {TIER_META[w.tier].label}
+                  </span>
+                ) : null}
+                {w.category ? <span className="text-xs text-gold">{w.category}</span> : null}
+              </div>
               <div className="mt-2 text-sm">{w.definition}</div>
               {w.example_sentence ? (
                 <p className="mt-2 text-sm italic text-muted-foreground" dangerouslySetInnerHTML={{ __html: w.example_sentence }} />
