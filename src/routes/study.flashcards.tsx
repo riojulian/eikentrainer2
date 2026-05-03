@@ -1,7 +1,15 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import { useAuth } from "@/lib/auth";
-import { fetchActiveWords, fetchStatuses, setStatus, type Word, type WordStatus } from "@/lib/words";
+import {
+  fetchActiveWords,
+  fetchStatuses,
+  setMastery,
+  MASTERY_LABELS,
+  type Word,
+  type Mastery,
+  type MasteryOrUnseen,
+} from "@/lib/words";
 import { Button } from "@/components/ui/button";
 import { Shuffle, Check, RotateCcw, ChevronLeft, SkipForward, Keyboard, Undo2 } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -22,13 +30,21 @@ function shuffle<T>(arr: T[]) {
 }
 
 type Phase = "front" | "back" | "done";
-type LastAction = { wordId: string; prev: WordStatus | null; rated: WordStatus } | null;
+type RatedKind = "review" | "known";
+type LastAction = { wordId: string; prev: MasteryOrUnseen; after: Mastery; kind: RatedKind } | null;
+
+function nextOnKnown(curr: MasteryOrUnseen): Mastery {
+  const base = curr ?? 0;
+  if (base < 2) return 2;
+  if (base === 2) return 3;
+  return 3;
+}
 
 function Flashcards() {
   const { user } = useAuth();
   const [words, setWords] = useState<Word[]>([]);
-  const [statuses, setStatuses] = useState<Record<string, WordStatus>>({});
-  const [filter, setFilter] = useState<"all" | "review" | "known" | "unseen">("all");
+  const [statuses, setStatuses] = useState<Record<string, MasteryOrUnseen>>({});
+  const [filter, setFilter] = useState<"all" | "learning" | "known" | "mastered" | "unseen">("all");
   const [order, setOrder] = useState<string[]>([]);
   const [idx, setIdx] = useState(0);
   const [phase, setPhase] = useState<Phase>("front");
@@ -47,16 +63,16 @@ function Flashcards() {
 
   const filtered = useMemo(() => {
     return words.filter((w) => {
-      const s = statuses[w.id] ?? null;
-      if (filter === "review") return s === "review";
-      if (filter === "known") return s === "known";
-      if (filter === "unseen") return s === null;
+      const s = statuses[w.id];
+      if (filter === "learning") return s === 0 || s === 1;
+      if (filter === "known") return s === 2;
+      if (filter === "mastered") return s === 3;
+      if (filter === "unseen") return s === null || s === undefined;
       return true;
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [words, filter]);
 
-  // Build deck only when filter or word set changes
   useEffect(() => {
     setOrder(filtered.map((w) => w.id));
     setIdx(0);
@@ -82,16 +98,17 @@ function Flashcards() {
   const reveal = useCallback(() => setPhase("back"), []);
 
   const rate = useCallback(
-    (status: WordStatus) => {
+    (kind: RatedKind) => {
       if (!user || !current) return;
-      const prev = statuses[current.id] ?? null;
-      setStatuses((p) => ({ ...p, [current.id]: status }));
+      const prev = statuses[current.id];
+      const after: Mastery = kind === "review" ? 0 : nextOnKnown(prev);
+      setStatuses((p) => ({ ...p, [current.id]: after }));
       setSession((s) => ({
-        known: s.known + (status === "known" ? 1 : 0),
-        review: s.review + (status === "review" ? 1 : 0),
+        known: s.known + (kind === "known" ? 1 : 0),
+        review: s.review + (kind === "review" ? 1 : 0),
       }));
-      setLast({ wordId: current.id, prev, rated: status });
-      setStatus(user.id, current.id, status).catch(() => {});
+      setLast({ wordId: current.id, prev, after, kind });
+      setMastery(user.id, current.id, after).catch(() => {});
       if (undoTimer.current) window.clearTimeout(undoTimer.current);
       undoTimer.current = window.setTimeout(() => setLast(null), 4000);
       advance();
@@ -101,24 +118,18 @@ function Flashcards() {
 
   const undo = useCallback(() => {
     if (!user || !last) return;
-    const { wordId, prev, rated } = last;
+    const { wordId, prev, kind } = last;
     setStatuses((p) => {
       const n = { ...p };
-      if (prev === null) delete n[wordId];
+      if (prev === null || prev === undefined) delete n[wordId];
       else n[wordId] = prev;
       return n;
     });
     setSession((s) => ({
-      known: s.known - (rated === "known" ? 1 : 0),
-      review: s.review - (rated === "review" ? 1 : 0),
+      known: s.known - (kind === "known" ? 1 : 0),
+      review: s.review - (kind === "review" ? 1 : 0),
     }));
-    // restore on server
-    if (prev === null) {
-      // best-effort: leave it; setStatus has no delete, but null prev means unseen — skip
-    } else {
-      setStatus(user.id, wordId, prev).catch(() => {});
-    }
-    // step back to that card
+    setMastery(user.id, wordId, prev ?? null).catch(() => {});
     const backIdx = order.indexOf(wordId);
     if (backIdx >= 0) {
       setIdx(backIdx);
@@ -135,7 +146,6 @@ function Flashcards() {
 
   const skip = useCallback(() => advance(), [advance]);
 
-  // Keyboard shortcuts
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.target instanceof HTMLElement && ["INPUT", "TEXTAREA", "SELECT"].includes(e.target.tagName)) return;
@@ -162,7 +172,6 @@ function Flashcards() {
     return () => window.removeEventListener("keydown", onKey);
   }, [phase, reveal, rate, skip, undo, last]);
 
-  // Swipe (touch)
   const touchStart = useRef<{ x: number; y: number } | null>(null);
   const onTouchStart = (e: React.TouchEvent) => {
     const t = e.touches[0];
@@ -198,11 +207,11 @@ function Flashcards() {
         <p className="text-muted-foreground mb-8">
           You reviewed {total} card{total === 1 ? "" : "s"} —{" "}
           <span className="text-sage font-medium">{session.known} knew</span>,{" "}
-          <span className="text-rose font-medium">{session.review} to review</span>.
+          <span className="text-rose font-medium">{session.review} still learning</span>.
         </p>
         <div className="flex flex-wrap gap-3 justify-center">
           {session.review > 0 && (
-            <Button onClick={() => { setFilter("review"); }}>
+            <Button onClick={() => { setFilter("learning"); }}>
               <RotateCcw className="h-4 w-4 mr-1" /> Review the {session.review} again
             </Button>
           )}
@@ -216,10 +225,10 @@ function Flashcards() {
   }
 
   const pct = order.length ? Math.round(((idx + 1) / order.length) * 100) : 0;
+  const currentMastery: MasteryOrUnseen = current ? statuses[current.id] ?? null : null;
 
   return (
     <main className="mx-auto max-w-2xl px-4 py-8">
-      {/* Top controls */}
       <div className="flex items-center gap-2 mb-4">
         <Button variant="ghost" size="icon" onClick={prev} disabled={idx === 0} aria-label="Previous card">
           <ChevronLeft className="h-5 w-5" />
@@ -227,11 +236,12 @@ function Flashcards() {
         <div className="text-sm text-muted-foreground tabular-nums">{idx + 1} / {order.length}</div>
         <div className="ml-auto flex items-center gap-2">
           <Select value={filter} onValueChange={(v) => setFilter(v as typeof filter)}>
-            <SelectTrigger className="w-32 h-9"><SelectValue /></SelectTrigger>
+            <SelectTrigger className="w-36 h-9"><SelectValue /></SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All</SelectItem>
-              <SelectItem value="review">Review</SelectItem>
-              <SelectItem value="known">Known</SelectItem>
+              <SelectItem value="learning">Still learning</SelectItem>
+              <SelectItem value="known">I know it</SelectItem>
+              <SelectItem value="mastered">Mastered</SelectItem>
               <SelectItem value="unseen">Unseen</SelectItem>
             </SelectContent>
           </Select>
@@ -261,7 +271,6 @@ function Flashcards() {
         <div className="h-full bg-gold transition-all" style={{ width: `${pct}%` }} />
       </div>
 
-      {/* Card */}
       <div
         onClick={() => phase === "front" && reveal()}
         onTouchStart={onTouchStart}
@@ -271,9 +280,12 @@ function Flashcards() {
           phase === "front" && "cursor-pointer hover:shadow-lg",
         )}
       >
-        <div className="flex gap-2 mb-4">
+        <div className="flex flex-wrap gap-2 mb-4">
           {current?.category ? <span className="text-xs uppercase tracking-widest rounded-full border border-gold/40 bg-gold/10 text-gold px-3 py-1">{current.category}</span> : null}
           {current?.part_of_speech ? <span className="text-xs uppercase tracking-widest rounded-full bg-muted text-muted-foreground px-3 py-1">{current.part_of_speech}</span> : null}
+          {currentMastery !== null && currentMastery !== undefined ? (
+            <span className="text-xs uppercase tracking-widest rounded-full bg-muted text-muted-foreground px-3 py-1">{MASTERY_LABELS[currentMastery as Mastery]}</span>
+          ) : null}
         </div>
         <div className="font-display text-5xl sm:text-6xl">{current?.word}</div>
         {phase === "back" && current && (
@@ -292,7 +304,6 @@ function Flashcards() {
         )}
       </div>
 
-      {/* Action bar */}
       <div className="mt-6">
         {phase === "front" ? (
           <div className="flex gap-3">
@@ -323,12 +334,11 @@ function Flashcards() {
         )}
       </div>
 
-      {/* Undo toast */}
       {last && (
         <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 animate-in fade-in slide-in-from-bottom-4">
           <div className="flex items-center gap-3 rounded-full border bg-card shadow-lg px-4 py-2 text-sm">
             <span className="text-muted-foreground">
-              Marked as <span className={last.rated === "known" ? "text-sage font-medium" : "text-rose font-medium"}>{last.rated === "known" ? "known" : "review"}</span>
+              Now <span className="font-medium text-foreground">{MASTERY_LABELS[last.after]}</span>
             </span>
             <Button variant="ghost" size="sm" onClick={undo} className="h-7">
               <Undo2 className="h-3.5 w-3.5 mr-1" /> Undo
