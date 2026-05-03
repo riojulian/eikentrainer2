@@ -100,6 +100,7 @@ export type Database = {
           student_id: string
           taken_at: string
           total: number
+          world: string | null
         }
         Insert: {
           id?: string
@@ -109,6 +110,7 @@ export type Database = {
           student_id: string
           taken_at?: string
           total: number
+          world?: string | null
         }
         Update: {
           id?: string
@@ -118,6 +120,7 @@ export type Database = {
           student_id?: string
           taken_at?: string
           total?: number
+          world?: string | null
         }
         Relationships: []
       }
@@ -175,36 +178,42 @@ export type Database = {
           position: number
           student_id: string
           word_id: string
+          world: string | null
         }
         Insert: {
           created_at?: string
           position: number
           student_id: string
           word_id: string
+          world?: string | null
         }
         Update: {
           created_at?: string
           position?: number
           student_id?: string
           word_id?: string
+          world?: string | null
         }
         Relationships: []
       }
       study_progress: {
         Row: {
           current_stage: number
+          current_world: string | null
           stage_size: number
           student_id: string
           updated_at: string
         }
         Insert: {
           current_stage?: number
+          current_world?: string | null
           stage_size?: number
           student_id: string
           updated_at?: string
         }
         Update: {
           current_stage?: number
+          current_world?: string | null
           stage_size?: number
           student_id?: string
           updated_at?: string
@@ -310,6 +319,27 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      world_progress: {
+        Row: {
+          current_stage: number
+          student_id: string
+          updated_at: string
+          world: string
+        }
+        Insert: {
+          current_stage?: number
+          student_id: string
+          updated_at?: string
+          world: string
+        }
+        Update: {
+          current_stage?: number
+          student_id?: string
+          updated_at?: string
+          world?: string
+        }
+        Relationships: []
       }
     }
     Views: {

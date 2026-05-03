@@ -5,6 +5,7 @@ import {
   fetchStatuses,
   setMastery,
   MASTERY_LABELS,
+  TIER_SHORT,
   type Word,
   type Mastery,
   type MasteryOrUnseen,
@@ -14,7 +15,7 @@ import { Shuffle, Check, RotateCcw, ChevronLeft, SkipForward, Keyboard, Undo2, T
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
-import { ensureWordOrder, stagize } from "@/lib/stages";
+import { ensureWorldOrder, stagize, getCurrentWorld, DEFAULT_WORLD } from "@/lib/stages";
 import { bumpStreak, awardXp, XP_PER_KNOWN_FIRST } from "@/lib/gamification";
 
 export const Route = createFileRoute("/study/flashcards")({
@@ -22,10 +23,12 @@ export const Route = createFileRoute("/study/flashcards")({
     const missionRaw = s.mission;
     const mission = typeof missionRaw === "number" ? missionRaw : typeof missionRaw === "string" ? Number(missionRaw) : undefined;
     const free = s.free === true || s.free === "1" || s.free === "true";
+    const world = typeof s.world === "string" ? s.world : undefined;
     return {
       mission: mission && Number.isFinite(mission) && mission > 0 ? mission : undefined,
       free: free || undefined,
-    } as { mission?: number; free?: boolean };
+      world,
+    } as { mission?: number; free?: boolean; world?: string };
   },
   component: Flashcards,
 });
@@ -55,6 +58,7 @@ function Flashcards() {
   const search = Route.useSearch();
   const missionParam = search.mission;
   const freeMode = search.free || missionParam === undefined;
+  const [activeWorld, setActiveWorld] = useState<string>(search.world ?? DEFAULT_WORLD);
   const [words, setWords] = useState<Word[]>([]);
   const [statuses, setStatuses] = useState<Record<string, MasteryOrUnseen>>({});
   const [filter, setFilter] = useState<"all" | "learning" | "known" | "mastered" | "unseen">("all");
@@ -68,7 +72,9 @@ function Flashcards() {
   useEffect(() => {
     if (!user) return;
     (async () => {
-      const [ordered, s] = await Promise.all([ensureWordOrder(user.id), fetchStatuses(user.id)]);
+      const world = search.world ?? (await getCurrentWorld(user.id));
+      setActiveWorld(world);
+      const [ordered, s] = await Promise.all([ensureWorldOrder(user.id, world), fetchStatuses(user.id)]);
       if (missionParam && !freeMode) {
         const stages = stagize(ordered);
         setWords(stages[missionParam - 1] ?? []);
@@ -76,10 +82,9 @@ function Flashcards() {
         setWords(ordered);
       }
       setStatuses(s);
-      // Bump streak whenever the student opens a flashcard session
       bumpStreak(user.id).catch(() => {});
     })();
-  }, [user, missionParam, freeMode]);
+  }, [user, missionParam, freeMode, search.world]);
 
   const filtered = useMemo(() => {
     return words.filter((w) => {
@@ -129,7 +134,6 @@ function Flashcards() {
       }));
       setLast({ wordId: current.id, prev, after, kind });
       setMastery(user.id, current.id, after).catch(() => {});
-      // First time marking a word as "known" → small XP bonus
       if (kind === "known" && (prev === null || prev === undefined || prev < 2)) {
         awardXp(user.id, XP_PER_KNOWN_FIRST).catch(() => {});
       }
@@ -236,7 +240,7 @@ function Flashcards() {
         <div className="flex flex-wrap gap-3 justify-center">
           {missionParam && !freeMode && (
             <Button asChild>
-              <Link to="/study/quiz" search={{ mode: "mission" as const, mission: missionParam }}>
+              <Link to="/study/quiz" search={{ mode: "mission" as const, mission: missionParam, world: activeWorld }}>
                 <Trophy className="h-4 w-4 mr-1" /> Take stage {missionParam} quiz
               </Link>
             </Button>
@@ -257,6 +261,7 @@ function Flashcards() {
 
   const pct = order.length ? Math.round(((idx + 1) / order.length) * 100) : 0;
   const currentMastery: MasteryOrUnseen = current ? statuses[current.id] ?? null : null;
+  const worldShort = TIER_SHORT[activeWorld] ?? activeWorld;
 
   return (
     <main className="mx-auto max-w-2xl px-4 py-4">
@@ -264,14 +269,18 @@ function Flashcards() {
         <Button variant="ghost" size="icon" onClick={prev} disabled={idx === 0} aria-label="Previous card">
           <ChevronLeft className="h-5 w-5" />
         </Button>
-        <div className="text-sm text-muted-foreground tabular-nums">
-          {missionParam && !freeMode ? <span className="mr-2 rounded-full bg-gold/15 text-gold px-2 py-0.5 text-xs font-medium">Stage {missionParam}</span> : null}
+        <div className="text-sm text-muted-foreground tabular-nums flex items-center gap-2">
+          {missionParam && !freeMode ? (
+            <span className="rounded-full bg-gold/15 text-gold px-2 py-0.5 text-xs font-medium">
+              {worldShort} · Stage {missionParam}
+            </span>
+          ) : null}
           {idx + 1} / {order.length}
         </div>
         <div className="ml-auto flex items-center gap-2">
           {missionParam && !freeMode ? (
             <Button asChild variant="ghost" size="sm">
-              <Link to="/study/flashcards" search={{ free: true }}>Free study</Link>
+              <Link to="/study/flashcards" search={{ free: true, world: activeWorld }}>Free study</Link>
             </Button>
           ) : null}
           <Select value={filter} onValueChange={(v) => setFilter(v as typeof filter)}>

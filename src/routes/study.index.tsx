@@ -1,23 +1,25 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { useAuth } from "@/lib/auth";
-import { fetchStatuses, MASTERY_LABELS, MASTERY_BG, type Mastery } from "@/lib/words";
+import { fetchActiveWords, fetchStatuses, MASTERY_LABELS, MASTERY_BG, TIER_LABELS, type Mastery } from "@/lib/words";
 import { BookOpen, ScrollText, Trophy, CalendarDays, CalendarRange, ChevronRight } from "lucide-react";
 import {
-  ensureWordOrder,
-  rebuildWordOrder,
+  ensureWorldOrder,
   stagize,
-  getProgress,
-  setCurrentStage as persistCurrentStage,
   STAGE_SIZE,
+  WORLD_ORDER,
+  groupByWorld,
+  getCurrentWorld,
+  setCurrentWorld,
+  getWorldStage,
   getStarsByStage,
 } from "@/lib/stages";
 import { getStats, getEarnedBadges, type Stats } from "@/lib/gamification";
 import { StatsHeader } from "@/components/StatsHeader";
 import { StageMap } from "@/components/StageMap";
 import { AchievementsStrip } from "@/components/AchievementsStrip";
+import { WorldPicker, type WorldSummary } from "@/components/WorldPicker";
 import { Button } from "@/components/ui/button";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import type { Word } from "@/lib/words";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -32,31 +34,29 @@ function StudyHome() {
     tiers: { 0: 0, 1: 0, 2: 0, 3: 0 },
     unseen: 0,
   });
+  const [activeWorld, setActiveWorld] = useState<string>("tier1");
+  const [worldSummaries, setWorldSummaries] = useState<WorldSummary[]>([]);
   const [stages, setStages] = useState<Word[][]>([]);
-  const [currentStage, setCurrentStage] = useState(1);
+  const [currentStage, setStageState] = useState(1);
+  const [starsByStage, setStarsByStage] = useState<Record<number, 0 | 1 | 2 | 3>>({});
   const [weeklyEligible, setWeeklyEligible] = useState(0);
   const [monthlyEligible, setMonthlyEligible] = useState(0);
-  const [starsByStage, setStarsByStage] = useState<Record<number, 0 | 1 | 2 | 3>>({});
   const [gameStats, setGameStats] = useState<Stats>({ xp: 0, current_streak: 0, longest_streak: 0, last_active_date: null });
   const [earnedBadges, setEarnedBadges] = useState<Set<string>>(new Set());
-  const [startTier, setStartTier] = useState<string>(() => {
-    if (typeof window === "undefined") return "auto";
-    return localStorage.getItem("stage_start_tier") || "auto";
-  });
-  const [rebuilding, setRebuilding] = useState(false);
 
+  // Initial load: figure out active world + global summaries
   useEffect(() => {
     if (!user) return;
     (async () => {
-      const tierArg = startTier === "auto" ? null : startTier;
-      const [words, statuses, progress, stars, gs, badges] = await Promise.all([
-        ensureWordOrder(user.id, tierArg),
+      const [allWords, statuses, world, gs, badges] = await Promise.all([
+        fetchActiveWords(),
         fetchStatuses(user.id),
-        getProgress(user.id),
-        getStarsByStage(user.id),
+        getCurrentWorld(user.id),
         getStats(user.id),
         getEarnedBadges(user.id),
       ]);
+
+      // Mastery tallies (global)
       const tiers: Record<Mastery, number> = { 0: 0, 1: 0, 2: 0, 3: 0 };
       let seen = 0;
       Object.values(statuses).forEach((s) => {
@@ -64,15 +64,46 @@ function StudyHome() {
         tiers[s as Mastery]++;
         seen++;
       });
-      setStats({ total: words.length, tiers, unseen: words.length - seen });
-      const newStages = stagize(words);
-      setStages(newStages);
-      const total = Math.max(1, newStages.length);
-      setCurrentStage(Math.min(progress.current_stage, total));
-      setStarsByStage(stars);
+      setStats({ total: allWords.length, tiers, unseen: allWords.length - seen });
       setGameStats(gs);
       setEarnedBadges(badges);
 
+      // Per-world summaries
+      const grouped = groupByWorld(allWords);
+      const summaries: WorldSummary[] = await Promise.all(
+        WORLD_ORDER.map(async (w) => {
+          const totalStages = Math.ceil(grouped[w].length / STAGE_SIZE);
+          let curStage = 1;
+          let starsEarned = 0;
+          if (totalStages > 0) {
+            const [cs, stars] = await Promise.all([
+              getWorldStage(user.id, w),
+              getStarsByStage(user.id, w),
+            ]);
+            curStage = cs;
+            starsEarned = Object.values(stars).reduce((a: number, b) => a + (b as number), 0);
+          }
+          return {
+            world: w,
+            totalStages,
+            currentStage: curStage,
+            starsEarned,
+            starsMax: totalStages * 3,
+          };
+        }),
+      );
+      setWorldSummaries(summaries);
+
+      // Pick active world (fallback to first non-empty if stored one is empty)
+      let chosen = world;
+      const chosenSummary = summaries.find((s) => s.world === chosen);
+      if (!chosenSummary || chosenSummary.totalStages === 0) {
+        chosen = summaries.find((s) => s.totalStages > 0)?.world ?? "tier1";
+        if (chosen !== world) await setCurrentWorld(user.id, chosen);
+      }
+      setActiveWorld(chosen);
+
+      // Weekly / monthly review counts (global)
       const wkSince = new Date(Date.now() - 7 * 86400000).toISOString();
       const moSince = new Date(Date.now() - 30 * 86400000).toISOString();
       const [wk, mo] = await Promise.all([
@@ -82,26 +113,31 @@ function StudyHome() {
       setWeeklyEligible(wk.count ?? 0);
       setMonthlyEligible(mo.count ?? 0);
     })();
-  }, [user, startTier]);
+  }, [user]);
 
-  const onStartTierChange = async (next: string) => {
-    if (!user) return;
-    setStartTier(next);
-    if (typeof window !== "undefined") localStorage.setItem("stage_start_tier", next);
-    setRebuilding(true);
-    try {
-      const tierArg = next === "auto" ? null : next;
-      const words = await rebuildWordOrder(user.id, tierArg);
-      setStages(stagize(words));
-      setCurrentStage(1);
-      await persistCurrentStage(user.id, 1);
-    } finally {
-      setRebuilding(false);
-    }
+  // Load stages + stars for the active world
+  useEffect(() => {
+    if (!user || !activeWorld) return;
+    (async () => {
+      const [ordered, stars, cs] = await Promise.all([
+        ensureWorldOrder(user.id, activeWorld),
+        getStarsByStage(user.id, activeWorld),
+        getWorldStage(user.id, activeWorld),
+      ]);
+      const newStages = stagize(ordered);
+      setStages(newStages);
+      setStageState(Math.min(cs, Math.max(1, newStages.length)));
+      setStarsByStage(stars);
+    })();
+  }, [user, activeWorld]);
+
+  const onWorldChange = async (next: string) => {
+    if (!user || next === activeWorld) return;
+    setActiveWorld(next);
+    await setCurrentWorld(user.id, next);
   };
 
   const masteredish = stats.tiers[2] + stats.tiers[3];
-
   const tierRows: { key: Mastery; count: number; cls: string; label: string }[] = [
     { key: 0, count: stats.tiers[0], cls: MASTERY_BG[0], label: MASTERY_LABELS[0] },
     { key: 1, count: stats.tiers[1], cls: MASTERY_BG[1], label: MASTERY_LABELS[1] },
@@ -110,8 +146,9 @@ function StudyHome() {
   ];
 
   const totalStages = stages.length;
-  const hasStages = totalStages > 0 && stats.total >= STAGE_SIZE;
+  const hasStages = totalStages > 0;
   const tierByStage = stages.map((stage) => stage[0]?.tier ?? null);
+  const activeWorldLabel = TIER_LABELS[activeWorld] ?? activeWorld;
 
   return (
     <main className="mx-auto max-w-3xl px-4 py-6">
@@ -155,45 +192,37 @@ function StudyHome() {
         )}
       </div>
 
+      {worldSummaries.length > 0 && (
+        <div className="mt-4">
+          <div className="mb-2 flex items-baseline justify-between">
+            <div className="text-sm font-medium">Pick a world</div>
+            <div className="text-xs text-muted-foreground">Each world has its own stages</div>
+          </div>
+          <WorldPicker summaries={worldSummaries} active={activeWorld} onChange={onWorldChange} />
+        </div>
+      )}
+
       {hasStages ? (
         <>
-          <div className="mt-4 rounded-2xl border bg-card p-4 shadow-card">
-            <div className="flex items-center justify-between gap-3">
-              <div className="min-w-0">
-                <div className="text-sm font-medium">Start stages from</div>
-                <div className="text-xs text-muted-foreground">Re-orders stages to begin at the chosen world. Resets your current stage to 1.</div>
-              </div>
-              <Select value={startTier} onValueChange={onStartTierChange} disabled={rebuilding}>
-                <SelectTrigger className="w-44"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="auto">Auto (World 1 first)</SelectItem>
-                  <SelectItem value="tier1">World 1: Core</SelectItem>
-                  <SelectItem value="tier2">World 2: Topic Specific</SelectItem>
-                  <SelectItem value="tier3">World 3: Reading/Listening</SelectItem>
-                  <SelectItem value="tier4">World 4: Very Specific</SelectItem>
-                  <SelectItem value="phrases">World 5: Phrases</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-
           <div className="mt-4 rounded-2xl border bg-card p-5 shadow-card">
             <div className="flex items-center justify-between">
-              <div>
-                <div className="text-xs uppercase tracking-widest text-gold">Current stage</div>
+              <div className="min-w-0">
+                <div className="text-xs uppercase tracking-widest text-gold truncate">{activeWorldLabel}</div>
                 <div className="font-display text-2xl mt-0.5">Stage {currentStage}</div>
-                <div className="text-sm text-muted-foreground">{stages[currentStage - 1]?.length ?? 0} words</div>
+                <div className="text-sm text-muted-foreground">
+                  {stages[currentStage - 1]?.length ?? 0} words · Stage {currentStage} of {totalStages}
+                </div>
               </div>
-              <BookOpen className="h-8 w-8 text-gold" />
+              <BookOpen className="h-8 w-8 text-gold shrink-0" />
             </div>
             <div className="mt-4 grid gap-2 sm:grid-cols-2">
               <Button asChild size="lg" className="h-12">
-                <Link to="/study/flashcards" search={{ mission: currentStage }}>
+                <Link to="/study/flashcards" search={{ mission: currentStage, world: activeWorld }}>
                   <BookOpen className="h-4 w-4 mr-1" /> Study stage
                 </Link>
               </Button>
               <Button asChild size="lg" variant="outline" className="h-12">
-                <Link to="/study/quiz" search={{ mode: "mission", mission: currentStage }}>
+                <Link to="/study/quiz" search={{ mode: "mission" as const, mission: currentStage, world: activeWorld }}>
                   <Trophy className="h-4 w-4 mr-1" /> Take stage quiz
                 </Link>
               </Button>
@@ -210,6 +239,7 @@ function StudyHome() {
               currentStage={currentStage}
               starsByStage={starsByStage}
               tierByStage={tierByStage}
+              world={activeWorld}
             />
           </div>
 
@@ -246,20 +276,10 @@ function StudyHome() {
         </>
       ) : (
         <div className="mt-4 rounded-2xl border border-dashed bg-card p-6 text-center shadow-card">
-          <div className="font-display text-xl">Add at least {STAGE_SIZE} words to unlock stages</div>
-          <p className="mt-1 text-sm text-muted-foreground">For now, you can browse and quiz freely.</p>
-          <div className="mt-4 grid gap-3 grid-cols-3">
-            {[
-              { to: "/study/flashcards", icon: BookOpen, title: "Flashcards" },
-              { to: "/study/list", icon: ScrollText, title: "Word List" },
-              { to: "/study/quiz", icon: Trophy, title: "Quiz" },
-            ].map((m) => (
-              <Link key={m.to} to={m.to} className="rounded-xl border bg-card p-3 shadow-card transition hover:border-gold">
-                <m.icon className="h-5 w-5 text-gold mx-auto" />
-                <div className="mt-1.5 font-display text-sm">{m.title}</div>
-              </Link>
-            ))}
-          </div>
+          <div className="font-display text-xl">No stages in {activeWorldLabel} yet</div>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Add at least {STAGE_SIZE} words to this world, or pick another world above.
+          </p>
         </div>
       )}
     </main>

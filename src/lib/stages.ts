@@ -2,15 +2,9 @@ import { supabase } from "@/integrations/supabase/client";
 import { fetchActiveWords, type Word } from "@/lib/words";
 
 export const STAGE_SIZE = 10;
-const TIER_ORDER = ["tier1", "tier2", "tier3", "tier4", "phrases"] as const;
-
-function orderKeysWithStart(startTier?: string | null): string[] {
-  const base = [...TIER_ORDER, "_null"];
-  if (!startTier) return base;
-  const idx = base.indexOf(startTier);
-  if (idx <= 0) return base;
-  return [...base.slice(idx), ...base.slice(0, idx)];
-}
+export const WORLD_ORDER = ["tier1", "tier2", "tier3", "tier4", "phrases"] as const;
+export type World = (typeof WORLD_ORDER)[number];
+export const DEFAULT_WORLD: World = "tier1";
 
 function shuffle<T>(arr: T[]): T[] {
   const a = [...arr];
@@ -21,40 +15,43 @@ function shuffle<T>(arr: T[]): T[] {
   return a;
 }
 
-/** Wipe and rebuild the per-student word order. Used when starting tier changes. */
-export async function rebuildWordOrder(studentId: string, startTier?: string | null): Promise<Word[]> {
-  await supabase.from("student_word_order").delete().eq("student_id", studentId);
-  return ensureWordOrder(studentId, startTier);
+/** Group active words by world, in fixed WORLD_ORDER. */
+export function groupByWorld(words: Word[]): Record<string, Word[]> {
+  const out: Record<string, Word[]> = {};
+  for (const w of WORLD_ORDER) out[w] = [];
+  for (const w of words) {
+    const k = (w.tier ?? "") as string;
+    if (k in out) out[k].push(w);
+  }
+  return out;
 }
 
-export async function ensureWordOrder(studentId: string, startTier?: string | null): Promise<Word[]> {
-  const [allWords, { data: existing }] = await Promise.all([
-    fetchActiveWords(),
-    supabase.from("student_word_order").select("word_id,position").eq("student_id", studentId),
-  ]);
-  const wordById = new Map(allWords.map((w) => [w.id, w] as const));
-  const existingMap = new Map((existing ?? []).map((r) => [r.word_id, r.position] as const));
+/** Ensure ordering rows exist for a single world. Returns the ordered word list for that world. */
+export async function ensureWorldOrder(studentId: string, world: string): Promise<Word[]> {
+  const allWords = await fetchActiveWords();
+  const worldWords = allWords.filter((w) => (w.tier ?? "") === world);
+  const wordById = new Map(worldWords.map((w) => [w.id, w] as const));
 
-  const missingIds = allWords.map((w) => w.id).filter((id) => !existingMap.has(id));
+  const { data: existing } = await supabase
+    .from("student_word_order")
+    .select("word_id,position")
+    .eq("student_id", studentId)
+    .eq("world", world)
+    .order("position", { ascending: true });
+
+  const existingMap = new Map((existing ?? []).map((r) => [r.word_id, r.position] as const));
+  const missingIds = worldWords.map((w) => w.id).filter((id) => !existingMap.has(id));
+
   if (missingIds.length > 0) {
-    const grouped: Record<string, string[]> = {};
-    for (const id of missingIds) {
-      const w = wordById.get(id)!;
-      const key = w.tier ?? "_null";
-      (grouped[key] ||= []).push(id);
-    }
-    const orderedKeys = orderKeysWithStart(startTier);
     let nextPos = existing && existing.length > 0
       ? Math.max(...existing.map((r) => r.position)) + 1
       : 0;
-    const rows: { student_id: string; word_id: string; position: number }[] = [];
-    for (const k of orderedKeys) {
-      const ids = grouped[k];
-      if (!ids) continue;
-      for (const id of shuffle(ids)) {
-        rows.push({ student_id: studentId, word_id: id, position: nextPos++ });
-      }
-    }
+    const rows = shuffle(missingIds).map((id) => ({
+      student_id: studentId,
+      word_id: id,
+      position: nextPos++,
+      world,
+    }));
     if (rows.length > 0) {
       await supabase.from("student_word_order").insert(rows);
     }
@@ -64,13 +61,27 @@ export async function ensureWordOrder(studentId: string, startTier?: string | nu
     .from("student_word_order")
     .select("word_id,position")
     .eq("student_id", studentId)
+    .eq("world", world)
     .order("position", { ascending: true });
+
   const result: Word[] = [];
   (ordered ?? []).forEach((r) => {
     const w = wordById.get(r.word_id);
     if (w) result.push(w);
   });
+  // Append any unsynced (e.g., race) words deterministically
+  for (const w of worldWords) if (!result.find((x) => x.id === w.id)) result.push(w);
   return result;
+}
+
+/** Rebuild ordering for a single world (wipe and reseed). */
+export async function rebuildWorldOrder(studentId: string, world: string): Promise<Word[]> {
+  await supabase
+    .from("student_word_order")
+    .delete()
+    .eq("student_id", studentId)
+    .eq("world", world);
+  return ensureWorldOrder(studentId, world);
 }
 
 export function stagize(words: Word[], size = STAGE_SIZE): Word[][] {
@@ -79,29 +90,66 @@ export function stagize(words: Word[], size = STAGE_SIZE): Word[][] {
   return out;
 }
 
-export type StudyProgress = { current_stage: number; stage_size: number };
-
-export async function getProgress(studentId: string): Promise<StudyProgress> {
-  const { data } = await supabase
-    .from("study_progress")
-    .select("current_stage,stage_size")
-    .eq("student_id", studentId)
-    .maybeSingle();
-  if (data) return data as StudyProgress;
-  await supabase.from("study_progress").insert({ student_id: studentId } as never);
-  return { current_stage: 1, stage_size: STAGE_SIZE };
+/** Counts of stages per world, derived from active words. */
+export async function getWorldStageCounts(): Promise<Record<string, number>> {
+  const all = await fetchActiveWords();
+  const grouped = groupByWorld(all);
+  const out: Record<string, number> = {};
+  for (const w of WORLD_ORDER) out[w] = Math.ceil(grouped[w].length / STAGE_SIZE);
+  return out;
 }
 
-export async function setCurrentStage(studentId: string, stage: number) {
+/** Read currently selected world for the student (defaults to first world that has stages). */
+export async function getCurrentWorld(studentId: string): Promise<string> {
+  const { data } = await supabase
+    .from("study_progress")
+    .select("current_world")
+    .eq("student_id", studentId)
+    .maybeSingle();
+  if (data?.current_world) return data.current_world;
   await supabase
     .from("study_progress")
     .upsert(
-      { student_id: studentId, current_stage: stage, updated_at: new Date().toISOString() } as never,
+      { student_id: studentId, current_world: DEFAULT_WORLD, updated_at: new Date().toISOString() } as never,
+      { onConflict: "student_id" },
+    );
+  return DEFAULT_WORLD;
+}
+
+export async function setCurrentWorld(studentId: string, world: string) {
+  await supabase
+    .from("study_progress")
+    .upsert(
+      { student_id: studentId, current_world: world, updated_at: new Date().toISOString() } as never,
       { onConflict: "student_id" },
     );
 }
 
-/** Build a 10-question quiz for stage index N (1-based). Stage 1 → all current; else 7 current + 3 previous. */
+/** Per-world current stage. */
+export async function getWorldStage(studentId: string, world: string): Promise<number> {
+  const { data } = await supabase
+    .from("world_progress")
+    .select("current_stage")
+    .eq("student_id", studentId)
+    .eq("world", world)
+    .maybeSingle();
+  if (data) return data.current_stage;
+  await supabase
+    .from("world_progress")
+    .insert({ student_id: studentId, world, current_stage: 1 } as never);
+  return 1;
+}
+
+export async function setWorldStage(studentId: string, world: string, stage: number) {
+  await supabase
+    .from("world_progress")
+    .upsert(
+      { student_id: studentId, world, current_stage: stage, updated_at: new Date().toISOString() } as never,
+      { onConflict: "student_id,world" },
+    );
+}
+
+/** Build a 10-question quiz for stage index N (1-based) within a world. */
 export function buildStageQuiz(stages: Word[][], stageIndex: number): Word[] {
   const i = stageIndex - 1;
   const current = stages[i] ?? [];
@@ -147,6 +195,7 @@ export async function recordAttempt(
   score: number,
   total: number,
   stageIndex: number | null,
+  world: string | null,
 ) {
   await supabase.from("stage_attempts").insert({
     student_id: studentId,
@@ -154,10 +203,11 @@ export async function recordAttempt(
     score,
     total,
     stage_index: stageIndex,
+    world,
   } as never);
 }
 
-/** Stars 0–3 from a quiz score (10-question). Soft thresholds: 50/70/90%. */
+/** Stars 0–3. Soft thresholds: 50/70/90%. */
 export function starsForScore(score: number, total: number): 0 | 1 | 2 | 3 {
   if (total <= 0) return 0;
   const pct = score / total;
@@ -167,13 +217,15 @@ export function starsForScore(score: number, total: number): 0 | 1 | 2 | 3 {
   return 0;
 }
 
-/** Best score per stage_index from stage_attempts.kind='stage'. Returns map index→stars. */
-export async function getStarsByStage(studentId: string): Promise<Record<number, 0 | 1 | 2 | 3>> {
-  const { data } = await supabase
+/** Best stars per stage_index, scoped to a world. */
+export async function getStarsByStage(studentId: string, world?: string): Promise<Record<number, 0 | 1 | 2 | 3>> {
+  let q = supabase
     .from("stage_attempts")
-    .select("stage_index,score,total,kind")
+    .select("stage_index,score,total,kind,world")
     .eq("student_id", studentId)
     .eq("kind", "stage");
+  if (world) q = q.eq("world", world);
+  const { data } = await q;
   const out: Record<number, 0 | 1 | 2 | 3> = {};
   (data ?? []).forEach((r) => {
     if (r.stage_index == null) return;

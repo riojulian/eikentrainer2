@@ -7,6 +7,7 @@ import {
   fetchStatuses,
   applyQuizResult,
   MASTERY_LABELS,
+  TIER_SHORT,
   type Word,
   type Mastery,
   type MasteryOrUnseen,
@@ -14,16 +15,18 @@ import {
 import { Button } from "@/components/ui/button";
 import { ArrowUp, ArrowDown, Trophy, Star, Flame, Sparkles } from "lucide-react";
 import {
-  ensureWordOrder,
+  ensureWorldOrder,
   stagize,
   buildStageQuiz,
   buildPeriodicQuiz,
   recordAttempt,
-  getProgress,
-  setCurrentStage,
+  getCurrentWorld,
+  getWorldStage,
+  setWorldStage,
   STAGE_SIZE,
   starsForScore,
   getStarsByStage,
+  DEFAULT_WORLD,
 } from "@/lib/stages";
 import {
   awardXp,
@@ -46,10 +49,12 @@ export const Route = createFileRoute("/study/quiz")({
       modeRaw === "mission" || modeRaw === "weekly" || modeRaw === "monthly" ? modeRaw : undefined;
     const missionRaw = s.mission;
     const mission = typeof missionRaw === "number" ? missionRaw : typeof missionRaw === "string" ? Number(missionRaw) : undefined;
+    const world = typeof s.world === "string" ? s.world : undefined;
     return {
       mode,
       mission: mission && Number.isFinite(mission) && mission > 0 ? mission : undefined,
-    } as { mode?: Mode; mission?: number };
+      world,
+    } as { mode?: Mode; mission?: number; world?: string };
   },
   component: QuizPage,
 });
@@ -89,6 +94,7 @@ function QuizPage() {
   const mode: Mode = search.mode ?? "mission";
   const missionParam = search.mission;
 
+  const [activeWorld, setActiveWorld] = useState<string>(search.world ?? DEFAULT_WORLD);
   const [questions, setQuestions] = useState<Q[] | null>(null);
   const [statuses, setStatuses] = useState<Record<string, MasteryOrUnseen>>({});
   const [stageIndex, setStageIndex] = useState<number | null>(null);
@@ -106,10 +112,12 @@ function QuizPage() {
       setStatuses(st);
 
       if (mode === "mission") {
-        const ordered = await ensureWordOrder(user.id);
+        const world = search.world ?? (await getCurrentWorld(user.id));
+        setActiveWorld(world);
+        const ordered = await ensureWorldOrder(user.id, world);
         const stages = stagize(ordered);
-        const progress = await getProgress(user.id);
-        const idxToUse = missionParam ?? progress.current_stage;
+        const cur = await getWorldStage(user.id, world);
+        const idxToUse = missionParam ?? cur;
         setStageIndex(idxToUse);
         if (stages.length === 0) { setQuestions([]); return; }
         const pool = buildStageQuiz(stages, idxToUse);
@@ -121,37 +129,33 @@ function QuizPage() {
         setQuestions(buildQuizQuestions(pool, allWords));
       }
     })();
-  }, [user, mode, missionParam]);
+  }, [user, mode, missionParam, search.world]);
 
-  // Run finish logic exactly once when quiz transitions to done
   useEffect(() => {
     if (!done || !user || !questions || finished) return;
     (async () => {
       const total = questions.length;
       const stars = mode === "mission" ? starsForScore(score, total) : 0;
 
-      // Record attempt
       await recordAttempt(
         user.id,
         mode === "mission" ? "stage" : mode,
         score,
         total,
         mode === "mission" ? stageIndex : null,
+        mode === "mission" ? activeWorld : null,
       ).catch(() => {});
 
-      // XP
       let xp = score * XP_PER_CORRECT;
       if (mode === "mission" && stars === 3) xp += XP_BONUS_3STAR;
       if (mode === "weekly") xp += XP_WEEKLY;
       if (mode === "monthly") xp += XP_MONTHLY;
       await awardXp(user.id, xp).catch(() => {});
 
-      // Streak
       const after = await bumpStreak(user.id).catch(() => null);
       const streak = after?.current_streak ?? 0;
 
-      // Badges
-      const starsByStage = await getStarsByStage(user.id);
+      const starsByStage = await getStarsByStage(user.id, mode === "mission" ? activeWorld : undefined);
       const newBadges = await checkBadges(user.id, {
         starsByStage,
         streak,
@@ -160,17 +164,17 @@ function QuizPage() {
         justFinishedStars: stars,
       }).catch(() => [] as BadgeDef[]);
 
-      // Advance current stage if they just finished the suggested stage
+      // Advance per-world current stage if they cleared the suggested one
       if (mode === "mission" && stageIndex) {
-        const p = await getProgress(user.id);
-        if (stageIndex === p.current_stage) {
-          await setCurrentStage(user.id, stageIndex + 1).catch(() => {});
+        const cur = await getWorldStage(user.id, activeWorld);
+        if (stageIndex === cur) {
+          await setWorldStage(user.id, activeWorld, stageIndex + 1).catch(() => {});
         }
       }
 
       setFinished({ stars, xpGained: xp, newStreak: streak, newBadges });
     })();
-  }, [done, user, questions, finished, mode, score, stageIndex]);
+  }, [done, user, questions, finished, mode, score, stageIndex, activeWorld]);
 
   if (!questions) return <main className="p-10 text-center text-muted-foreground">Loading…</main>;
 
@@ -201,7 +205,6 @@ function QuizPage() {
 
     return (
       <main className="mx-auto max-w-xl px-4 py-6 text-center">
-        {/* Star reveal */}
         {mode === "mission" && (
           <div className="flex justify-center gap-3 mb-3">
             {[1, 2, 3].map((n) => (
@@ -223,7 +226,6 @@ function QuizPage() {
         <h1 className="font-display text-4xl">{score} / {questions.length}</h1>
         <p className="text-muted-foreground mt-2">{msg}</p>
 
-        {/* XP + Streak strip */}
         {finished && (
           <div className="mt-5 flex justify-center gap-3 flex-wrap">
             <div className="flex items-center gap-1.5 rounded-full border bg-gold/10 text-gold px-3 py-1.5 font-display animate-in fade-in slide-in-from-bottom-2 duration-500">
@@ -237,7 +239,6 @@ function QuizPage() {
           </div>
         )}
 
-        {/* New badges */}
         {finished && finished.newBadges.length > 0 && (
           <div className="mt-5 rounded-2xl border bg-gradient-to-br from-gold/10 to-amber-300/5 border-gold/40 p-4 animate-in fade-in zoom-in-95 duration-500">
             <div className="text-xs uppercase tracking-widest text-gold font-medium mb-2">Achievements unlocked!</div>
@@ -276,13 +277,13 @@ function QuizPage() {
           {mode === "mission" && stageIndex ? (
             <>
               <Button asChild>
-                <Link to="/study/flashcards" search={{ mission: stageIndex + 1 }}>
+                <Link to="/study/flashcards" search={{ mission: stageIndex + 1, world: activeWorld }}>
                   Study stage {stageIndex + 1}
                 </Link>
               </Button>
               {stars < 3 && (
                 <Button variant="outline" asChild>
-                  <Link to="/study/quiz" search={{ mode: "mission" as const, mission: stageIndex }} reloadDocument>
+                  <Link to="/study/quiz" search={{ mode: "mission" as const, mission: stageIndex, world: activeWorld }} reloadDocument>
                     Retry for 3 stars
                   </Link>
                 </Button>
@@ -319,9 +320,10 @@ function QuizPage() {
     }, 1200);
   };
 
+  const worldShort = TIER_SHORT[activeWorld] ?? activeWorld;
   const headerLabel =
     mode === "mission" && stageIndex
-      ? `Stage ${stageIndex} quiz`
+      ? `${worldShort} · Stage ${stageIndex} quiz`
       : mode === "weekly"
       ? "Weekly review"
       : mode === "monthly"
