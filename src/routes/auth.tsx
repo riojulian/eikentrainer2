@@ -27,11 +27,17 @@ function AuthPage() {
 
   const signIn = async () => {
     setBusy(true);
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
     setBusy(false);
     if (error) return toast.error(error.message);
     toast.success("Welcome back");
-    navigate({ to: "/study" });
+    let dest: "/admin" | "/study" = "/study";
+    const uid = data.user?.id;
+    if (uid) {
+      const { data: roles } = await supabase.from("user_roles").select("role").eq("user_id", uid);
+      if (roles?.some((r) => r.role === "admin")) dest = "/admin";
+    }
+    navigate({ to: dest });
   };
 
   const signUp = async () => {
