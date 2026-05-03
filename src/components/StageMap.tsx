@@ -1,6 +1,8 @@
 import { Link } from "@tanstack/react-router";
 import { Star, Lock, BookOpen, Trophy } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useState } from "react";
+import { ChevronDown, ChevronUp } from "lucide-react";
 
 export type StageMapProps = {
   total: number;
@@ -39,6 +41,14 @@ function StarRow({ stars }: { stars: 0 | 1 | 2 | 3 }) {
 
 export function StageMap({ total, currentStage, starsByStage, tierByStage, world }: StageMapProps) {
   const nodes = Array.from({ length: total }, (_, i) => i + 1);
+  const [expanded, setExpanded] = useState(false);
+  const PREVIEW = 5;
+  // Center the preview window around the current stage so users see context
+  let visible = nodes;
+  if (!expanded && total > PREVIEW) {
+    const start = Math.max(0, Math.min(total - PREVIEW, currentStage - 2));
+    visible = nodes.slice(start, start + PREVIEW);
+  }
   return (
     <div className="relative py-2">
       {/* dotted spine */}
@@ -47,7 +57,8 @@ export function StageMap({ total, currentStage, starsByStage, tierByStage, world
         aria-hidden
       />
       <ul className="relative space-y-3">
-        {nodes.map((n, i) => {
+        {visible.map((n) => {
+          const i = n - 1;
           const stars = starsByStage[n] ?? 0;
           const isCurrent = n === currentStage;
           const isDone = stars > 0 || n < currentStage;
@@ -99,6 +110,25 @@ export function StageMap({ total, currentStage, starsByStage, tierByStage, world
           );
         })}
       </ul>
+      {total > PREVIEW && (
+        <div className="mt-3 flex justify-center">
+          <button
+            type="button"
+            onClick={() => setExpanded((v) => !v)}
+            className="inline-flex items-center gap-1 rounded-full border bg-card px-3 py-1.5 text-xs font-medium text-muted-foreground shadow-card transition hover:border-gold hover:text-foreground"
+          >
+            {expanded ? (
+              <>
+                <ChevronUp className="h-3.5 w-3.5" /> Show less
+              </>
+            ) : (
+              <>
+                <ChevronDown className="h-3.5 w-3.5" /> Show all {total} stages
+              </>
+            )}
+          </button>
+        </div>
+      )}
     </div>
   );
 }
