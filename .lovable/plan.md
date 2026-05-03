@@ -1,41 +1,39 @@
-## Problem
+I found two concrete causes behind the “loading all the time” and admin redirect behavior:
 
-Your account `riojulian@gmail.com` IS correctly assigned the `admin` role in the database (verified via query — both `student` and `admin` rows exist for your user). The admin page is unreachable because of a race condition in the route guard, not a permissions issue.
+1. The backend function used by role-based security still does not have execute permission for signed-in users in the live database. Recent requests are failing with `permission denied for function has_role`, which breaks role loading, profile loading, admin checks, and word status reads.
+2. The frontend is doing repeated uncached reads for words/statuses and role/profile data. When one of those role/status reads fails or races, admin routes can temporarily think the user is not admin and redirect back to `/study`.
 
-### Root cause
+Plan to fix it carefully:
 
-`src/components/RequireAuth.tsx` only waits for `loading` (initial session restore). It does NOT wait for the role lookup to finish. Flow when you click "Admin":
+1. Repair backend role permissions
+   - Add a new migration that definitely grants execute access on `public.has_role(uuid, public.app_role)` to signed-in users.
+   - Keep `handle_new_user` locked down.
+   - Add missing performance indexes for common student-status/admin queries, especially `word_status(student_id)` and `quiz_results(word_id)`.
+   - Verify the database reports that signed-in users can execute `has_role` before relying on the UI.
 
-1. `RequireAuth admin` renders.
-2. `loading === false` (session is restored), but `role` is still `null` because `loadProfile()` runs in a `setTimeout` and hasn't resolved yet.
-3. `role !== "admin"` → immediately `<Navigate to="/study" />`.
-4. By the time the role actually loads as `"admin"`, you've already been bounced to /study.
+2. Make auth and role loading stable
+   - Update `src/lib/auth.tsx` so role/profile loading handles errors explicitly instead of silently falling back to `student`.
+   - Prevent duplicate initial role loads from `onAuthStateChange` plus `getSession` running at the same time.
+   - Debounce or limit focus/visibility role refreshes so the app does not keep flipping into loading states.
+   - Keep the last known role during background refreshes, so an admin is not briefly treated as a student.
 
-Additionally, `src/routes/auth.tsx` always navigates to `/study` after sign-in, even for admins.
+3. Stop admin route redirect loops
+   - Update `RequireAuth` so admin pages wait for role resolution and show a stable loading/error state instead of redirecting to `/study` when role loading fails.
+   - If role loading fails because permissions are broken, show a clear retry message rather than bouncing routes.
+   - Keep `/admin` and `/admin/upload` accessible once the resolved role is `admin`.
 
-## Fix
+4. Speed up study data loading
+   - Add shared cached query helpers for active words and the signed-in user’s word statuses using TanStack Query.
+   - Wire the QueryClient provider into the root route/router setup.
+   - Convert `/study`, `/study/list`, `/study/flashcards`, and `/study/quiz` to use the shared cache instead of each page refetching words and statuses independently.
+   - Add proper loading/error states so failed status reads do not make the word list look empty.
 
-### 1. Track role-loading state in `src/lib/auth.tsx`
-- Add `roleLoading: boolean` to the auth context.
-- Set it `true` whenever `loadProfile` starts and `false` when it resolves (or when there's no user).
-- Expose it from the provider.
+5. Improve admin data loading resilience
+   - Update admin word/progress pages to surface backend errors with retry controls instead of staying on “Loading…” forever.
+   - Keep admin word-bank reads lightweight and cached where appropriate.
 
-### 2. Gate `src/components/RequireAuth.tsx` on role readiness
-- When `admin` is required, wait for both `loading` AND `roleLoading` to be false before deciding.
-- Only then check `role !== "admin"` and redirect.
-- Show the same "Loading…" placeholder during role load instead of redirecting prematurely.
-
-### 3. Send admins to `/admin` after sign-in (`src/routes/auth.tsx`)
-- After `signInWithPassword`, `await` a fresh role lookup (or read from context once `roleLoading` flips false) and navigate to `/admin` if admin, else `/study`.
-- Simplest implementation: query `user_roles` for the just-signed-in user inline and branch on the result before calling `navigate`.
-
-### 4. Minor: dedupe role rows
-- Your user has two rows in `user_roles` (`student` + `admin`). Not a bug (the code uses `.some(r => r.role === "admin")`), but I'll delete the leftover `student` row for `dcfe2fac-…` so the data is clean.
-
-## What you'll see after the fix
-
-- Sign in as `riojulian@gmail.com` → land directly on `/admin/words`.
-- Clicking "Admin" in the header from any page works without bouncing to /study.
-- Non-admins still get redirected to /study as before.
-
-No schema changes, no new routes — just three small file edits and one cleanup row delete.
+6. Verify after implementation
+   - Confirm the database permission check for `has_role` returns true for signed-in users.
+   - Confirm `/study/list` shows the 5 active words quickly.
+   - Confirm `/admin` resolves to the admin area and `/admin/upload` does not redirect to `/study` for Rio’s admin account.
+   - Check browser network/errors for remaining 403s or stuck loading states.

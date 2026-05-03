@@ -27,23 +27,36 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const loadProfile = async (uid: string, { background = false }: { background?: boolean } = {}) => {
     if (!background) setRoleLoading(true);
-    const [{ data: roles }, { data: profile }] = await Promise.all([
+    const [rolesRes, profileRes] = await Promise.all([
       supabase.from("user_roles").select("role").eq("user_id", uid),
       supabase.from("profiles").select("display_name").eq("id", uid).maybeSingle(),
     ]);
-    const isAdmin = roles?.some((r) => r.role === "admin");
-    setRole(isAdmin ? "admin" : "student");
-    setDisplayName(profile?.display_name ?? null);
+    // Only update role if the query succeeded — never silently downgrade
+    // an admin to student on a transient permission/network error.
+    if (!rolesRes.error) {
+      const isAdmin = rolesRes.data?.some((r) => r.role === "admin");
+      setRole(isAdmin ? "admin" : "student");
+    }
+    if (!profileRes.error) {
+      setDisplayName(profileRes.data?.display_name ?? null);
+    }
     if (!background) setRoleLoading(false);
   };
 
   useEffect(() => {
+    let lastLoadedUid: string | null = null;
     const { data: sub } = supabase.auth.onAuthStateChange((_e, s) => {
       setSession(s);
       setUser(s?.user ?? null);
       if (s?.user) {
-        setTimeout(() => loadProfile(s.user.id), 0);
+        // Avoid duplicate role loads when getSession + onAuthStateChange
+        // both fire for the same user on initial mount.
+        if (lastLoadedUid !== s.user.id) {
+          lastLoadedUid = s.user.id;
+          setTimeout(() => loadProfile(s.user.id), 0);
+        }
       } else {
+        lastLoadedUid = null;
         setRole(null);
         setDisplayName(null);
         setRoleLoading(false);
@@ -52,16 +65,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     supabase.auth.getSession().then(({ data: { session: s } }) => {
       setSession(s);
       setUser(s?.user ?? null);
-      if (s?.user) loadProfile(s.user.id).finally(() => setLoading(false));
-      else { setRoleLoading(false); setLoading(false); }
+      if (s?.user) {
+        lastLoadedUid = s.user.id;
+        loadProfile(s.user.id).finally(() => setLoading(false));
+      } else {
+        setRoleLoading(false);
+        setLoading(false);
+      }
     });
     return () => sub.subscription.unsubscribe();
   }, []);
 
   // Refresh role when window regains focus or tab becomes visible,
   // so role promotions in the DB take effect without re-login.
+  // Throttled so rapid focus/blur cycles don't hammer the backend or
+  // flicker the UI.
   useEffect(() => {
+    let lastRefresh = 0;
     const refresh = () => {
+      const now = Date.now();
+      if (now - lastRefresh < 60_000) return; // at most once per minute
+      lastRefresh = now;
       if (user?.id) loadProfile(user.id, { background: true });
     };
     const onVis = () => {
