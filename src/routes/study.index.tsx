@@ -3,8 +3,9 @@ import { useEffect, useState } from "react";
 import { useAuth } from "@/lib/auth";
 import { fetchStatuses, MASTERY_LABELS, MASTERY_BG, type Mastery } from "@/lib/words";
 import { BookOpen, ScrollText, Trophy, CalendarDays, CalendarRange, ChevronRight } from "lucide-react";
-import { ensureWordOrder, missionize, getProgress, MISSION_SIZE } from "@/lib/missions";
+import { ensureWordOrder, rebuildWordOrder, missionize, getProgress, setCurrentMission as persistCurrentMission, MISSION_SIZE } from "@/lib/missions";
 import { Button } from "@/components/ui/button";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -24,11 +25,17 @@ function StudyHome() {
   const [weeklyEligible, setWeeklyEligible] = useState(0);
   const [monthlyEligible, setMonthlyEligible] = useState(0);
   const [showAllMissions, setShowAllMissions] = useState(false);
+  const [startTier, setStartTier] = useState<string>(() => {
+    if (typeof window === "undefined") return "auto";
+    return localStorage.getItem("mission_start_tier") || "auto";
+  });
+  const [rebuilding, setRebuilding] = useState(false);
 
   useEffect(() => {
     if (!user) return;
     (async () => {
-      const words = await ensureWordOrder(user.id);
+      const tierArg = startTier === "auto" ? null : startTier;
+      const words = await ensureWordOrder(user.id, tierArg);
       const statuses = await fetchStatuses(user.id);
       const progress = await getProgress(user.id);
       const tiers: Record<Mastery, number> = { 0: 0, 1: 0, 2: 0, 3: 0 };
@@ -52,7 +59,25 @@ function StudyHome() {
       setWeeklyEligible(wk.count ?? 0);
       setMonthlyEligible(mo.count ?? 0);
     })();
-  }, [user]);
+  }, [user, startTier]);
+
+
+  const onStartTierChange = async (next: string) => {
+    if (!user) return;
+    setStartTier(next);
+    if (typeof window !== "undefined") localStorage.setItem("mission_start_tier", next);
+    setRebuilding(true);
+    try {
+      const tierArg = next === "auto" ? null : next;
+      const words = await rebuildWordOrder(user.id, tierArg);
+      setMissions(missionize(words).map((c) => c.map((w) => w.id)));
+      // Reset progress to mission 1 since order changed
+      setCurrentMission(1);
+      await persistCurrentMission(user.id, 1);
+    } finally {
+      setRebuilding(false);
+    }
+  };
 
   const masteredish = stats.tiers[2] + stats.tiers[3];
 
@@ -106,6 +131,26 @@ function StudyHome() {
 
       {hasMissions ? (
         <>
+          <div className="mt-4 rounded-2xl border bg-card p-4 shadow-card">
+            <div className="flex items-center justify-between gap-3">
+              <div className="min-w-0">
+                <div className="text-sm font-medium">Start missions from</div>
+                <div className="text-xs text-muted-foreground">Re-orders missions to begin at the chosen tier. Resets your current mission to 1.</div>
+              </div>
+              <Select value={startTier} onValueChange={onStartTierChange} disabled={rebuilding}>
+                <SelectTrigger className="w-44"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="auto">Auto (Tier 1 first)</SelectItem>
+                  <SelectItem value="tier1">Tier 1</SelectItem>
+                  <SelectItem value="tier2">Tier 2</SelectItem>
+                  <SelectItem value="tier3">Tier 3</SelectItem>
+                  <SelectItem value="tier4">Tier 4</SelectItem>
+                  <SelectItem value="phrases">Phrases</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
           <div className="mt-4 rounded-2xl border bg-card p-4 shadow-card">
             <div className="flex items-baseline justify-between">
               <div className="text-sm text-muted-foreground">Your progress</div>
