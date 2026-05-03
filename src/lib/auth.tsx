@@ -10,6 +10,7 @@ interface AuthCtx {
   role: Role | null;
   displayName: string | null;
   loading: boolean;
+  roleLoading: boolean;
   signOut: () => Promise<void>;
   refreshRole: () => Promise<void>;
 }
@@ -22,8 +23,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [role, setRole] = useState<Role | null>(null);
   const [displayName, setDisplayName] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [roleLoading, setRoleLoading] = useState(true);
 
   const loadProfile = async (uid: string) => {
+    setRoleLoading(true);
     const [{ data: roles }, { data: profile }] = await Promise.all([
       supabase.from("user_roles").select("role").eq("user_id", uid),
       supabase.from("profiles").select("display_name").eq("id", uid).maybeSingle(),
@@ -31,6 +34,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const isAdmin = roles?.some((r) => r.role === "admin");
     setRole(isAdmin ? "admin" : "student");
     setDisplayName(profile?.display_name ?? null);
+    setRoleLoading(false);
   };
 
   useEffect(() => {
@@ -42,13 +46,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       } else {
         setRole(null);
         setDisplayName(null);
+        setRoleLoading(false);
       }
     });
     supabase.auth.getSession().then(({ data: { session: s } }) => {
       setSession(s);
       setUser(s?.user ?? null);
       if (s?.user) loadProfile(s.user.id).finally(() => setLoading(false));
-      else setLoading(false);
+      else { setRoleLoading(false); setLoading(false); }
     });
     return () => sub.subscription.unsubscribe();
   }, []);
@@ -78,6 +83,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         role,
         displayName,
         loading,
+        roleLoading,
         signOut: async () => {
           await supabase.auth.signOut();
         },
