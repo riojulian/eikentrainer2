@@ -1,95 +1,114 @@
 
-# Chunked Study Flow
+# Rename Mission → Stage + Gamification Plan
 
-Break study into bite-size **chunks of 10 words**. After flashcarding a chunk, the student takes a 10-question quiz mixing **7 from the current chunk + 3 from the previous chunk**. Add **weekly** and **monthly** review quizzes that target weak words.
+## Part 1: Rename "Mission" → "Stage"
 
-## Concepts
+Straight find/replace across the codebase, mirroring the previous chunk→mission rename.
 
-- **Chunk**: a fixed group of 10 words **per student**. Order is randomized within each tier (Tier 1 → 2 → 3 → 4 → Phrases) and persisted so the student always sees the same chunk 1, chunk 2, etc.
-- **No gating**: every chunk is accessible. The UI just *suggests* the next one. Students who want to jump ahead can.
-- **Chunk 1 quiz**: all 10 questions from chunk 1 (no previous chunk).
-- **Chunk N≥2 quiz**: 7 from current + 3 from chunk N-1.
-- **Periodic quizzes**: weekly = words seen in last 7 days, monthly = last 30 days; both weighted toward low mastery (mastery 0/1 picked first).
+**Database migration**
+- Rename table `mission_attempts` → `stage_attempts`
+- Rename column `mission_index` → `stage_index`
+- Rename `study_progress.current_mission` → `current_stage`
+- Rename `study_progress.mission_size` → `stage_size`
 
-## Database changes (one migration)
+**Code**
+- Rename `src/lib/missions.ts` → `src/lib/stages.ts`
+- `buildMissionQuiz` → `buildStageQuiz`, `setCurrentMission` → `setCurrentStage`, `MISSION_SIZE` → `STAGE_SIZE`, `missionize` → `stagize` (or `chunkIntoStages`)
+- URL params: `?mission=N` → `?stage=N`, `?mode=mission` → `?mode=stage`
+- UI labels in `study.index.tsx`, `study.flashcards.tsx`, `study.quiz.tsx`: "Stage 3 of 12", "Study stage", "Take stage quiz", etc.
 
-**`student_word_order`** — frozen per-student order so chunks are stable across sessions:
-- `student_id uuid` (= auth.uid())
-- `word_id uuid`
-- `position int`
-- PK `(student_id, word_id)`, index on `(student_id, position)`
-- RLS: select/insert/delete own rows.
+---
 
-When new words are added by admin later, we append them at the end (next available `position`) on first load.
+## Part 2: Gamification — Stage as a Game Level
 
-**`study_progress`** — tracks the suggested current chunk:
-- `student_id uuid PK`
-- `current_chunk int default 1`
-- `chunk_size int default 10`
-- `updated_at timestamptz`
-- RLS: own row only.
+Theme: each Stage is a "level" the student climbs. Visible progress, small rewards, no punishment.
 
-**`chunk_attempts`** — log each quiz attempt:
-- `id uuid PK`, `student_id uuid`, `chunk_index int null`, `kind text` ('chunk' | 'weekly' | 'monthly'), `score int`, `total int`, `taken_at timestamptz default now()`
-- RLS: insert/select own.
+### Mechanics to add
 
-Per-question hits stay in existing `quiz_results`.
+**1. Stars per stage (1–3)**
+Earned on the stage quiz:
+- 1 star: ≥60% (6/10)
+- 2 stars: ≥80% (8/10)
+- 3 stars: 100% (10/10)
+Best score is kept. Re-taking can upgrade stars but never downgrade.
 
-## New helper: `src/lib/chunks.ts`
+**2. XP points**
+- +10 XP per correct quiz answer
+- +5 XP first time a flashcard is marked "known"
+- +50 XP bonus for 3-starring a stage
+- +25 XP for completing weekly review, +100 XP for monthly review
+Total XP shown in header; drives a simple **level** number (e.g. level = floor(sqrt(XP/100))).
 
-- `ensureWordOrder(studentId)` — if no rows exist, build order: shuffle within each tier (tier1, tier2, tier3, tier4, phrases, then null-tier), insert with sequential `position`. If rows exist but new words appeared, append them at the end.
-- `getChunks(studentId)` → `Word[][]` of size 10.
-- `getProgress(studentId)` / `setCurrentChunk(studentId, n)`.
-- `buildChunkQuiz(chunks, currentIdx)` — chunk 1: 10 from chunk 1; chunk N: 7 random from current + 3 random from previous.
-- `buildPeriodicQuiz(studentId, kind)` — pull words touched in last 7/30 days (via `word_status.updated_at`), weight low mastery first, sample 10. Falls back gracefully if <10.
+**3. Streak**
+Daily streak counter (consecutive days with at least one quiz or flashcard session). Flame icon + day count in header. Soft reset (grace day) optional.
 
-## UI changes
+**4. Stage map / path UI**
+Replace the current "Stage N of M" card with a vertical or horizontal **path** of stage nodes (think Duolingo). Each node shows:
+- Stage number
+- Lock/unlock state (still no hard gating — just a visual hint that earlier stages are "recommended first")
+- Stars earned (0–3)
+- Current stage highlighted with a pulse
+Tapping a node opens the stage detail (study + quiz CTAs).
 
-### `src/routes/study.index.tsx`
-Replace the 3 generic tiles with a chunk-aware layout:
-- **Progress strip**: segmented bar of all chunks (done / current / upcoming), small label "Chunk 3 of 12".
-- **Primary card**: "Chunk 3 — 10 words" with two CTAs:
-  - "Study chunk" → `/study/flashcards?chunk=3`
-  - "Take chunk quiz" → `/study/quiz?mode=chunk&chunk=3`
-- **Other chunks**: collapsible list to jump to any chunk (no gating).
-- **Review tiles**: "Weekly review" and "Monthly review" → `/study/quiz?mode=weekly|monthly`. Disabled with hint if fewer than 4 eligible words.
-- Keep existing mastery pill bar.
+**5. Badges / achievements**
+Awarded silently and shown on a small "Achievements" strip:
+- First Steps — finish stage 1
+- Tier Crusher — 3-star every stage in a tier
+- Marathon — 7-day streak
+- Perfectionist — 3-star 10 stages
+- Phrase Master — finish all phrase stages
+- Early Bird — quiz before 8am, etc.
 
-### `src/routes/study.flashcards.tsx`
-- Read `?chunk=N` (default = current). Load only that chunk's 10 words.
-- Header shows "Chunk N · 10 cards" plus a small "Free study" toggle that flips back to the existing all-words+filter mode for users who want to browse.
-- Done screen primary CTA: **"Take chunk N quiz"** → `/study/quiz?mode=chunk&chunk=N`.
+**6. Tier progression visual**
+Color the stage path by tier (Tier 1 rose, Tier 2 amber…) so the student can see "I'm 2 stages into Tier 3". Show a celebratory screen when crossing into a new tier.
 
-### `src/routes/study.quiz.tsx`
-- Read `?mode=chunk|weekly|monthly` and `?chunk=N`.
-- Build questions via the matching helper. Same UI as today.
-- On finish:
-  - Always insert a row into `chunk_attempts`.
-  - For `mode=chunk` with `N === currentChunk`: bump `study_progress.current_chunk` to `N+1` (capped at total chunks).
-  - Result screen shows score + new CTAs:
-    - chunk → "Study chunk N+1" / "Retry chunk N quiz"
-    - weekly/monthly → "Back to study"
+**7. End-of-stage result screen**
+Currently: score + CTA. Add:
+- Star animation (1/2/3 stars filling)
+- XP gained this round (+30 XP)
+- Streak update ("Day 4 🔥")
+- Any badges unlocked
+- CTA: "Next stage →" or "Retry for 3 stars"
 
-### `src/routes/study.list.tsx`
-Stretch: show a small "Chunk N" badge per word (uses `student_word_order`).
+### What we'd build
 
-## Edge cases
+**DB additions**
+- `stage_attempts` already stores score/total — derive stars from best score; no schema change needed for stars.
+- New table `student_stats`: `student_id pk`, `xp int`, `current_streak int`, `longest_streak int`, `last_active_date date`
+- New table `student_badges`: `student_id`, `badge_key text`, `earned_at`
+- RLS: own rows only
 
-- **<10 words total**: chunk system disables itself; home page falls back to today's "free study + quiz of all words" tiles with a notice "Add more words to unlock chunks".
-- **Final chunk has <10 words**: keep partial; chunk quiz uses what's available + top up from previous chunk.
-- **Periodic quiz with <4 eligible words**: tile disabled with explanation.
-- **Admin edits/disables words after order is built**: order helper filters out missing/inactive ids on read; chunk sizes can shrink — render gracefully.
-- **Pass threshold**: not used (no gating). Score is purely informational + recorded.
+**New helper: `src/lib/gamification.ts`**
+- `awardXp(studentId, amount, reason)`
+- `bumpStreak(studentId)` (called on any study/quiz action; handles same-day, +1 day, reset)
+- `getStarsForStage(studentId, stageIndex)` — best score → 0/1/2/3
+- `checkBadges(studentId)` — evaluates after each attempt, inserts new badges
+- `getStats(studentId)` — XP, level, streak, badges
 
-## Files
+**UI additions**
+- `src/components/StageMap.tsx` — the path of stage nodes
+- `src/components/StatsHeader.tsx` — XP, level, streak in `AppHeader` (or study layout)
+- `src/components/StageResult.tsx` — animated end-of-quiz screen
+- `src/components/AchievementsStrip.tsx` — badge list on study home
 
-- New migration: `student_word_order`, `study_progress`, `chunk_attempts` + RLS.
-- New: `src/lib/chunks.ts`
-- Edit: `src/routes/study.index.tsx`, `src/routes/study.flashcards.tsx`, `src/routes/study.quiz.tsx`
-- Optional small edit: `src/routes/study.list.tsx`
+### Scope for first pass (recommended)
 
-## Out of scope (future)
+To avoid a giant change, ship in 2 steps:
 
-- True spaced-repetition scheduling (SM-2 / Leitner).
-- Email or push reminders for weekly/monthly quizzes.
-- Admin UI to tune chunk size.
+**Step A (this turn): Rename + Stars + Stage Map**
+- All the rename work
+- Stars (1–3) per stage based on best quiz score
+- New visual stage map replacing the current "current/upcoming" card
+- Animated star result screen
+
+**Step B (follow-up turn): XP + Streaks + Badges**
+- `student_stats` and `student_badges` tables
+- XP/level/streak in header
+- Badge definitions + achievements strip
+
+### Questions before I build
+
+1. **Scope:** ship Step A only first, or do A+B in one go?
+2. **Star thresholds:** keep 60/80/100, or softer (50/70/90)?
+3. **Stage map style:** vertical scroll path (Duolingo-like) or horizontal carousel?
+4. **Theme tone:** playful/colorful (kids) or clean/minimal (adult learners)?
