@@ -161,17 +161,17 @@ function StudyHome() {
             <div className="flex items-center justify-between gap-3">
               <div className="min-w-0">
                 <div className="text-sm font-medium">Start stages from</div>
-                <div className="text-xs text-muted-foreground">Re-orders stages to begin at the chosen tier. Resets your current stage to 1.</div>
+                <div className="text-xs text-muted-foreground">Re-orders stages to begin at the chosen world. Resets your current stage to 1.</div>
               </div>
               <Select value={startTier} onValueChange={onStartTierChange} disabled={rebuilding}>
                 <SelectTrigger className="w-44"><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="auto">Auto (Tier 1 first)</SelectItem>
-                  <SelectItem value="tier1">Tier 1</SelectItem>
-                  <SelectItem value="tier2">Tier 2</SelectItem>
-                  <SelectItem value="tier3">Tier 3</SelectItem>
-                  <SelectItem value="tier4">Tier 4</SelectItem>
-                  <SelectItem value="phrases">Phrases</SelectItem>
+                  <SelectItem value="auto">Auto (World 1 first)</SelectItem>
+                  <SelectItem value="tier1">World 1: Core</SelectItem>
+                  <SelectItem value="tier2">World 2: Topic Specific</SelectItem>
+                  <SelectItem value="tier3">World 3: Reading/Listening</SelectItem>
+                  <SelectItem value="tier4">World 4: Very Specific</SelectItem>
+                  <SelectItem value="phrases">World 5: Phrases</SelectItem>
                 </SelectContent>
               </Select>
             </div>

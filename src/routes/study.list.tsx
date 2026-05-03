@@ -17,11 +17,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 
 
 const TIER_META: Record<string, { label: string; cls: string }> = {
-  tier1: { label: "Tier 1", cls: "bg-rose/15 text-rose border-rose/40" },
-  tier2: { label: "Tier 2", cls: "bg-gold/15 text-gold border-gold/40" },
-  tier3: { label: "Tier 3", cls: "bg-sage/15 text-sage border-sage/40" },
-  tier4: { label: "Tier 4", cls: "bg-purple-500/15 text-purple-500 border-purple-500/40" },
-  phrases: { label: "Phrases", cls: "bg-blue-500/15 text-blue-500 border-blue-500/40" },
+  tier1: { label: "World 1", cls: "bg-rose/15 text-rose border-rose/40" },
+  tier2: { label: "World 2", cls: "bg-gold/15 text-gold border-gold/40" },
+  tier3: { label: "World 3", cls: "bg-sage/15 text-sage border-sage/40" },
+  tier4: { label: "World 4", cls: "bg-purple-500/15 text-purple-500 border-purple-500/40" },
+  phrases: { label: "World 5", cls: "bg-blue-500/15 text-blue-500 border-blue-500/40" },
 };
 
 export const Route = createFileRoute("/study/list")({
@@ -85,15 +85,15 @@ function ListPage() {
           </SelectContent>
         </Select>
         <Select value={tier} onValueChange={setTier}>
-          <SelectTrigger className="w-44"><SelectValue placeholder="Tier" /></SelectTrigger>
+          <SelectTrigger className="w-44"><SelectValue placeholder="World" /></SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">All tiers</SelectItem>
-            <SelectItem value="tier1">Tier 1</SelectItem>
-            <SelectItem value="tier2">Tier 2</SelectItem>
-            <SelectItem value="tier3">Tier 3</SelectItem>
-            <SelectItem value="tier4">Tier 4</SelectItem>
-            <SelectItem value="phrases">Phrases</SelectItem>
-            <SelectItem value="none">No tier</SelectItem>
+            <SelectItem value="all">All worlds</SelectItem>
+            <SelectItem value="tier1">World 1: Core</SelectItem>
+            <SelectItem value="tier2">World 2: Topic Specific</SelectItem>
+            <SelectItem value="tier3">World 3: Reading/Listening</SelectItem>
+            <SelectItem value="tier4">World 4: Very Specific</SelectItem>
+            <SelectItem value="phrases">World 5: Phrases</SelectItem>
+            <SelectItem value="none">No world</SelectItem>
           </SelectContent>
         </Select>
         <Select value={mastery} onValueChange={setMasteryFilter}>
