@@ -2,7 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { useAuth } from "@/lib/auth";
 import { fetchActiveWords, fetchStatuses, MASTERY_LABELS, MASTERY_BG, TIER_LABELS, type Mastery } from "@/lib/words";
-import { BookOpen, ScrollText, Trophy, CalendarDays, CalendarRange, ChevronRight } from "lucide-react";
+import { BookOpen, ScrollText, Trophy, CalendarDays, CalendarRange, MoreVertical } from "lucide-react";
 import {
   ensureWorldOrder,
   stagize,
@@ -20,6 +20,14 @@ import { StageMap } from "@/components/StageMap";
 import { AchievementsStrip } from "@/components/AchievementsStrip";
 import { WorldPicker, type WorldSummary } from "@/components/WorldPicker";
 import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import type { Word } from "@/lib/words";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -152,48 +160,56 @@ function StudyHome() {
 
   return (
     <main className="mx-auto max-w-3xl px-4 py-6">
-      <h1 className="font-display text-3xl">Hello, {displayName ?? "friend"} 🌸</h1>
+      <div className="flex items-center justify-between gap-2">
+        <h1 className="font-display text-3xl truncate">Hello, {displayName ?? "friend"} 🌸</h1>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="outline" size="icon" className="shrink-0">
+              <MoreVertical className="h-4 w-4" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-64">
+            <DropdownMenuLabel>Reviews & Library</DropdownMenuLabel>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem asChild disabled={weeklyEligible < 4}>
+              <Link to="/study/quiz" search={{ mode: "weekly" as const }}>
+                <CalendarDays className="h-4 w-4 mr-2 text-gold" />
+                <div className="flex flex-col">
+                  <span>Weekly review</span>
+                  <span className="text-xs text-muted-foreground">
+                    {weeklyEligible >= 4 ? `${weeklyEligible} words from last 7 days` : "Study 4+ words to unlock"}
+                  </span>
+                </div>
+              </Link>
+            </DropdownMenuItem>
+            <DropdownMenuItem asChild disabled={monthlyEligible < 4}>
+              <Link to="/study/quiz" search={{ mode: "monthly" as const }}>
+                <CalendarRange className="h-4 w-4 mr-2 text-gold" />
+                <div className="flex flex-col">
+                  <span>Monthly review</span>
+                  <span className="text-xs text-muted-foreground">
+                    {monthlyEligible >= 4 ? `${monthlyEligible} words from last 30 days` : "Study 4+ words to unlock"}
+                  </span>
+                </div>
+              </Link>
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem asChild>
+              <Link to="/study/list">
+                <ScrollText className="h-4 w-4 mr-2 text-gold" />
+                Browse all words
+              </Link>
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
 
       <div className="mt-4">
         <StatsHeader stats={gameStats} />
       </div>
 
-      <div className="mt-4 rounded-2xl border bg-card p-4 shadow-card">
-        <div className="flex items-baseline justify-between">
-          <div className="text-sm text-muted-foreground">Words you know</div>
-          <div className="font-display text-2xl">{masteredish} <span className="text-muted-foreground text-base">/ {stats.total}</span></div>
-        </div>
-
-        {stats.total > 0 && (
-          <div className="mt-3">
-            <div className="flex w-full gap-1 overflow-hidden rounded-full">
-              {tierRows.map((s) => (
-                <div
-                  key={s.key}
-                  className={`${s.cls} flex h-6 min-w-0 flex-1 items-center justify-center overflow-hidden px-1 text-[8px] sm:text-[10px] font-medium text-white/95 whitespace-nowrap`}
-                  title={`${s.label}: ${s.count}`}
-                >
-                  <span className="truncate">{s.label}</span>
-                </div>
-              ))}
-            </div>
-            <div className="mt-1.5 flex w-full gap-1">
-              {tierRows.map((s) => (
-                <div key={s.key} className="flex min-w-0 flex-1 justify-center font-display text-lg">
-                  {s.count}
-                </div>
-              ))}
-            </div>
-            <div className="mt-2 flex items-center justify-between rounded-lg border border-dashed border-muted-foreground/30 bg-muted/30 px-3 py-1.5 text-sm">
-              <span className="text-muted-foreground">未勉強</span>
-              <span className="font-display text-base">{stats.unseen}</span>
-            </div>
-          </div>
-        )}
-      </div>
-
       {worldSummaries.length > 0 && (
-        <div className="mt-4">
+        <div className="mt-6">
           <div className="mb-2 flex items-baseline justify-between">
             <div className="text-sm font-medium">Pick a world</div>
             <div className="text-xs text-muted-foreground">Each world has its own stages</div>
@@ -247,31 +263,38 @@ function StudyHome() {
             <AchievementsStrip earned={earnedBadges} />
           </div>
 
-          <div className="mt-4 grid gap-3 sm:grid-cols-2">
-            <ReviewTile
-              icon={CalendarDays}
-              title="Weekly review"
-              desc={`${weeklyEligible} word${weeklyEligible === 1 ? "" : "s"} from the last 7 days`}
-              eligible={weeklyEligible >= 4}
-              search={{ mode: "weekly" as const }}
-            />
-            <ReviewTile
-              icon={CalendarRange}
-              title="Monthly review"
-              desc={`${monthlyEligible} word${monthlyEligible === 1 ? "" : "s"} from the last 30 days`}
-              eligible={monthlyEligible >= 4}
-              search={{ mode: "monthly" as const }}
-            />
-          </div>
+          <div className="mt-4 rounded-2xl border bg-card p-4 shadow-card">
+            <div className="flex items-baseline justify-between">
+              <div className="text-sm text-muted-foreground">Words you know</div>
+              <div className="font-display text-2xl">{masteredish} <span className="text-muted-foreground text-base">/ {stats.total}</span></div>
+            </div>
 
-          <div className="mt-4">
-            <Link to="/study/list" className="group flex items-center justify-between rounded-xl border bg-card p-3 shadow-card transition hover:border-gold">
-              <div className="flex items-center gap-2">
-                <ScrollText className="h-5 w-5 text-gold" />
-                <span className="font-display text-base">Browse all words</span>
+            {stats.total > 0 && (
+              <div className="mt-3">
+                <div className="flex w-full gap-1 overflow-hidden rounded-full">
+                  {tierRows.map((s) => (
+                    <div
+                      key={s.key}
+                      className={`${s.cls} flex h-6 min-w-0 flex-1 items-center justify-center overflow-hidden px-1 text-[8px] sm:text-[10px] font-medium text-white/95 whitespace-nowrap`}
+                      title={`${s.label}: ${s.count}`}
+                    >
+                      <span className="truncate">{s.label}</span>
+                    </div>
+                  ))}
+                </div>
+                <div className="mt-1.5 flex w-full gap-1">
+                  {tierRows.map((s) => (
+                    <div key={s.key} className="flex min-w-0 flex-1 justify-center font-display text-lg">
+                      {s.count}
+                    </div>
+                  ))}
+                </div>
+                <div className="mt-2 flex items-center justify-between rounded-lg border border-dashed border-muted-foreground/30 bg-muted/30 px-3 py-1.5 text-sm">
+                  <span className="text-muted-foreground">未勉強</span>
+                  <span className="font-display text-base">{stats.unseen}</span>
+                </div>
               </div>
-              <ChevronRight className="h-4 w-4 text-muted-foreground" />
-            </Link>
+            )}
           </div>
         </>
       ) : (
@@ -286,36 +309,3 @@ function StudyHome() {
   );
 }
 
-function ReviewTile({
-  icon: Icon,
-  title,
-  desc,
-  eligible,
-  search,
-}: {
-  icon: typeof CalendarDays;
-  title: string;
-  desc: string;
-  eligible: boolean;
-  search: { mode: "weekly" | "monthly" };
-}) {
-  const inner = (
-    <div className="flex items-center gap-3">
-      <Icon className={eligible ? "h-6 w-6 text-gold" : "h-6 w-6 text-muted-foreground"} />
-      <div className="min-w-0">
-        <div className="font-display text-base leading-tight">{title}</div>
-        <div className="text-xs text-muted-foreground leading-tight truncate">
-          {eligible ? desc : "Study at least 4 words to unlock"}
-        </div>
-      </div>
-    </div>
-  );
-  if (!eligible) {
-    return <div className="rounded-xl border bg-card p-3 shadow-card opacity-60">{inner}</div>;
-  }
-  return (
-    <Link to="/study/quiz" search={search} className="rounded-xl border bg-card p-3 shadow-card transition hover:border-gold hover:shadow-glow">
-      {inner}
-    </Link>
-  );
-}
