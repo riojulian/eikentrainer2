@@ -110,7 +110,7 @@ function Flashcards() {
       setLast({ wordId: current.id, prev, after, kind });
       setMastery(user.id, current.id, after).catch(() => {});
       if (undoTimer.current) window.clearTimeout(undoTimer.current);
-      undoTimer.current = window.setTimeout(() => setLast(null), 4000);
+      undoTimer.current = window.setTimeout(() => setLast(null), 900);
       advance();
     },
     [user, current, statuses, advance],
@@ -335,14 +335,14 @@ function Flashcards() {
       </div>
 
       {last && (
-        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 animate-in fade-in slide-in-from-bottom-4">
-          <div className="flex items-center gap-3 rounded-full border bg-card shadow-lg px-4 py-2 text-sm">
+        <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-50 animate-in fade-in slide-in-from-bottom-2">
+          <div className="flex items-center gap-2 rounded-full border bg-card shadow-md px-2.5 py-1 text-[11px]">
             <span className="text-muted-foreground">
-              Now <span className="font-medium text-foreground">{MASTERY_LABELS[last.after]}</span>
+              <span className="font-medium text-foreground">{MASTERY_LABELS[last.after]}</span>
             </span>
-            <Button variant="ghost" size="sm" onClick={undo} className="h-7">
-              <Undo2 className="h-3.5 w-3.5 mr-1" /> Undo
-            </Button>
+            <button onClick={undo} className="flex items-center gap-1 rounded-full px-1.5 py-0.5 hover:bg-muted text-foreground">
+              <Undo2 className="h-3 w-3" /> Undo
+            </button>
           </div>
         </div>
       )}
