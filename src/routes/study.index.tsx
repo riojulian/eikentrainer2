@@ -81,7 +81,7 @@ function StudyHome() {
               getStarsByStage(user.id, w),
             ]);
             curStage = cs;
-            starsEarned = Object.values(stars).reduce((a, b) => a + b, 0);
+            starsEarned = Object.values(stars).reduce((a: number, b) => a + (b as number), 0);
           }
           return {
             world: w,
