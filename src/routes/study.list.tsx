@@ -106,7 +106,7 @@ function ListPage() {
                       <button
                         key={m}
                         onClick={() => setTier4(w.id, m)}
-                        className={`flex-1 h-7 rounded-md transition flex items-center justify-center px-1 text-[8px] sm:text-[10px] font-medium leading-none truncate ${active ? `${MASTERY_BG[m]} text-white` : "bg-muted text-muted-foreground hover:bg-muted-foreground/20"}`}
+                        className={`flex-1 min-w-0 overflow-hidden h-7 rounded-md transition flex items-center justify-center px-1 text-[8px] sm:text-[10px] font-medium leading-none truncate ${active ? `${MASTERY_BG[m]} text-white` : "bg-muted text-muted-foreground hover:bg-muted-foreground/20"}`}
                         aria-label={MASTERY_LABELS[m]}
                         title={MASTERY_LABELS[m]}
                       >
