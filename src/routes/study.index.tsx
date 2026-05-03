@@ -33,7 +33,6 @@ function StudyHome() {
   }, [user]);
 
   const masteredish = stats.tiers[2] + stats.tiers[3];
-  const pct = stats.total ? Math.round((masteredish / stats.total) * 100) : 0;
 
   const tiers: { key: Mastery; count: number; cls: string; label: string }[] = [
     { key: 0, count: stats.tiers[0], cls: MASTERY_BG[0], label: MASTERY_LABELS[0] },
