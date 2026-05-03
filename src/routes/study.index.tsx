@@ -2,7 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { useAuth } from "@/lib/auth";
 import { fetchActiveWords, fetchStatuses, MASTERY_LABELS, MASTERY_BG, TIER_LABELS, type Mastery } from "@/lib/words";
-import { BookOpen, ScrollText, Trophy, CalendarDays, CalendarRange, MoreVertical } from "lucide-react";
+import { BookOpen, ScrollText, Trophy, CalendarDays, CalendarRange, MoreVertical, BarChart3 } from "lucide-react";
 import {
   ensureWorldOrder,
   stagize,
@@ -28,6 +28,13 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 import type { Word } from "@/lib/words";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -171,6 +178,59 @@ function StudyHome() {
           <DropdownMenuContent align="end" className="w-64">
             <DropdownMenuLabel>Reviews & Library</DropdownMenuLabel>
             <DropdownMenuSeparator />
+            <Dialog>
+              <DialogTrigger asChild>
+                <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
+                  <BarChart3 className="h-4 w-4 mr-2 text-gold" />
+                  <div className="flex flex-col">
+                    <span>Words you know</span>
+                    <span className="text-xs text-muted-foreground">
+                      {masteredish} / {stats.total} mastered
+                    </span>
+                  </div>
+                </DropdownMenuItem>
+              </DialogTrigger>
+              <DialogContent className="max-w-md">
+                <DialogHeader>
+                  <DialogTitle>Words you know</DialogTitle>
+                </DialogHeader>
+                <div className="rounded-2xl border bg-card p-4">
+                  <div className="flex items-baseline justify-between">
+                    <div className="text-sm text-muted-foreground">Mastered</div>
+                    <div className="font-display text-2xl">
+                      {masteredish} <span className="text-muted-foreground text-base">/ {stats.total}</span>
+                    </div>
+                  </div>
+                  {stats.total > 0 && (
+                    <div className="mt-3">
+                      <div className="flex w-full gap-1 overflow-hidden rounded-full">
+                        {tierRows.map((s) => (
+                          <div
+                            key={s.key}
+                            className={`${s.cls} flex h-6 min-w-0 flex-1 items-center justify-center overflow-hidden px-1 text-[8px] sm:text-[10px] font-medium text-white/95 whitespace-nowrap`}
+                            title={`${s.label}: ${s.count}`}
+                          >
+                            <span className="truncate">{s.label}</span>
+                          </div>
+                        ))}
+                      </div>
+                      <div className="mt-1.5 flex w-full gap-1">
+                        {tierRows.map((s) => (
+                          <div key={s.key} className="flex min-w-0 flex-1 justify-center font-display text-lg">
+                            {s.count}
+                          </div>
+                        ))}
+                      </div>
+                      <div className="mt-2 flex items-center justify-between rounded-lg border border-dashed border-muted-foreground/30 bg-muted/30 px-3 py-1.5 text-sm">
+                        <span className="text-muted-foreground">未勉強</span>
+                        <span className="font-display text-base">{stats.unseen}</span>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </DialogContent>
+            </Dialog>
+            <DropdownMenuSeparator />
             <DropdownMenuItem asChild disabled={weeklyEligible < 4}>
               <Link to="/study/quiz" search={{ mode: "weekly" as const }}>
                 <CalendarDays className="h-4 w-4 mr-2 text-gold" />
@@ -261,40 +321,6 @@ function StudyHome() {
 
           <div className="mt-4">
             <AchievementsStrip earned={earnedBadges} />
-          </div>
-
-          <div className="mt-4 rounded-2xl border bg-card p-4 shadow-card">
-            <div className="flex items-baseline justify-between">
-              <div className="text-sm text-muted-foreground">Words you know</div>
-              <div className="font-display text-2xl">{masteredish} <span className="text-muted-foreground text-base">/ {stats.total}</span></div>
-            </div>
-
-            {stats.total > 0 && (
-              <div className="mt-3">
-                <div className="flex w-full gap-1 overflow-hidden rounded-full">
-                  {tierRows.map((s) => (
-                    <div
-                      key={s.key}
-                      className={`${s.cls} flex h-6 min-w-0 flex-1 items-center justify-center overflow-hidden px-1 text-[8px] sm:text-[10px] font-medium text-white/95 whitespace-nowrap`}
-                      title={`${s.label}: ${s.count}`}
-                    >
-                      <span className="truncate">{s.label}</span>
-                    </div>
-                  ))}
-                </div>
-                <div className="mt-1.5 flex w-full gap-1">
-                  {tierRows.map((s) => (
-                    <div key={s.key} className="flex min-w-0 flex-1 justify-center font-display text-lg">
-                      {s.count}
-                    </div>
-                  ))}
-                </div>
-                <div className="mt-2 flex items-center justify-between rounded-lg border border-dashed border-muted-foreground/30 bg-muted/30 px-3 py-1.5 text-sm">
-                  <span className="text-muted-foreground">未勉強</span>
-                  <span className="font-display text-base">{stats.unseen}</span>
-                </div>
-              </div>
-            )}
           </div>
         </>
       ) : (
