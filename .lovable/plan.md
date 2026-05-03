@@ -1,114 +1,80 @@
+# Connect World ↔ Stage
 
-# Rename Mission → Stage + Gamification Plan
+## Concept
 
-## Part 1: Rename "Mission" → "Stage"
+Today, all words across all worlds are concatenated into one global stage list. We change it so **each World owns its own stage track**. Stage count per world is derived: `ceil(activeWords[world] / 10)`.
 
-Straight find/replace across the codebase, mirroring the previous chunk→mission rename.
+Example with 10 words/stage:
+- World 1 (Core, ~200 words) → 20 stages
+- World 4 (Very specific, ~700 words) → 70 stages
+- Empty world → 0 stages (hidden)
 
-**Database migration**
-- Rename table `mission_attempts` → `stage_attempts`
-- Rename column `mission_index` → `stage_index`
-- Rename `study_progress.current_mission` → `current_stage`
-- Rename `study_progress.mission_size` → `stage_size`
+A user is "in" one world at a time, and has an **independent current stage per world** (so switching worlds doesn't lose progress).
 
-**Code**
-- Rename `src/lib/missions.ts` → `src/lib/stages.ts`
-- `buildMissionQuiz` → `buildStageQuiz`, `setCurrentMission` → `setCurrentStage`, `MISSION_SIZE` → `STAGE_SIZE`, `missionize` → `stagize` (or `chunkIntoStages`)
-- URL params: `?mission=N` → `?stage=N`, `?mode=mission` → `?mode=stage`
-- UI labels in `study.index.tsx`, `study.flashcards.tsx`, `study.quiz.tsx`: "Stage 3 of 12", "Study stage", "Take stage quiz", etc.
+## Data model
 
----
+Schema change:
+- `study_progress`: add `current_world text` (nullable, default `'tier1'`).
+- New table `world_progress (student_id uuid, world text, current_stage int default 1, updated_at timestamptz, primary key (student_id, world))` with RLS (own rows).
 
-## Part 2: Gamification — Stage as a Game Level
+Stage attempts already store `stage_index`; we add `world text` (nullable) so stars are scoped per world. Backfill old rows as `null` (treated as legacy/global, not shown in new per-world maps).
 
-Theme: each Stage is a "level" the student climbs. Visible progress, small rewards, no punishment.
+## Logic (`src/lib/stages.ts`)
 
-### Mechanics to add
+Rewrite around worlds:
 
-**1. Stars per stage (1–3)**
-Earned on the stage quiz:
-- 1 star: ≥60% (6/10)
-- 2 stars: ≥80% (8/10)
-- 3 stars: 100% (10/10)
-Best score is kept. Re-taking can upgrade stars but never downgrade.
+```ts
+export function stagizeByWorld(words: Word[]): Record<string, Word[][]> {
+  // group active words by tier in fixed WORLD_ORDER, then chunk by 10
+}
 
-**2. XP points**
-- +10 XP per correct quiz answer
-- +5 XP first time a flashcard is marked "known"
-- +50 XP bonus for 3-starring a stage
-- +25 XP for completing weekly review, +100 XP for monthly review
-Total XP shown in header; drives a simple **level** number (e.g. level = floor(sqrt(XP/100))).
+getCurrentWorld(studentId): string
+setCurrentWorld(studentId, world)
+getWorldProgress(studentId, world): { current_stage }
+setWorldStage(studentId, world, stage)
+getStarsByStage(studentId, world): Record<number, 0|1|2|3>
+buildStageQuiz(stagesForWorld, stageIndex)  // unchanged shape
+```
 
-**3. Streak**
-Daily streak counter (consecutive days with at least one quiz or flashcard session). Flame icon + day count in header. Soft reset (grace day) optional.
+Word ordering: drop the cross-world `student_word_order` rebuild flow. Words inside a world are still shuffled deterministically per student (seeded by `student_id + world`), so stage membership is stable but personalized. `ensureWordOrder` becomes per-world and stores rows tagged with `world`.
 
-**4. Stage map / path UI**
-Replace the current "Stage N of M" card with a vertical or horizontal **path** of stage nodes (think Duolingo). Each node shows:
-- Stage number
-- Lock/unlock state (still no hard gating — just a visual hint that earlier stages are "recommended first")
-- Stars earned (0–3)
-- Current stage highlighted with a pulse
-Tapping a node opens the stage detail (study + quiz CTAs).
+Migration: add `world text` column to `student_word_order`; existing rows tagged `null` are ignored and re-seeded on next load.
 
-**5. Badges / achievements**
-Awarded silently and shown on a small "Achievements" strip:
-- First Steps — finish stage 1
-- Tier Crusher — 3-star every stage in a tier
-- Marathon — 7-day streak
-- Perfectionist — 3-star 10 stages
-- Phrase Master — finish all phrase stages
-- Early Bird — quiz before 8am, etc.
+## Dashboard UI (`src/routes/study.index.tsx`)
 
-**6. Tier progression visual**
-Color the stage path by tier (Tier 1 rose, Tier 2 amber…) so the student can see "I'm 2 stages into Tier 3". Show a celebratory screen when crossing into a new tier.
+Replace the "Start stages from" select with a **World Picker** row:
 
-**7. End-of-stage result screen**
-Currently: score + CTA. Add:
-- Star animation (1/2/3 stars filling)
-- XP gained this round (+30 XP)
-- Streak update ("Day 4 🔥")
-- Any badges unlocked
-- CTA: "Next stage →" or "Retry for 3 stars"
+```text
+[ World 1 ★★☆ 4/20 ] [ World 2 ★☆☆ 1/15 ] [ World 3 ✕ ] [ World 4 0/70 ] [ World 5 ]
+   selected               
+```
 
-### What we'd build
+- Horizontal scroll on mobile, grid on sm+.
+- Each card shows: world short name, color band (existing TIER_BAND), `currentStage / totalStages`, and aggregate stars (sum of stage stars / max).
+- Worlds with 0 active words are shown disabled.
+- Selecting a world updates `study_progress.current_world` and re-renders the rest of the dashboard for that world only.
 
-**DB additions**
-- `stage_attempts` already stores score/total — derive stars from best score; no schema change needed for stars.
-- New table `student_stats`: `student_id pk`, `xp int`, `current_streak int`, `longest_streak int`, `last_active_date date`
-- New table `student_badges`: `student_id`, `badge_key text`, `earned_at`
-- RLS: own rows only
+The "Current stage" card, "Your journey" StageMap, and stage quiz CTAs all read from the **selected world's** stage list and progress. The `StageMap` already supports `tierByStage`; since one world = one tier, the band is uniform but kept for visual identity.
 
-**New helper: `src/lib/gamification.ts`**
-- `awardXp(studentId, amount, reason)`
-- `bumpStreak(studentId)` (called on any study/quiz action; handles same-day, +1 day, reset)
-- `getStarsForStage(studentId, stageIndex)` — best score → 0/1/2/3
-- `checkBadges(studentId)` — evaluates after each attempt, inserts new badges
-- `getStats(studentId)` — XP, level, streak, badges
+Weekly/Monthly review tiles, Achievements, "Browse all words" stay global (unchanged).
 
-**UI additions**
-- `src/components/StageMap.tsx` — the path of stage nodes
-- `src/components/StatsHeader.tsx` — XP, level, streak in `AppHeader` (or study layout)
-- `src/components/StageResult.tsx` — animated end-of-quiz screen
-- `src/components/AchievementsStrip.tsx` — badge list on study home
+## StageMap
 
-### Scope for first pass (recommended)
+No prop changes. Receives the per-world stages and per-world stars/current. Header above it shows: `World 4: Very Specific — Stage 12 of 70`.
 
-To avoid a giant change, ship in 2 steps:
+## Files touched
 
-**Step A (this turn): Rename + Stars + Stage Map**
-- All the rename work
-- Stars (1–3) per stage based on best quiz score
-- New visual stage map replacing the current "current/upcoming" card
-- Animated star result screen
+- `supabase/migrations/*` — add `world` to `study_progress`, `student_word_order`, `stage_attempts`; create `world_progress` (or just reuse `study_progress` keyed by world — see Open question).
+- `src/lib/stages.ts` — rewrite per-world.
+- `src/lib/words.ts` — add `WORLD_ORDER` export.
+- `src/routes/study.index.tsx` — World Picker + per-world wiring.
+- `src/components/StageMap.tsx` — minor heading text only.
+- `src/routes/study.flashcards.tsx`, `src/routes/study.quiz.tsx` — read stages for the active world (via `current_world`) instead of the global list.
 
-**Step B (follow-up turn): XP + Streaks + Badges**
-- `student_stats` and `student_badges` tables
-- XP/level/streak in header
-- Badge definitions + achievements strip
+## Open question (need your call before I build)
 
-### Questions before I build
+Per-world current stage storage:
+1. **New `world_progress` table** (cleanest, scales if we add more per-world fields later).
+2. **Reuse `study_progress`** by changing PK to `(student_id, world)` (simpler, but a heavier migration of existing row).
 
-1. **Scope:** ship Step A only first, or do A+B in one go?
-2. **Star thresholds:** keep 60/80/100, or softer (50/70/90)?
-3. **Stage map style:** vertical scroll path (Duolingo-like) or horizontal carousel?
-4. **Theme tone:** playful/colorful (kids) or clean/minimal (adult learners)?
+I recommend option 1.
