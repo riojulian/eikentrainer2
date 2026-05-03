@@ -63,7 +63,7 @@ export function StageMap({ total, currentStage, starsByStage, tierByStage }: Sta
                   className={cn(
                     "group relative flex items-center gap-3 rounded-2xl border bg-gradient-to-br p-3 shadow-card transition hover:scale-[1.01] hover:shadow-glow",
                     band,
-                    isCurrent && "ring-2 ring-gold animate-pulse-soft",
+                    isCurrent && "ring-2 ring-gold",
                     isFuture && "opacity-80",
                   )}
                 >
