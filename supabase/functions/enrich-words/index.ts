@@ -7,8 +7,9 @@ const corsHeaders = {
 };
 
 const SYSTEM_PROMPT = `You are an English vocabulary enrichment assistant for Japanese students (ages 10–17, non-native English learners) preparing for Eiken Pre-1.
-You will receive a list of English words. For each word, produce a structured entry suitable for a vocabulary study app.
+You will receive a list of English words/phrases, each tagged with a study tier. For each item, produce a structured entry suitable for a vocabulary study app.
 Use lowercase for the word itself. If a word is misspelled, correct it silently to the most likely intended English word.
+Echo the provided tier back unchanged in your output. Items tagged tier "phrases" must have part_of_speech "phrasal verb".
 
 DEFINITION RULES (very important):
 - Write the English definition in SIMPLE English a 10–17 year old non-native learner can understand.
@@ -24,8 +25,17 @@ serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
-    const { words } = await req.json();
-    if (!Array.isArray(words) || words.length === 0) throw new Error("words array required");
+    const body = await req.json();
+    // Accept either { items: [{word,tier}] } (new) or { words: string[] } (legacy)
+    let items: { word: string; tier: string | null }[] = [];
+    if (Array.isArray(body?.items)) {
+      items = body.items
+        .filter((it: any) => it && typeof it.word === "string")
+        .map((it: any) => ({ word: String(it.word), tier: it.tier ?? null }));
+    } else if (Array.isArray(body?.words)) {
+      items = body.words.map((w: string) => ({ word: String(w), tier: null }));
+    }
+    if (items.length === 0) throw new Error("items array required");
 
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY missing");
@@ -44,6 +54,7 @@ serve(async (req) => {
                 type: "object",
                 properties: {
                   word: { type: "string" },
+                  tier: { type: "string", enum: ["tier1","tier2","tier3","tier4","phrases",""], description: "Echo the input tier exactly. Empty string if no tier was provided." },
                   part_of_speech: { type: "string", enum: ["noun","verb","adj","adverb","phrasal verb"] },
                   definition: { type: "string", description: "Simple English definition (CEFR A2–B1) understandable by a 10–17 year old non-native learner. ~1 short sentence, no advanced words, no circular definitions." },
                   definition_ja: { type: "string", description: "Japanese definition with appropriate kanji for an 11-year-old." },
@@ -52,7 +63,7 @@ serve(async (req) => {
                     "Weather & Nature","Abstract Concepts","Key Adjectives","Business & Career","Law & Society","Medical & Science","Science & Technology","Education & Institutions","Environment","Actions","Communication","Society & Community","Character & Morality","Emotions & States","Phrasal Verbs","Shopping & Commerce","Business & Finance","Health & Wellness","Organization & Planning","Academic & Analytical","Social Issues","Materials & Objects"
                   ] },
                 },
-                required: ["word","part_of_speech","definition","definition_ja","example_sentence","category"],
+                required: ["word","tier","part_of_speech","definition","definition_ja","example_sentence","category"],
                 additionalProperties: false,
               }
             }
@@ -63,7 +74,7 @@ serve(async (req) => {
       }
     }];
 
-    const userMsg = `Enrich these English words for an Eiken Pre-1 study app:\n${words.map((w: string) => `- ${w}`).join("\n")}`;
+    const userMsg = `Enrich these English vocabulary items for an Eiken Pre-1 study app. Format: [tier] word\n${items.map((it) => `- [${it.tier ?? ""}] ${it.word}`).join("\n")}`;
 
     const resp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
