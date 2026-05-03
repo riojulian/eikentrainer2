@@ -13,6 +13,8 @@ import { Route as StudyRouteImport } from './routes/study'
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as StudyIndexRouteImport } from './routes/study.index'
+import { Route as StudyListRouteImport } from './routes/study.list'
+import { Route as StudyFlashcardsRouteImport } from './routes/study.flashcards'
 
 const StudyRoute = StudyRouteImport.update({
   id: '/study',
@@ -34,16 +36,30 @@ const StudyIndexRoute = StudyIndexRouteImport.update({
   path: '/',
   getParentRoute: () => StudyRoute,
 } as any)
+const StudyListRoute = StudyListRouteImport.update({
+  id: '/list',
+  path: '/list',
+  getParentRoute: () => StudyRoute,
+} as any)
+const StudyFlashcardsRoute = StudyFlashcardsRouteImport.update({
+  id: '/flashcards',
+  path: '/flashcards',
+  getParentRoute: () => StudyRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
   '/study': typeof StudyRouteWithChildren
+  '/study/flashcards': typeof StudyFlashcardsRoute
+  '/study/list': typeof StudyListRoute
   '/study/': typeof StudyIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
+  '/study/flashcards': typeof StudyFlashcardsRoute
+  '/study/list': typeof StudyListRoute
   '/study': typeof StudyIndexRoute
 }
 export interface FileRoutesById {
@@ -51,14 +67,29 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
   '/study': typeof StudyRouteWithChildren
+  '/study/flashcards': typeof StudyFlashcardsRoute
+  '/study/list': typeof StudyListRoute
   '/study/': typeof StudyIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/auth' | '/study' | '/study/'
+  fullPaths:
+    | '/'
+    | '/auth'
+    | '/study'
+    | '/study/flashcards'
+    | '/study/list'
+    | '/study/'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/auth' | '/study'
-  id: '__root__' | '/' | '/auth' | '/study' | '/study/'
+  to: '/' | '/auth' | '/study/flashcards' | '/study/list' | '/study'
+  id:
+    | '__root__'
+    | '/'
+    | '/auth'
+    | '/study'
+    | '/study/flashcards'
+    | '/study/list'
+    | '/study/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -97,14 +128,32 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof StudyIndexRouteImport
       parentRoute: typeof StudyRoute
     }
+    '/study/list': {
+      id: '/study/list'
+      path: '/list'
+      fullPath: '/study/list'
+      preLoaderRoute: typeof StudyListRouteImport
+      parentRoute: typeof StudyRoute
+    }
+    '/study/flashcards': {
+      id: '/study/flashcards'
+      path: '/flashcards'
+      fullPath: '/study/flashcards'
+      preLoaderRoute: typeof StudyFlashcardsRouteImport
+      parentRoute: typeof StudyRoute
+    }
   }
 }
 
 interface StudyRouteChildren {
+  StudyFlashcardsRoute: typeof StudyFlashcardsRoute
+  StudyListRoute: typeof StudyListRoute
   StudyIndexRoute: typeof StudyIndexRoute
 }
 
 const StudyRouteChildren: StudyRouteChildren = {
+  StudyFlashcardsRoute: StudyFlashcardsRoute,
+  StudyListRoute: StudyListRoute,
   StudyIndexRoute: StudyIndexRoute,
 }
 
