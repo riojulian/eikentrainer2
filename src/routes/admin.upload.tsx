@@ -29,7 +29,7 @@ const TIER_META: Record<Exclude<Tier, "">, { label: string; emoji: string; desc:
   tier2:    { label: "World 2", emoji: "🟠", desc: "Topic Specific",         cls: "bg-orange-500/15 text-orange-600 border-orange-500/30" },
   tier3:    { label: "World 3", emoji: "🟢", desc: "Reading/Listening",      cls: "bg-green-500/15 text-green-600 border-green-500/30" },
   tier4:    { label: "World 4", emoji: "🟣", desc: "Very Specific",          cls: "bg-purple-500/15 text-purple-600 border-purple-500/30" },
-  phrases:  { label: "Phrases", emoji: "🔵", desc: "Phrasal verbs",          cls: "bg-blue-500/15 text-blue-600 border-blue-500/30" },
+  phrases:  { label: "World 5", emoji: "🔵", desc: "Phrases",                cls: "bg-blue-500/15 text-blue-600 border-blue-500/30" },
 };
 
 function normalizeTier(raw: string): Tier | null {
