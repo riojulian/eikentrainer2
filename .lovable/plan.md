@@ -1,60 +1,95 @@
-## Goal
-Extend the "From word list" upload mode so each line carries a **Tier** alongside the word. Persist tier on the `words` table so it can drive filtering and study order later.
 
-## Input format
-Two values per line, separated by space, tab, or comma. Tier first, word second:
-```
-1 ambiguous
-1 resilient
-2 mitigate
-2 ubiquitous
-3 profound
-4 esoteric
-phrases give up
-```
+# Chunked Study Flow
 
-Accepted tier tokens (case-insensitive):
-- `1`, `t1`, `tier1` → Tier 1
-- `2`, `t2`, `tier2` → Tier 2
-- `3`, `t3`, `tier3` → Tier 3
-- `4`, `t4`, `tier4` → Tier 4
-- `p`, `phrase`, `phrases` → Phrases
+Break study into bite-size **chunks of 10 words**. After flashcarding a chunk, the student takes a 10-question quiz mixing **7 from the current chunk + 3 from the previous chunk**. Add **weekly** and **monthly** review quizzes that target weak words.
 
-Lines that don't parse cleanly are skipped with a toast warning showing the count.
+## Concepts
 
-## Database change
-Migration on `public.words`:
-- Add `tier text` (nullable, no default).
-- Add CHECK-equivalent **validation trigger** restricting values to `tier1`, `tier2`, `tier3`, `tier4`, `phrases` (per project rule: validation triggers, not CHECK constraints).
-- Add index on `tier` for future filtering.
+- **Chunk**: a fixed group of 10 words **per student**. Order is randomized within each tier (Tier 1 → 2 → 3 → 4 → Phrases) and persisted so the student always sees the same chunk 1, chunk 2, etc.
+- **No gating**: every chunk is accessible. The UI just *suggests* the next one. Students who want to jump ahead can.
+- **Chunk 1 quiz**: all 10 questions from chunk 1 (no previous chunk).
+- **Chunk N≥2 quiz**: 7 from current + 3 from chunk N-1.
+- **Periodic quizzes**: weekly = words seen in last 7 days, monthly = last 30 days; both weighted toward low mastery (mastery 0/1 picked first).
 
-`src/integrations/supabase/types.ts` regenerates automatically — do not edit.
+## Database changes (one migration)
 
-## Edge function: `enrich-words`
-- Input shape becomes `{ items: { word: string; tier: string }[] }` (keep accepting old `{ words: string[] }` for back-compat — map to `tier: null`).
-- Pass tier to the model only as context ("This word belongs to Eiken study Tier X — adjust example difficulty accordingly") but the model is **not** asked to invent or change tier.
-- Returned schema gains `tier` echoed back from input so the UI can display it. If a phrase enters the `phrases` tier, force `part_of_speech = "phrasal verb"`.
+**`student_word_order`** — frozen per-student order so chunks are stable across sessions:
+- `student_id uuid` (= auth.uid())
+- `word_id uuid`
+- `position int`
+- PK `(student_id, word_id)`, index on `(student_id, position)`
+- RLS: select/insert/delete own rows.
 
-## UI: `src/routes/admin.upload.tsx`
-- Replace single textarea hint to show the new "tier word" format with examples.
-- Parse function: split on newlines → for each line split on whitespace/comma → first token = tier, rest joined as word/phrase. Lowercase word. Dedupe by `(tier, word)`. Show count per tier in a small summary row before enriching.
-- Review table gets a new **Tier** column (small colored badge: red/orange/green/purple/blue matching the user's emoji legend) editable via a `<Select>`.
-- `saveAll` includes `tier` in the insert payload.
+When new words are added by admin later, we append them at the end (next available `position`) on first load.
 
-## Visual tier legend
-Small legend block above the textarea using the colors from the user's spec:
-- 🔴 Tier 1 – Core high-frequency
-- 🟠 Tier 2 – Topic-specific
-- 🟢 Tier 3 – Reading/Listening
-- 🟣 Tier 4 – Lower priority
-- 🔵 Phrases – Phrasal verbs
+**`study_progress`** — tracks the suggested current chunk:
+- `student_id uuid PK`
+- `current_chunk int default 1`
+- `chunk_size int default 10`
+- `updated_at timestamptz`
+- RLS: own row only.
+
+**`chunk_attempts`** — log each quiz attempt:
+- `id uuid PK`, `student_id uuid`, `chunk_index int null`, `kind text` ('chunk' | 'weekly' | 'monthly'), `score int`, `total int`, `taken_at timestamptz default now()`
+- RLS: insert/select own.
+
+Per-question hits stay in existing `quiz_results`.
+
+## New helper: `src/lib/chunks.ts`
+
+- `ensureWordOrder(studentId)` — if no rows exist, build order: shuffle within each tier (tier1, tier2, tier3, tier4, phrases, then null-tier), insert with sequential `position`. If rows exist but new words appeared, append them at the end.
+- `getChunks(studentId)` → `Word[][]` of size 10.
+- `getProgress(studentId)` / `setCurrentChunk(studentId, n)`.
+- `buildChunkQuiz(chunks, currentIdx)` — chunk 1: 10 from chunk 1; chunk N: 7 random from current + 3 random from previous.
+- `buildPeriodicQuiz(studentId, kind)` — pull words touched in last 7/30 days (via `word_status.updated_at`), weight low mastery first, sample 10. Falls back gracefully if <10.
+
+## UI changes
+
+### `src/routes/study.index.tsx`
+Replace the 3 generic tiles with a chunk-aware layout:
+- **Progress strip**: segmented bar of all chunks (done / current / upcoming), small label "Chunk 3 of 12".
+- **Primary card**: "Chunk 3 — 10 words" with two CTAs:
+  - "Study chunk" → `/study/flashcards?chunk=3`
+  - "Take chunk quiz" → `/study/quiz?mode=chunk&chunk=3`
+- **Other chunks**: collapsible list to jump to any chunk (no gating).
+- **Review tiles**: "Weekly review" and "Monthly review" → `/study/quiz?mode=weekly|monthly`. Disabled with hint if fewer than 4 eligible words.
+- Keep existing mastery pill bar.
+
+### `src/routes/study.flashcards.tsx`
+- Read `?chunk=N` (default = current). Load only that chunk's 10 words.
+- Header shows "Chunk N · 10 cards" plus a small "Free study" toggle that flips back to the existing all-words+filter mode for users who want to browse.
+- Done screen primary CTA: **"Take chunk N quiz"** → `/study/quiz?mode=chunk&chunk=N`.
+
+### `src/routes/study.quiz.tsx`
+- Read `?mode=chunk|weekly|monthly` and `?chunk=N`.
+- Build questions via the matching helper. Same UI as today.
+- On finish:
+  - Always insert a row into `chunk_attempts`.
+  - For `mode=chunk` with `N === currentChunk`: bump `study_progress.current_chunk` to `N+1` (capped at total chunks).
+  - Result screen shows score + new CTAs:
+    - chunk → "Study chunk N+1" / "Retry chunk N quiz"
+    - weekly/monthly → "Back to study"
+
+### `src/routes/study.list.tsx`
+Stretch: show a small "Chunk N" badge per word (uses `student_word_order`).
+
+## Edge cases
+
+- **<10 words total**: chunk system disables itself; home page falls back to today's "free study + quiz of all words" tiles with a notice "Add more words to unlock chunks".
+- **Final chunk has <10 words**: keep partial; chunk quiz uses what's available + top up from previous chunk.
+- **Periodic quiz with <4 eligible words**: tile disabled with explanation.
+- **Admin edits/disables words after order is built**: order helper filters out missing/inactive ids on read; chunk sizes can shrink — render gracefully.
+- **Pass threshold**: not used (no gating). Score is purely informational + recorded.
 
 ## Files
-- **Migration**: add `tier` column + validation trigger + index on `words`.
-- **Edit**: `supabase/functions/enrich-words/index.ts` (new input shape, tier in output, phrase POS rule).
-- **Edit**: `src/routes/admin.upload.tsx` (parser, legend, tier column in review table, save payload).
 
-## Out of scope (this round)
-- Filtering study lists / quizzes by tier.
-- Backfilling tier on existing words.
-- Updating the image-extraction flow — it stays unchanged; tier remains null for those.
+- New migration: `student_word_order`, `study_progress`, `chunk_attempts` + RLS.
+- New: `src/lib/chunks.ts`
+- Edit: `src/routes/study.index.tsx`, `src/routes/study.flashcards.tsx`, `src/routes/study.quiz.tsx`
+- Optional small edit: `src/routes/study.list.tsx`
+
+## Out of scope (future)
+
+- True spaced-repetition scheduling (SM-2 / Leitner).
+- Email or push reminders for weekly/monthly quizzes.
+- Admin UI to tune chunk size.
