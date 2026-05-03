@@ -11,11 +11,15 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as StudyRouteImport } from './routes/study'
 import { Route as AuthRouteImport } from './routes/auth'
+import { Route as AdminRouteImport } from './routes/admin'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as StudyIndexRouteImport } from './routes/study.index'
+import { Route as AdminIndexRouteImport } from './routes/admin.index'
 import { Route as StudyQuizRouteImport } from './routes/study.quiz'
 import { Route as StudyListRouteImport } from './routes/study.list'
 import { Route as StudyFlashcardsRouteImport } from './routes/study.flashcards'
+import { Route as AdminWordsRouteImport } from './routes/admin.words'
+import { Route as AdminProgressRouteImport } from './routes/admin.progress'
 
 const StudyRoute = StudyRouteImport.update({
   id: '/study',
@@ -27,6 +31,11 @@ const AuthRoute = AuthRouteImport.update({
   path: '/auth',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AdminRoute = AdminRouteImport.update({
+  id: '/admin',
+  path: '/admin',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
@@ -36,6 +45,11 @@ const StudyIndexRoute = StudyIndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => StudyRoute,
+} as any)
+const AdminIndexRoute = AdminIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => AdminRoute,
 } as any)
 const StudyQuizRoute = StudyQuizRouteImport.update({
   id: '/quiz',
@@ -52,65 +66,98 @@ const StudyFlashcardsRoute = StudyFlashcardsRouteImport.update({
   path: '/flashcards',
   getParentRoute: () => StudyRoute,
 } as any)
+const AdminWordsRoute = AdminWordsRouteImport.update({
+  id: '/words',
+  path: '/words',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminProgressRoute = AdminProgressRouteImport.update({
+  id: '/progress',
+  path: '/progress',
+  getParentRoute: () => AdminRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/admin': typeof AdminRouteWithChildren
   '/auth': typeof AuthRoute
   '/study': typeof StudyRouteWithChildren
+  '/admin/progress': typeof AdminProgressRoute
+  '/admin/words': typeof AdminWordsRoute
   '/study/flashcards': typeof StudyFlashcardsRoute
   '/study/list': typeof StudyListRoute
   '/study/quiz': typeof StudyQuizRoute
+  '/admin/': typeof AdminIndexRoute
   '/study/': typeof StudyIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
+  '/admin/progress': typeof AdminProgressRoute
+  '/admin/words': typeof AdminWordsRoute
   '/study/flashcards': typeof StudyFlashcardsRoute
   '/study/list': typeof StudyListRoute
   '/study/quiz': typeof StudyQuizRoute
+  '/admin': typeof AdminIndexRoute
   '/study': typeof StudyIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/admin': typeof AdminRouteWithChildren
   '/auth': typeof AuthRoute
   '/study': typeof StudyRouteWithChildren
+  '/admin/progress': typeof AdminProgressRoute
+  '/admin/words': typeof AdminWordsRoute
   '/study/flashcards': typeof StudyFlashcardsRoute
   '/study/list': typeof StudyListRoute
   '/study/quiz': typeof StudyQuizRoute
+  '/admin/': typeof AdminIndexRoute
   '/study/': typeof StudyIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/admin'
     | '/auth'
     | '/study'
+    | '/admin/progress'
+    | '/admin/words'
     | '/study/flashcards'
     | '/study/list'
     | '/study/quiz'
+    | '/admin/'
     | '/study/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
     | '/auth'
+    | '/admin/progress'
+    | '/admin/words'
     | '/study/flashcards'
     | '/study/list'
     | '/study/quiz'
+    | '/admin'
     | '/study'
   id:
     | '__root__'
     | '/'
+    | '/admin'
     | '/auth'
     | '/study'
+    | '/admin/progress'
+    | '/admin/words'
     | '/study/flashcards'
     | '/study/list'
     | '/study/quiz'
+    | '/admin/'
     | '/study/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  AdminRoute: typeof AdminRouteWithChildren
   AuthRoute: typeof AuthRoute
   StudyRoute: typeof StudyRouteWithChildren
 }
@@ -131,6 +178,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/admin': {
+      id: '/admin'
+      path: '/admin'
+      fullPath: '/admin'
+      preLoaderRoute: typeof AdminRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/': {
       id: '/'
       path: '/'
@@ -144,6 +198,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/study/'
       preLoaderRoute: typeof StudyIndexRouteImport
       parentRoute: typeof StudyRoute
+    }
+    '/admin/': {
+      id: '/admin/'
+      path: '/'
+      fullPath: '/admin/'
+      preLoaderRoute: typeof AdminIndexRouteImport
+      parentRoute: typeof AdminRoute
     }
     '/study/quiz': {
       id: '/study/quiz'
@@ -166,8 +227,36 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof StudyFlashcardsRouteImport
       parentRoute: typeof StudyRoute
     }
+    '/admin/words': {
+      id: '/admin/words'
+      path: '/words'
+      fullPath: '/admin/words'
+      preLoaderRoute: typeof AdminWordsRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/progress': {
+      id: '/admin/progress'
+      path: '/progress'
+      fullPath: '/admin/progress'
+      preLoaderRoute: typeof AdminProgressRouteImport
+      parentRoute: typeof AdminRoute
+    }
   }
 }
+
+interface AdminRouteChildren {
+  AdminProgressRoute: typeof AdminProgressRoute
+  AdminWordsRoute: typeof AdminWordsRoute
+  AdminIndexRoute: typeof AdminIndexRoute
+}
+
+const AdminRouteChildren: AdminRouteChildren = {
+  AdminProgressRoute: AdminProgressRoute,
+  AdminWordsRoute: AdminWordsRoute,
+  AdminIndexRoute: AdminIndexRoute,
+}
+
+const AdminRouteWithChildren = AdminRoute._addFileChildren(AdminRouteChildren)
 
 interface StudyRouteChildren {
   StudyFlashcardsRoute: typeof StudyFlashcardsRoute
@@ -187,6 +276,7 @@ const StudyRouteWithChildren = StudyRoute._addFileChildren(StudyRouteChildren)
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  AdminRoute: AdminRouteWithChildren,
   AuthRoute: AuthRoute,
   StudyRoute: StudyRouteWithChildren,
 }
