@@ -8,6 +8,8 @@ export type StageMapProps = {
   starsByStage: Record<number, 0 | 1 | 2 | 3>;
   /** World (DB tier value) of each stage's first word, used for color band */
   tierByStage?: (string | null)[];
+  /** Active world key, passed through to stage links so quizzes/flashcards stay scoped */
+  world?: string;
 };
 
 const TIER_BAND: Record<string, string> = {
@@ -35,7 +37,7 @@ function StarRow({ stars }: { stars: 0 | 1 | 2 | 3 }) {
   );
 }
 
-export function StageMap({ total, currentStage, starsByStage, tierByStage }: StageMapProps) {
+export function StageMap({ total, currentStage, starsByStage, tierByStage, world }: StageMapProps) {
   const nodes = Array.from({ length: total }, (_, i) => i + 1);
   return (
     <div className="relative py-2">
@@ -59,7 +61,7 @@ export function StageMap({ total, currentStage, starsByStage, tierByStage }: Sta
               <div className={cn("w-[88%] sm:w-[72%]", lean)}>
                 <Link
                   to="/study/flashcards"
-                  search={{ mission: n }}
+                  search={{ mission: n, world }}
                   className={cn(
                     "group relative flex items-center gap-3 rounded-2xl border bg-gradient-to-br p-3 shadow-card transition hover:scale-[1.01] hover:shadow-glow",
                     band,
