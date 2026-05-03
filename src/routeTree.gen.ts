@@ -19,6 +19,7 @@ import { Route as StudyQuizRouteImport } from './routes/study.quiz'
 import { Route as StudyListRouteImport } from './routes/study.list'
 import { Route as StudyFlashcardsRouteImport } from './routes/study.flashcards'
 import { Route as AdminWordsRouteImport } from './routes/admin.words'
+import { Route as AdminUploadRouteImport } from './routes/admin.upload'
 import { Route as AdminProgressRouteImport } from './routes/admin.progress'
 
 const StudyRoute = StudyRouteImport.update({
@@ -71,6 +72,11 @@ const AdminWordsRoute = AdminWordsRouteImport.update({
   path: '/words',
   getParentRoute: () => AdminRoute,
 } as any)
+const AdminUploadRoute = AdminUploadRouteImport.update({
+  id: '/upload',
+  path: '/upload',
+  getParentRoute: () => AdminRoute,
+} as any)
 const AdminProgressRoute = AdminProgressRouteImport.update({
   id: '/progress',
   path: '/progress',
@@ -83,6 +89,7 @@ export interface FileRoutesByFullPath {
   '/auth': typeof AuthRoute
   '/study': typeof StudyRouteWithChildren
   '/admin/progress': typeof AdminProgressRoute
+  '/admin/upload': typeof AdminUploadRoute
   '/admin/words': typeof AdminWordsRoute
   '/study/flashcards': typeof StudyFlashcardsRoute
   '/study/list': typeof StudyListRoute
@@ -94,6 +101,7 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
   '/admin/progress': typeof AdminProgressRoute
+  '/admin/upload': typeof AdminUploadRoute
   '/admin/words': typeof AdminWordsRoute
   '/study/flashcards': typeof StudyFlashcardsRoute
   '/study/list': typeof StudyListRoute
@@ -108,6 +116,7 @@ export interface FileRoutesById {
   '/auth': typeof AuthRoute
   '/study': typeof StudyRouteWithChildren
   '/admin/progress': typeof AdminProgressRoute
+  '/admin/upload': typeof AdminUploadRoute
   '/admin/words': typeof AdminWordsRoute
   '/study/flashcards': typeof StudyFlashcardsRoute
   '/study/list': typeof StudyListRoute
@@ -123,6 +132,7 @@ export interface FileRouteTypes {
     | '/auth'
     | '/study'
     | '/admin/progress'
+    | '/admin/upload'
     | '/admin/words'
     | '/study/flashcards'
     | '/study/list'
@@ -134,6 +144,7 @@ export interface FileRouteTypes {
     | '/'
     | '/auth'
     | '/admin/progress'
+    | '/admin/upload'
     | '/admin/words'
     | '/study/flashcards'
     | '/study/list'
@@ -147,6 +158,7 @@ export interface FileRouteTypes {
     | '/auth'
     | '/study'
     | '/admin/progress'
+    | '/admin/upload'
     | '/admin/words'
     | '/study/flashcards'
     | '/study/list'
@@ -234,6 +246,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminWordsRouteImport
       parentRoute: typeof AdminRoute
     }
+    '/admin/upload': {
+      id: '/admin/upload'
+      path: '/upload'
+      fullPath: '/admin/upload'
+      preLoaderRoute: typeof AdminUploadRouteImport
+      parentRoute: typeof AdminRoute
+    }
     '/admin/progress': {
       id: '/admin/progress'
       path: '/progress'
@@ -246,12 +265,14 @@ declare module '@tanstack/react-router' {
 
 interface AdminRouteChildren {
   AdminProgressRoute: typeof AdminProgressRoute
+  AdminUploadRoute: typeof AdminUploadRoute
   AdminWordsRoute: typeof AdminWordsRoute
   AdminIndexRoute: typeof AdminIndexRoute
 }
 
 const AdminRouteChildren: AdminRouteChildren = {
   AdminProgressRoute: AdminProgressRoute,
+  AdminUploadRoute: AdminUploadRoute,
   AdminWordsRoute: AdminWordsRoute,
   AdminIndexRoute: AdminIndexRoute,
 }
