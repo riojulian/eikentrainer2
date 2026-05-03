@@ -2,7 +2,6 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import { useAuth } from "@/lib/auth";
 import {
-  fetchActiveWords,
   fetchStatuses,
   setMastery,
   MASTERY_LABELS,
@@ -15,8 +14,18 @@ import { Shuffle, Check, RotateCcw, ChevronLeft, SkipForward, Keyboard, Undo2 } 
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
+import { ensureWordOrder, chunkize, CHUNK_SIZE } from "@/lib/chunks";
 
 export const Route = createFileRoute("/study/flashcards")({
+  validateSearch: (s: Record<string, unknown>) => {
+    const chunkRaw = s.chunk;
+    const chunk = typeof chunkRaw === "number" ? chunkRaw : typeof chunkRaw === "string" ? Number(chunkRaw) : undefined;
+    const free = s.free === true || s.free === "1" || s.free === "true";
+    return {
+      chunk: chunk && Number.isFinite(chunk) && chunk > 0 ? chunk : undefined,
+      free,
+    } as { chunk?: number; free: boolean };
+  },
   component: Flashcards,
 });
 
@@ -42,6 +51,9 @@ function nextOnKnown(curr: MasteryOrUnseen): Mastery {
 
 function Flashcards() {
   const { user } = useAuth();
+  const search = Route.useSearch();
+  const chunkParam = search.chunk;
+  const freeMode = search.free || chunkParam === undefined;
   const [words, setWords] = useState<Word[]>([]);
   const [statuses, setStatuses] = useState<Record<string, MasteryOrUnseen>>({});
   const [filter, setFilter] = useState<"all" | "learning" | "known" | "mastered" | "unseen">("all");
@@ -55,11 +67,16 @@ function Flashcards() {
   useEffect(() => {
     if (!user) return;
     (async () => {
-      const [w, s] = await Promise.all([fetchActiveWords(), fetchStatuses(user.id)]);
-      setWords(w);
+      const [ordered, s] = await Promise.all([ensureWordOrder(user.id), fetchStatuses(user.id)]);
+      if (chunkParam && !freeMode) {
+        const chunks = chunkize(ordered);
+        setWords(chunks[chunkParam - 1] ?? []);
+      } else {
+        setWords(ordered);
+      }
       setStatuses(s);
     })();
-  }, [user]);
+  }, [user, chunkParam, freeMode]);
 
   const filtered = useMemo(() => {
     return words.filter((w) => {
@@ -71,7 +88,7 @@ function Flashcards() {
       return true;
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [words, filter]);
+  }, [words, filter, freeMode]);
 
   useEffect(() => {
     setOrder(filtered.map((w) => w.id));
@@ -210,8 +227,15 @@ function Flashcards() {
           <span className="text-rose font-medium">{session.review} still learning</span>.
         </p>
         <div className="flex flex-wrap gap-3 justify-center">
+          {chunkParam && !freeMode && (
+            <Button asChild>
+              <Link to="/study/quiz" search={{ mode: "chunk" as const, chunk: chunkParam }}>
+                <Trophy className="h-4 w-4 mr-1" /> Take chunk {chunkParam} quiz
+              </Link>
+            </Button>
+          )}
           {session.review > 0 && (
-            <Button onClick={() => { setFilter("learning"); }}>
+            <Button variant="outline" onClick={() => { setFilter("learning"); }}>
               <RotateCcw className="h-4 w-4 mr-1" /> Review the {session.review} again
             </Button>
           )}
@@ -233,8 +257,16 @@ function Flashcards() {
         <Button variant="ghost" size="icon" onClick={prev} disabled={idx === 0} aria-label="Previous card">
           <ChevronLeft className="h-5 w-5" />
         </Button>
-        <div className="text-sm text-muted-foreground tabular-nums">{idx + 1} / {order.length}</div>
+        <div className="text-sm text-muted-foreground tabular-nums">
+          {chunkParam && !freeMode ? <span className="mr-2 rounded-full bg-gold/15 text-gold px-2 py-0.5 text-xs font-medium">Chunk {chunkParam}</span> : null}
+          {idx + 1} / {order.length}
+        </div>
         <div className="ml-auto flex items-center gap-2">
+          {chunkParam && !freeMode ? (
+            <Button asChild variant="ghost" size="sm">
+              <Link to="/study/flashcards" search={{ free: true }}>Free study</Link>
+            </Button>
+          ) : null}
           <Select value={filter} onValueChange={(v) => setFilter(v as typeof filter)}>
             <SelectTrigger className="w-36 h-9"><SelectValue /></SelectTrigger>
             <SelectContent>
