@@ -15,28 +15,28 @@ import { Button } from "@/components/ui/button";
 import { ArrowUp, ArrowDown, Trophy } from "lucide-react";
 import {
   ensureWordOrder,
-  chunkize,
-  buildChunkQuiz,
+  missionize,
+  buildMissionQuiz,
   buildPeriodicQuiz,
   recordAttempt,
   getProgress,
-  setCurrentChunk,
-  CHUNK_SIZE,
-} from "@/lib/chunks";
+  setCurrentMission,
+  MISSION_SIZE,
+} from "@/lib/missions";
 
-type Mode = "chunk" | "weekly" | "monthly";
+type Mode = "mission" | "weekly" | "monthly";
 
 export const Route = createFileRoute("/study/quiz")({
   validateSearch: (s: Record<string, unknown>) => {
     const modeRaw = s.mode;
     const mode: Mode | undefined =
-      modeRaw === "chunk" || modeRaw === "weekly" || modeRaw === "monthly" ? modeRaw : undefined;
-    const chunkRaw = s.chunk;
-    const chunk = typeof chunkRaw === "number" ? chunkRaw : typeof chunkRaw === "string" ? Number(chunkRaw) : undefined;
+      modeRaw === "mission" || modeRaw === "weekly" || modeRaw === "monthly" ? modeRaw : undefined;
+    const missionRaw = s.mission;
+    const mission = typeof missionRaw === "number" ? missionRaw : typeof missionRaw === "string" ? Number(missionRaw) : undefined;
     return {
       mode,
-      chunk: chunk && Number.isFinite(chunk) && chunk > 0 ? chunk : undefined,
-    } as { mode?: Mode; chunk?: number };
+      mission: mission && Number.isFinite(mission) && mission > 0 ? mission : undefined,
+    } as { mode?: Mode; mission?: number };
   },
   component: QuizPage,
 });
@@ -55,7 +55,7 @@ function shuffle<T>(arr: T[]) {
 
 function buildQuizQuestions(pool: Word[], allWords: Word[]): Q[] {
   const usable = pool.filter((w) => w.example_sentence);
-  return usable.slice(0, CHUNK_SIZE).map((w) => {
+  return usable.slice(0, MISSION_SIZE).map((w) => {
     const distractors = shuffle(allWords.filter((x) => x.id !== w.id)).slice(0, 3).map((x) => x.word);
     const options = shuffle([w.word, ...distractors]);
     const sentenceHtml = (w.example_sentence ?? "").replace(/<strong>.*?<\/strong>/i, "<strong>______</strong>");
@@ -66,12 +66,12 @@ function buildQuizQuestions(pool: Word[], allWords: Word[]): Q[] {
 function QuizPage() {
   const { user } = useAuth();
   const search = Route.useSearch();
-  const mode: Mode = search.mode ?? "chunk";
-  const chunkParam = search.chunk;
+  const mode: Mode = search.mode ?? "mission";
+  const missionParam = search.mission;
 
   const [questions, setQuestions] = useState<Q[] | null>(null);
   const [statuses, setStatuses] = useState<Record<string, MasteryOrUnseen>>({});
-  const [chunkIndex, setChunkIndex] = useState<number | null>(null);
+  const [missionIndex, setChunkIndex] = useState<number | null>(null);
   const [idx, setIdx] = useState(0);
   const [picked, setPicked] = useState<string | null>(null);
   const [score, setScore] = useState(0);
@@ -85,14 +85,14 @@ function QuizPage() {
       const [allWords, st] = await Promise.all([fetchActiveWords(), fetchStatuses(user.id)]);
       setStatuses(st);
 
-      if (mode === "chunk") {
+      if (mode === "mission") {
         const ordered = await ensureWordOrder(user.id);
-        const chunks = chunkize(ordered);
+        const missions = missionize(ordered);
         const progress = await getProgress(user.id);
-        const idxToUse = chunkParam ?? progress.current_chunk;
+        const idxToUse = missionParam ?? progress.current_mission;
         setChunkIndex(idxToUse);
-        if (chunks.length === 0) { setQuestions([]); return; }
-        const pool = buildChunkQuiz(chunks, idxToUse);
+        if (missions.length === 0) { setQuestions([]); return; }
+        const pool = buildMissionQuiz(missions, idxToUse);
         setQuestions(buildQuizQuestions(pool, allWords));
       } else {
         const days = mode === "weekly" ? 7 : 30;
@@ -101,7 +101,7 @@ function QuizPage() {
         setQuestions(buildQuizQuestions(pool, allWords));
       }
     })();
-  }, [user, mode, chunkParam]);
+  }, [user, mode, missionParam]);
 
   if (!questions) return <main className="p-10 text-center text-muted-foreground">Loading…</main>;
 
@@ -110,8 +110,8 @@ function QuizPage() {
       <main className="mx-auto max-w-xl px-4 py-6 text-center">
         <h1 className="font-display text-3xl">Not enough words yet</h1>
         <p className="text-muted-foreground mt-2">
-          {mode === "chunk"
-            ? "Need at least a few words with example sentences in this chunk."
+          {mode === "mission"
+            ? "Need at least a few words with example sentences in this mission."
             : `Study at least 4 words in the last ${mode === "weekly" ? "7" : "30"} days to take this review.`}
         </p>
         <Button asChild className="mt-6"><Link to="/study">Back to study</Link></Button>
@@ -122,12 +122,12 @@ function QuizPage() {
   if (done) {
     if (!recorded && user) {
       setRecorded(true);
-      recordAttempt(user.id, mode, score, questions.length, mode === "chunk" ? chunkIndex : null).catch(() => {});
-      // Advance current chunk if they just finished the suggested chunk
-      if (mode === "chunk" && chunkIndex) {
+      recordAttempt(user.id, mode, score, questions.length, mode === "mission" ? missionIndex : null).catch(() => {});
+      // Advance current mission if they just finished the suggested mission
+      if (mode === "mission" && missionIndex) {
         getProgress(user.id).then((p) => {
-          if (chunkIndex === p.current_chunk) {
-            setCurrentChunk(user.id, chunkIndex + 1).catch(() => {});
+          if (missionIndex === p.current_mission) {
+            setCurrentMission(user.id, missionIndex + 1).catch(() => {});
           }
         });
       }
@@ -163,16 +163,16 @@ function QuizPage() {
         </div>
 
         <div className="mt-8 flex flex-wrap justify-center gap-3">
-          {mode === "chunk" && chunkIndex ? (
+          {mode === "mission" && missionIndex ? (
             <>
               <Button asChild>
-                <Link to="/study/flashcards" search={{ chunk: chunkIndex + 1 }}>
-                  Study chunk {chunkIndex + 1}
+                <Link to="/study/flashcards" search={{ mission: missionIndex + 1 }}>
+                  Study mission {missionIndex + 1}
                 </Link>
               </Button>
               <Button variant="outline" asChild>
-                <Link to="/study/quiz" search={{ mode: "chunk" as const, chunk: chunkIndex }} reloadDocument>
-                  Retry chunk {chunkIndex} quiz
+                <Link to="/study/quiz" search={{ mode: "mission" as const, mission: missionIndex }} reloadDocument>
+                  Retry mission {missionIndex} quiz
                 </Link>
               </Button>
             </>
@@ -208,8 +208,8 @@ function QuizPage() {
   };
 
   const headerLabel =
-    mode === "chunk" && chunkIndex
-      ? `Chunk ${chunkIndex} quiz`
+    mode === "mission" && missionIndex
+      ? `Mission ${missionIndex} quiz`
       : mode === "weekly"
       ? "Weekly review"
       : mode === "monthly"

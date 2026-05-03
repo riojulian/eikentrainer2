@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import { useAuth } from "@/lib/auth";
 import { fetchStatuses, MASTERY_LABELS, MASTERY_BG, type Mastery } from "@/lib/words";
 import { BookOpen, ScrollText, Trophy, CalendarDays, CalendarRange, ChevronRight } from "lucide-react";
-import { ensureWordOrder, chunkize, getProgress, CHUNK_SIZE } from "@/lib/chunks";
+import { ensureWordOrder, missionize, getProgress, MISSION_SIZE } from "@/lib/missions";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
@@ -19,11 +19,11 @@ function StudyHome() {
     tiers: { 0: 0, 1: 0, 2: 0, 3: 0 },
     unseen: 0,
   });
-  const [chunks, setChunks] = useState<string[][]>([]);
-  const [currentChunk, setCurrentChunk] = useState(1);
+  const [missions, setMissions] = useState<string[][]>([]);
+  const [currentMission, setCurrentMission] = useState(1);
   const [weeklyEligible, setWeeklyEligible] = useState(0);
   const [monthlyEligible, setMonthlyEligible] = useState(0);
-  const [showAllChunks, setShowAllChunks] = useState(false);
+  const [showAllMissions, setShowAllMissions] = useState(false);
 
   useEffect(() => {
     if (!user) return;
@@ -39,9 +39,9 @@ function StudyHome() {
         seen++;
       });
       setStats({ total: words.length, tiers, unseen: words.length - seen });
-      setChunks(chunkize(words).map((c) => c.map((w) => w.id)));
-      const total = Math.max(1, Math.ceil(words.length / CHUNK_SIZE));
-      setCurrentChunk(Math.min(progress.current_chunk, total));
+      setMissions(missionize(words).map((c) => c.map((w) => w.id)));
+      const total = Math.max(1, Math.ceil(words.length / MISSION_SIZE));
+      setCurrentMission(Math.min(progress.current_mission, total));
 
       const wkSince = new Date(Date.now() - 7 * 86400000).toISOString();
       const moSince = new Date(Date.now() - 30 * 86400000).toISOString();
@@ -63,8 +63,8 @@ function StudyHome() {
     { key: 3, count: stats.tiers[3], cls: MASTERY_BG[3], label: MASTERY_LABELS[3] },
   ];
 
-  const totalChunks = chunks.length;
-  const hasChunks = totalChunks > 0 && stats.total >= CHUNK_SIZE;
+  const totalMissions = missions.length;
+  const hasMissions = totalMissions > 0 && stats.total >= MISSION_SIZE;
 
   return (
     <main className="mx-auto max-w-3xl px-4 py-6">
@@ -104,18 +104,18 @@ function StudyHome() {
         )}
       </div>
 
-      {hasChunks ? (
+      {hasMissions ? (
         <>
           <div className="mt-4 rounded-2xl border bg-card p-4 shadow-card">
             <div className="flex items-baseline justify-between">
               <div className="text-sm text-muted-foreground">Your progress</div>
-              <div className="text-sm">Chunk <span className="font-display text-lg">{currentChunk}</span> of {totalChunks}</div>
+              <div className="text-sm">Mission <span className="font-display text-lg">{currentMission}</span> of {totalMissions}</div>
             </div>
             <div className="mt-3 flex w-full gap-0.5 overflow-hidden rounded-full">
-              {chunks.map((_, i) => {
+              {missions.map((_, i) => {
                 const n = i + 1;
-                const cls = n < currentChunk ? "bg-sage" : n === currentChunk ? "bg-gold" : "bg-muted";
-                return <div key={n} className={cn("h-2 flex-1", cls)} title={`Chunk ${n}`} />;
+                const cls = n < currentMission ? "bg-sage" : n === currentMission ? "bg-gold" : "bg-muted";
+                return <div key={n} className={cn("h-2 flex-1", cls)} title={`Mission ${n}`} />;
               })}
             </div>
           </div>
@@ -123,21 +123,21 @@ function StudyHome() {
           <div className="mt-4 rounded-2xl border bg-card p-5 shadow-card">
             <div className="flex items-center justify-between">
               <div>
-                <div className="text-xs uppercase tracking-widest text-gold">Current chunk</div>
-                <div className="font-display text-2xl mt-0.5">Chunk {currentChunk}</div>
-                <div className="text-sm text-muted-foreground">{chunks[currentChunk - 1]?.length ?? 0} words</div>
+                <div className="text-xs uppercase tracking-widest text-gold">Current mission</div>
+                <div className="font-display text-2xl mt-0.5">Mission {currentMission}</div>
+                <div className="text-sm text-muted-foreground">{missions[currentMission - 1]?.length ?? 0} words</div>
               </div>
               <BookOpen className="h-8 w-8 text-gold" />
             </div>
             <div className="mt-4 grid gap-2 sm:grid-cols-2">
               <Button asChild size="lg" className="h-12">
-                <Link to="/study/flashcards" search={{ chunk: currentChunk }}>
-                  <BookOpen className="h-4 w-4 mr-1" /> Study chunk
+                <Link to="/study/flashcards" search={{ mission: currentMission }}>
+                  <BookOpen className="h-4 w-4 mr-1" /> Study mission
                 </Link>
               </Button>
               <Button asChild size="lg" variant="outline" className="h-12">
-                <Link to="/study/quiz" search={{ mode: "chunk", chunk: currentChunk }}>
-                  <Trophy className="h-4 w-4 mr-1" /> Take chunk quiz
+                <Link to="/study/quiz" search={{ mode: "mission", mission: currentMission }}>
+                  <Trophy className="h-4 w-4 mr-1" /> Take mission quiz
                 </Link>
               </Button>
             </div>
@@ -163,22 +163,22 @@ function StudyHome() {
           <div className="mt-4 rounded-2xl border bg-card p-4 shadow-card">
             <button
               type="button"
-              onClick={() => setShowAllChunks((s) => !s)}
+              onClick={() => setShowAllMissions((s) => !s)}
               className="flex w-full items-center justify-between text-left"
             >
-              <div className="text-sm font-medium">Jump to another chunk</div>
-              <ChevronRight className={cn("h-4 w-4 text-muted-foreground transition-transform", showAllChunks && "rotate-90")} />
+              <div className="text-sm font-medium">Jump to another mission</div>
+              <ChevronRight className={cn("h-4 w-4 text-muted-foreground transition-transform", showAllMissions && "rotate-90")} />
             </button>
-            {showAllChunks && (
+            {showAllMissions && (
               <div className="mt-3 grid gap-1.5 grid-cols-4 sm:grid-cols-6">
-                {chunks.map((_, i) => {
+                {missions.map((_, i) => {
                   const n = i + 1;
-                  const status = n < currentChunk ? "done" : n === currentChunk ? "current" : "upcoming";
+                  const status = n < currentMission ? "done" : n === currentMission ? "current" : "upcoming";
                   return (
                     <Link
                       key={n}
                       to="/study/flashcards"
-                      search={{ chunk: n }}
+                      search={{ mission: n }}
                       className={cn(
                         "rounded-lg border px-2 py-1.5 text-center text-sm transition hover:border-gold",
                         status === "done" && "bg-sage/15 border-sage/40",
@@ -205,7 +205,7 @@ function StudyHome() {
         </>
       ) : (
         <div className="mt-4 rounded-2xl border border-dashed bg-card p-6 text-center shadow-card">
-          <div className="font-display text-xl">Add at least {CHUNK_SIZE} words to unlock chunks</div>
+          <div className="font-display text-xl">Add at least {MISSION_SIZE} words to unlock missions</div>
           <p className="mt-1 text-sm text-muted-foreground">For now, you can browse and quiz freely.</p>
           <div className="mt-4 grid gap-3 grid-cols-3">
             {[
