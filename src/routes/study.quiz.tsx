@@ -2,14 +2,24 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { useAuth } from "@/lib/auth";
 import { supabase } from "@/integrations/supabase/client";
-import { fetchActiveWords, fetchStatuses, type Word } from "@/lib/words";
+import {
+  fetchActiveWords,
+  fetchStatuses,
+  applyQuizResult,
+  MASTERY_LABELS,
+  type Word,
+  type Mastery,
+  type MasteryOrUnseen,
+} from "@/lib/words";
 import { Button } from "@/components/ui/button";
+import { ArrowUp, ArrowDown, Trophy } from "lucide-react";
 
 export const Route = createFileRoute("/study/quiz")({
   component: QuizPage,
 });
 
 type Q = { word: Word; options: string[]; answer: string; sentenceHtml: string };
+type Outcome = { wordId: string; correct: boolean; before: MasteryOrUnseen; after: Mastery };
 
 function shuffle<T>(arr: T[]) {
   const a = [...arr];
@@ -34,18 +44,23 @@ function buildQuiz(pool: Word[], allWords: Word[]): Q[] {
 function QuizPage() {
   const { user } = useAuth();
   const [questions, setQuestions] = useState<Q[] | null>(null);
+  const [statuses, setStatuses] = useState<Record<string, MasteryOrUnseen>>({});
   const [idx, setIdx] = useState(0);
   const [picked, setPicked] = useState<string | null>(null);
   const [score, setScore] = useState(0);
   const [done, setDone] = useState(false);
+  const [outcomes, setOutcomes] = useState<Outcome[]>([]);
 
   useEffect(() => {
     if (!user) return;
     (async () => {
-      const [all, statuses] = await Promise.all([fetchActiveWords(), fetchStatuses(user.id)]);
-      const marked = all.filter((w) => statuses[w.id] === "known" || statuses[w.id] === "review");
-      if (marked.length < 4) { setQuestions([]); return; }
-      setQuestions(buildQuiz(marked, all));
+      const [all, st] = await Promise.all([fetchActiveWords(), fetchStatuses(user.id)]);
+      setStatuses(st);
+      // Pool = words the user has at least seen, otherwise fall back to all words
+      const seen = all.filter((w) => st[w.id] !== undefined && st[w.id] !== null);
+      const pool = seen.length >= 4 ? seen : all;
+      if (pool.filter((w) => w.example_sentence).length < 4) { setQuestions([]); return; }
+      setQuestions(buildQuiz(pool, all));
     })();
   }, [user]);
 
@@ -54,20 +69,44 @@ function QuizPage() {
   if (questions.length === 0) {
     return (
       <main className="mx-auto max-w-xl px-4 py-16 text-center">
-        <h1 className="font-display text-3xl">Study some words first</h1>
-        <p className="text-muted-foreground mt-2">Mark at least 4 words as Known or Review to unlock the quiz.</p>
+        <h1 className="font-display text-3xl">Not enough words yet</h1>
+        <p className="text-muted-foreground mt-2">Need at least 4 words with example sentences to run a quiz.</p>
         <Button asChild className="mt-6"><Link to="/study/flashcards">Open flashcards</Link></Button>
       </main>
     );
   }
 
   if (done) {
+    const movedUp = outcomes.filter((o) => o.after > (o.before ?? 0)).length;
+    const movedDown = outcomes.filter((o) => o.after < (o.before ?? 0)).length;
+    const reachedMastered = outcomes.filter((o) => o.after === 3 && o.before !== 3).length;
     const msg = score >= 8 ? "Brilliant!" : score >= 5 ? "Nice work!" : "Keep practicing — you've got this.";
     return (
       <main className="mx-auto max-w-xl px-4 py-16 text-center">
         <div className="text-6xl mb-4">{score >= 8 ? "🎉" : score >= 5 ? "✨" : "🌱"}</div>
         <h1 className="font-display text-4xl">{score} / {questions.length}</h1>
         <p className="text-muted-foreground mt-2">{msg}</p>
+
+        <div className="mt-8 rounded-2xl border bg-card p-5 shadow-card text-left">
+          <div className="text-sm font-medium mb-3">What changed</div>
+          <ul className="space-y-2 text-sm">
+            <li className="flex items-center gap-2">
+              <ArrowUp className="h-4 w-4 text-sage" />
+              <span>{movedUp} word{movedUp === 1 ? "" : "s"} moved up</span>
+            </li>
+            <li className="flex items-center gap-2">
+              <ArrowDown className="h-4 w-4 text-rose" />
+              <span>{movedDown} word{movedDown === 1 ? "" : "s"} stepped back</span>
+            </li>
+            {reachedMastered > 0 && (
+              <li className="flex items-center gap-2">
+                <Trophy className="h-4 w-4 text-gold" />
+                <span>{reachedMastered} reached <span className="text-gold font-medium">{MASTERY_LABELS[3]}</span></span>
+              </li>
+            )}
+          </ul>
+        </div>
+
         <div className="mt-8 flex justify-center gap-3">
           <Button onClick={() => location.reload()}>Try again</Button>
           <Button variant="outline" asChild><Link to="/study">Back</Link></Button>
@@ -79,13 +118,21 @@ function QuizPage() {
   const q = questions[idx];
 
   const pick = async (opt: string) => {
-    if (picked) return;
+    if (picked || !user) return;
     setPicked(opt);
     const correct = opt === q.answer;
     if (correct) setScore((s) => s + 1);
-    if (user) {
-      supabase.from("quiz_results").insert({ student_id: user.id, word_id: q.word.id, correct }).then(() => {});
-    }
+
+    // record quiz result
+    supabase.from("quiz_results").insert({ student_id: user.id, word_id: q.word.id, correct }).then(() => {});
+
+    // update mastery
+    const before = statuses[q.word.id];
+    applyQuizResult(user.id, q.word.id, before, correct).then((after) => {
+      setStatuses((p) => ({ ...p, [q.word.id]: after }));
+      setOutcomes((p) => [...p, { wordId: q.word.id, correct, before, after }]);
+    });
+
     setTimeout(() => {
       if (idx + 1 >= questions.length) setDone(true);
       else { setIdx((i) => i + 1); setPicked(null); }
