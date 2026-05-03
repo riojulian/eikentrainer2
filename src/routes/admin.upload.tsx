@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -27,8 +27,8 @@ function UploadPage() {
   const [imageId, setImageId] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [rows, setRows] = useState<Extracted[]>([]);
-  const fileInputRef = React.useRef<HTMLInputElement>(null);
-  const cameraInputRef = React.useRef<HTMLInputElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const cameraInputRef = useRef<HTMLInputElement>(null);
 
   const onUpload = async () => {
     if (!file) return;
