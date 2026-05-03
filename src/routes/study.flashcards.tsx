@@ -321,14 +321,14 @@ function Flashcards() {
               onClick={() => rate("review")}
               className="h-14 text-base bg-rose text-rose-foreground hover:bg-rose/90"
             >
-              <RotateCcw className="h-5 w-5 mr-2" /> Still learning
+              <RotateCcw className="h-5 w-5 mr-2" /> 勉強中
             </Button>
             <Button
               size="lg"
               onClick={() => rate("known")}
               className="h-14 text-base bg-sage text-sage-foreground hover:bg-sage/90"
             >
-              <Check className="h-5 w-5 mr-2" /> I knew it
+              <Check className="h-5 w-5 mr-2" /> 分かった
             </Button>
           </div>
         )}
