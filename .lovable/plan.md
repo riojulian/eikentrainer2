@@ -1,35 +1,32 @@
 ## Goal
+Add a second upload mode to the admin upload page: **paste a list of words** (one per line, or separated by spaces/commas). The AI then fills in part of speech, simple-English definition, Japanese definition, example sentence, and category — same shape as the image flow.
 
-Replace the English mastery tier labels with Japanese across the app. The 4-tier scale and underlying numeric values (0–3) stay the same — only the display strings change.
+The existing **image upload** mode stays exactly as it is.
 
-## Proposed labels
+## Changes
 
+### 1. New edge function: `enrich-words`
+`supabase/functions/enrich-words/index.ts`
+- Input: `{ words: string[] }`
+- Calls Lovable AI (`google/gemini-2.5-pro`) using the same `save_words` tool schema and the same simple-English definition rules already in `extract-words` (CEFR A2–B1, ~15 words, no circular definitions, kid-friendly Japanese with appropriate kanji).
+- System prompt: "Enrich this given list of English words for a Japanese learner aged 10–17 (Eiken Pre-1 level)."
+- Returns `{ words: Extracted[] }` — exact same shape the UI already consumes, so the existing review/edit/save table works untouched.
 
-| Tier | English (current)    | Japanese (new) | Notes                                                                                                          |
-| ---- | -------------------- | -------------- | -------------------------------------------------------------------------------------------------------------- |
-| 0    | Still learning       | 勉強中            | "Studying" — short, fits the small pill                                                                        |
-| 1    | Understanding better | 分かり始めた         | "Sort of get it" — slightly tightened from まぁまぁわかった for present-tense consistency, kanji 分 to match the others |
-| 2    | I know it            | 分かった           | "Got it"                                                                                                       |
-| 3    | Mastered             | 完全に習得          | 完全に分かった                                                                                                        |
+### 2. Update `src/routes/admin.upload.tsx`
+- Add a `<Tabs>` at the top with two tabs:
+  - **From image** — current UI (file picker + camera + preview + extract-words). No changes.
+  - **From word list** — a `<Textarea>` "Paste words (one per line, or separated by spaces/commas)" + an **Enrich with AI** button.
+- Word-list flow:
+  - Split textarea on whitespace, commas, semicolons, newlines; lowercase; dedupe; drop empties.
+  - Call `enrich-words` with the array → populate the same editable `rows` state.
+  - `saveAll` works as-is, just without `source_image_id` when there's no image.
+- Both tabs share the same right-column review/edit/save UI.
 
-
-## Where the strings live
-
-A single source: `MASTERY_LABELS` in `src/lib/words.ts`. Every screen (dashboard, word list, quiz summary, flashcards, admin progress) reads from this map, so updating it once propagates everywhere — no per-screen edits needed.
-
-```ts
-// src/lib/words.ts
-export const MASTERY_LABELS: Record<Mastery, string> = {
-  0: "勉強中",
-  1: "分かり始めた",
-  2: "分かった",
-  3: "完全に習得",
-};
+## Result
+Paste:
 ```
-
-## Out of scope
-
-- Translating the rest of the UI (buttons, headers, filter dropdown placeholder, etc.). The mastery filter dropdown items will become Japanese automatically because they also read from `MASTERY_LABELS`, but surrounding labels like "Mastery level", "All mastery levels", "Unseen" stay English unless you ask.
-- Changing colors, ordering, or quiz logic.
-
-Confirm the tier-1 wording (まぁまぁ分かる vs. まぁまぁわかった) and whether to shorten tier 3, and I'll apply the change.
+ambiguous resilient
+mitigate, ubiquitous
+profound
+```
+→ Click **Enrich with AI** → rows appear pre-filled with simple-English definitions, Japanese, example, POS, category → edit if needed → **Save all**.
