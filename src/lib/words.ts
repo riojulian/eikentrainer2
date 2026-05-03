@@ -15,10 +15,10 @@ export type Mastery = 0 | 1 | 2 | 3;
 export type MasteryOrUnseen = Mastery | null;
 
 export const MASTERY_LABELS: Record<Mastery, string> = {
-  0: "Still learning",
-  1: "Understanding better",
-  2: "I know it",
-  3: "Mastered",
+  0: "勉強中",
+  1: "分かり始めた",
+  2: "分かった",
+  3: "完全に習得",
 };
 
 // Tailwind classes referencing existing tokens
