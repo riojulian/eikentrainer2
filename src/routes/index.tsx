@@ -9,8 +9,8 @@ export const Route = createFileRoute("/")({
 });
 
 function Index() {
-  const { user, role, loading } = useAuth();
-  if (loading) return null;
+  const { user, role, loading, roleLoading } = useAuth();
+  if (loading || (user && roleLoading)) return null;
   if (user) return <Navigate to={role === "admin" ? "/admin" : "/study"} />;
 
   return (
