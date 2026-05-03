@@ -1,11 +1,11 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
-import { Upload, Loader2, Trash2, Check } from "lucide-react";
+import { Upload, Loader2, Trash2, Check, Camera, ImagePlus } from "lucide-react";
 
 export const Route = createFileRoute("/admin/upload")({
   component: UploadPage,
@@ -27,6 +27,8 @@ function UploadPage() {
   const [imageId, setImageId] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [rows, setRows] = useState<Extracted[]>([]);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const cameraInputRef = useRef<HTMLInputElement>(null);
 
   const onUpload = async () => {
     if (!file) return;
@@ -77,7 +79,32 @@ function UploadPage() {
 
       <div className="rounded-xl border bg-card p-5 shadow-card space-y-3">
         <Input placeholder="Label, e.g. Mock Test p.138" value={label} onChange={(e) => setLabel(e.target.value)} />
-        <Input type="file" accept="image/*" onChange={(e) => setFile(e.target.files?.[0] ?? null)} />
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/*"
+          className="hidden"
+          onChange={(e) => setFile(e.target.files?.[0] ?? null)}
+        />
+        <input
+          ref={cameraInputRef}
+          type="file"
+          accept="image/*"
+          capture="environment"
+          className="hidden"
+          onChange={(e) => setFile(e.target.files?.[0] ?? null)}
+        />
+        <div className="flex flex-wrap gap-2">
+          <Button type="button" variant="outline" onClick={() => fileInputRef.current?.click()}>
+            <ImagePlus className="h-4 w-4 mr-1" /> Choose file
+          </Button>
+          <Button type="button" variant="outline" onClick={() => cameraInputRef.current?.click()}>
+            <Camera className="h-4 w-4 mr-1" /> Take picture
+          </Button>
+        </div>
+        {file ? (
+          <div className="text-xs text-muted-foreground truncate">Selected: {file.name}</div>
+        ) : null}
         <Button disabled={!file || busy} onClick={onUpload}>
           {busy ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <Upload className="h-4 w-4 mr-1" />} Upload & extract
         </Button>
