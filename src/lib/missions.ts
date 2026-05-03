@@ -4,6 +4,21 @@ import { fetchActiveWords, type Word } from "@/lib/words";
 export const MISSION_SIZE = 10;
 const TIER_ORDER = ["tier1", "tier2", "tier3", "tier4", "phrases"] as const;
 
+function orderKeysWithStart(startTier?: string | null): string[] {
+  const base = [...TIER_ORDER, "_null"];
+  if (!startTier) return base;
+  const idx = base.indexOf(startTier);
+  if (idx <= 0) return base;
+  return [...base.slice(idx), ...base.slice(0, idx)];
+}
+
+/** Wipe and rebuild the per-student word order. Used when starting tier changes. */
+export async function rebuildWordOrder(studentId: string, startTier?: string | null): Promise<Word[]> {
+  await supabase.from("student_word_order").delete().eq("student_id", studentId);
+  return ensureWordOrder(studentId, startTier);
+}
+
+
 function shuffle<T>(arr: T[]): T[] {
   const a = [...arr];
   for (let i = a.length - 1; i > 0; i--) {
@@ -19,7 +34,7 @@ function shuffle<T>(arr: T[]): T[] {
  * - Later: append any newly added words at the end (preserves existing positions).
  * Returns the ordered Word[].
  */
-export async function ensureWordOrder(studentId: string): Promise<Word[]> {
+export async function ensureWordOrder(studentId: string, startTier?: string | null): Promise<Word[]> {
   const [allWords, { data: existing }] = await Promise.all([
     fetchActiveWords(),
     supabase.from("student_word_order").select("word_id,position").eq("student_id", studentId),
@@ -37,7 +52,7 @@ export async function ensureWordOrder(studentId: string): Promise<Word[]> {
       const key = w.tier ?? "_null";
       (grouped[key] ||= []).push(id);
     }
-    const orderedKeys = [...TIER_ORDER, "_null"];
+    const orderedKeys = orderKeysWithStart(startTier);
     let nextPos = existing && existing.length > 0
       ? Math.max(...existing.map((r) => r.position)) + 1
       : 0;
