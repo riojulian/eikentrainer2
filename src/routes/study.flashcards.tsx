@@ -314,24 +314,29 @@ function Flashcards() {
         </Button>
         <div className="text-sm text-muted-foreground tabular-nums flex items-center gap-1.5 min-w-0 truncate">
           {missionParam && !freeMode ? (
-            <span className="text-foreground font-medium">{worldShort} · Stage {missionParam}</span>
-          ) : null}
-          <span>· {idx + 1}/{order.length} ·</span>
-          {missionParam && !freeMode ? (
-            <Link to="/study/flashcards" search={{ free: true, world: activeWorld }} className="underline-offset-2 hover:underline">Free study</Link>
+            <>
+              <span className="text-foreground font-medium">{worldShort} · Stage {missionParam}</span>
+              <span>· {idx + 1}/{order.length}</span>
+            </>
           ) : (
-            <span>Free study</span>
+            <>
+              <span className="text-foreground font-medium">{worldShort}</span>
+              <span>· {idx + 1}/{order.length} ·</span>
+              <span>Free study</span>
+            </>
           )}
         </div>
-        <div className="ml-auto flex items-center gap-2 shrink-0">
-          <Select value={filter} onValueChange={(v) => setFilter(v as typeof filter)}>
-            <SelectTrigger className="w-28 h-9"><SelectValue /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All</SelectItem>
-              <SelectItem value="unseen">Unseen</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
+        {freeMode ? (
+          <div className="ml-auto flex items-center gap-2 shrink-0">
+            <Select value={filter} onValueChange={(v) => setFilter(v as typeof filter)}>
+              <SelectTrigger className="w-28 h-9"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All</SelectItem>
+                <SelectItem value="unseen">Unseen</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        ) : null}
       </div>
 
       <div className="h-1.5 w-full rounded-full bg-muted overflow-hidden mb-6">
