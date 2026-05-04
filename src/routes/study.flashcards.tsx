@@ -307,8 +307,8 @@ function Flashcards() {
   const worldShort = TIER_SHORT[activeWorld] ?? activeWorld;
 
   return (
-    <main className="mx-auto max-w-2xl px-4 py-4">
-      <div className="flex items-center gap-2 mb-6 whitespace-nowrap">
+    <main className="mx-auto max-w-2xl px-4 py-2">
+      <div className="flex items-center gap-2 mb-3 whitespace-nowrap">
         <Button variant="ghost" size="sm" onClick={prev} disabled={idx === 0} aria-label="Previous card" className="shrink-0 h-7 w-7 p-0">
           <ChevronLeft className="h-4 w-4" />
         </Button>
@@ -354,7 +354,7 @@ function Flashcards() {
         onTouchStart={onTouchStart}
         onTouchEnd={onTouchEnd}
         className={cn(
-          "rounded-3xl border bg-card p-8 sm:p-12 shadow-card min-h-[20rem] flex flex-col select-none transition-all",
+          "rounded-3xl border bg-card p-5 sm:p-12 shadow-card min-h-[14rem] sm:min-h-[20rem] flex flex-col select-none transition-all",
           phase === "front" && "cursor-pointer hover:shadow-lg",
         )}
       >
@@ -365,7 +365,7 @@ function Flashcards() {
             <span className="text-xs uppercase tracking-widest rounded-full bg-muted text-muted-foreground px-3 py-1">{MASTERY_LABELS[currentMastery as Mastery]}</span>
           ) : null}
         </div>
-        <div className="font-display text-5xl sm:text-6xl">{current?.word}</div>
+        <div className="font-display text-4xl sm:text-6xl">{current?.word}</div>
         {phase === "back" && current && (
           <div className="mt-6 space-y-4 animate-in fade-in slide-in-from-bottom-2 duration-200">
             <div className="rounded-xl bg-muted/50 p-4">
@@ -382,34 +382,23 @@ function Flashcards() {
         )}
       </div>
 
-      <div className="mt-6">
-        {phase === "front" ? (
-          <div className="flex gap-3">
-            <Button size="lg" className="flex-1 h-14 text-base" onClick={reveal}>
-              Show answer
-            </Button>
-            <Button variant="ghost" size="lg" onClick={skip} className="h-14" aria-label="Skip">
-              <SkipForward className="h-5 w-5 mr-1" /> Skip
-            </Button>
-          </div>
-        ) : (
-          <div className="grid grid-cols-2 gap-3">
-            <Button
-              size="lg"
-              onClick={() => rate("review")}
-              className="h-14 text-base bg-rose text-rose-foreground hover:bg-rose/90"
-            >
-              <RotateCcw className="h-5 w-5 mr-2" /> 勉強中
-            </Button>
-            <Button
-              size="lg"
-              onClick={() => rate("known")}
-              className="h-14 text-base bg-sage text-sage-foreground hover:bg-sage/90"
-            >
-              <Check className="h-5 w-5 mr-2" /> 分かった
-            </Button>
-          </div>
-        )}
+      <div className="mt-4">
+        <div className="grid grid-cols-2 gap-3">
+          <Button
+            size="lg"
+            onClick={() => { if (phase === "front") reveal(); rate("review"); }}
+            className="h-14 text-base bg-rose text-rose-foreground hover:bg-rose/90"
+          >
+            <RotateCcw className="h-5 w-5 mr-2" /> 勉強中
+          </Button>
+          <Button
+            size="lg"
+            onClick={() => { if (phase === "front") reveal(); rate("known"); }}
+            className="h-14 text-base bg-sage text-sage-foreground hover:bg-sage/90"
+          >
+            <Check className="h-5 w-5 mr-2" /> 分かった
+          </Button>
+        </div>
       </div>
 
       {last && (
