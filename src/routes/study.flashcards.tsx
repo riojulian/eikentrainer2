@@ -11,9 +11,8 @@ import {
   type MasteryOrUnseen,
 } from "@/lib/words";
 import { Button } from "@/components/ui/button";
-import { Shuffle, Check, RotateCcw, ChevronLeft, SkipForward, Keyboard, Undo2, Trophy } from "lucide-react";
+import { Shuffle, Check, RotateCcw, ChevronLeft, SkipForward, Undo2, Trophy } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
 import { ensureWorldOrder, stagize, getCurrentWorld, DEFAULT_WORLD } from "@/lib/stages";
 import { bumpStreak, awardXp, XP_PER_KNOWN_FIRST } from "@/lib/gamification";
@@ -309,53 +308,29 @@ function Flashcards() {
 
   return (
     <main className="mx-auto max-w-2xl px-4 py-4">
-      <div className="flex items-center gap-2 mb-4">
-        <Button variant="ghost" size="icon" onClick={prev} disabled={idx === 0} aria-label="Previous card">
+      <div className="flex items-center gap-2 mb-4 whitespace-nowrap">
+        <Button variant="ghost" size="icon" onClick={prev} disabled={idx === 0} aria-label="Previous card" className="shrink-0">
           <ChevronLeft className="h-5 w-5" />
         </Button>
-        <div className="text-sm text-muted-foreground tabular-nums flex items-center gap-2">
+        <div className="text-sm text-muted-foreground tabular-nums flex items-center gap-1.5 min-w-0 truncate">
           {missionParam && !freeMode ? (
-            <span className="rounded-full bg-gold/15 text-gold px-2 py-0.5 text-xs font-medium">
-              {worldShort} · Stage {missionParam}
-            </span>
+            <span className="text-foreground font-medium">{worldShort} · Stage {missionParam}</span>
           ) : null}
-          {idx + 1} / {order.length}
+          <span>· {idx + 1}/{order.length} ·</span>
+          {missionParam && !freeMode ? (
+            <Link to="/study/flashcards" search={{ free: true, world: activeWorld }} className="underline-offset-2 hover:underline">Free study</Link>
+          ) : (
+            <span>Free study</span>
+          )}
         </div>
-        <div className="ml-auto flex items-center gap-2">
-          {missionParam && !freeMode ? (
-            <Button asChild variant="ghost" size="sm">
-              <Link to="/study/flashcards" search={{ free: true, world: activeWorld }}>Free study</Link>
-            </Button>
-          ) : null}
+        <div className="ml-auto flex items-center gap-2 shrink-0">
           <Select value={filter} onValueChange={(v) => setFilter(v as typeof filter)}>
-            <SelectTrigger className="w-36 h-9"><SelectValue /></SelectTrigger>
+            <SelectTrigger className="w-28 h-9"><SelectValue /></SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All</SelectItem>
-              <SelectItem value="learning">Still learning</SelectItem>
-              <SelectItem value="known">I know it</SelectItem>
-              <SelectItem value="mastered">Mastered</SelectItem>
               <SelectItem value="unseen">Unseen</SelectItem>
             </SelectContent>
           </Select>
-          <Button variant="outline" size="icon" onClick={() => { setOrder(shuffle(order)); setIdx(0); setPhase("front"); }} aria-label="Shuffle">
-            <Shuffle className="h-4 w-4" />
-          </Button>
-          <Popover>
-            <PopoverTrigger asChild>
-              <Button variant="ghost" size="icon" aria-label="Shortcuts"><Keyboard className="h-4 w-4" /></Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-64 text-sm">
-              <div className="font-medium mb-2">Shortcuts</div>
-              <ul className="space-y-1 text-muted-foreground">
-                <li><kbd className="px-1.5 py-0.5 rounded bg-muted text-foreground">Space</kbd> Reveal / I knew it</li>
-                <li><kbd className="px-1.5 py-0.5 rounded bg-muted text-foreground">←</kbd> or <kbd className="px-1.5 py-0.5 rounded bg-muted text-foreground">1</kbd> Still learning</li>
-                <li><kbd className="px-1.5 py-0.5 rounded bg-muted text-foreground">→</kbd> or <kbd className="px-1.5 py-0.5 rounded bg-muted text-foreground">2</kbd> I knew it</li>
-                <li><kbd className="px-1.5 py-0.5 rounded bg-muted text-foreground">S</kbd> Skip</li>
-                <li><kbd className="px-1.5 py-0.5 rounded bg-muted text-foreground">U</kbd> Undo</li>
-                <li className="pt-2 border-t mt-2">Swipe ← still learning, → knew it</li>
-              </ul>
-            </PopoverContent>
-          </Popover>
         </div>
       </div>
 
