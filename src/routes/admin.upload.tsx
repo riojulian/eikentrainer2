@@ -33,12 +33,14 @@ const TIER_META: Record<Exclude<Tier, "">, { label: string; emoji: string; desc:
 };
 
 function normalizeTier(raw: string): Tier | null {
-  const t = raw.trim().toLowerCase().replace(/^tier/, "").replace(/^t/, "");
+  const r = raw.trim().toLowerCase().replace(/\s+/g, "");
+  if (["p", "phrase", "phrases", "5", "t5", "tier5", "world5"].includes(r)) return "phrases";
+  const t = r.replace(/^world/, "").replace(/^tier/, "").replace(/^t/, "");
   if (t === "1") return "tier1";
   if (t === "2") return "tier2";
   if (t === "3") return "tier3";
   if (t === "4") return "tier4";
-  if (["p", "phrase", "phrases"].includes(raw.trim().toLowerCase())) return "phrases";
+  if (t === "5") return "phrases";
   return null;
 }
 
@@ -85,12 +87,16 @@ function UploadPage() {
     const seen = new Set<string>();
     const items: { word: string; tier: Tier }[] = [];
     let skipped = 0;
-    for (const line of lines) {
-      const parts = line.split(/[\s,\t]+/).filter(Boolean);
-      if (parts.length < 2) { skipped++; continue; }
-      const tier = normalizeTier(parts[0]);
-      if (!tier) { skipped++; continue; }
-      const word = parts.slice(1).join(" ").toLowerCase();
+    for (const rawLine of lines) {
+      // Normalize whitespace (tabs, NBSP, multiple spaces)
+      const line = rawLine.replace(/\u00a0/g, " ").replace(/[\t ]+/g, " ").trim();
+      if (!line) { skipped++; continue; }
+      // Match leading tier token: "Tier5", "tier 3", "world 2", "t1", "phrases", "1"
+      const m = line.match(/^((?:world|tier|t)\s*[1-5]|phrases?|p|[1-5])\b[\s,]*(.*)$/i);
+      if (!m) { skipped++; continue; }
+      const tier = normalizeTier(m[1]);
+      const word = m[2].trim().toLowerCase();
+      if (!tier || !word) { skipped++; continue; }
       const key = `${tier}:${word}`;
       if (seen.has(key)) continue;
       seen.add(key);
@@ -190,7 +196,7 @@ function UploadPage() {
               ))}
             </div>
             <Textarea
-              placeholder={"One per line: <tier> <word>\n\nexample:\n1 ambiguous\n1 resilient\n2 mitigate\n3 profound\n4 esoteric\nphrases give up"}
+              placeholder={"One per line: <tier> <word or phrase>\n\nexample:\n1 ambiguous\n2 mitigate\n3 profound\n4 esoteric\nTier5 account for\nTier5 accuse A of B\nphrases give up"}
               value={wordList}
               onChange={(e) => setWordList(e.target.value)}
               rows={10}
