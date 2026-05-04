@@ -58,11 +58,13 @@ function StudyHome() {
   const [monthlyEligible, setMonthlyEligible] = useState(0);
   const [gameStats, setGameStats] = useState<Stats>({ xp: 0, current_streak: 0, longest_streak: 0, last_active_date: null });
   const [earnedBadges, setEarnedBadges] = useState<Set<string>>(new Set());
+  const [loading, setLoading] = useState(true);
 
   // Initial load: figure out active world + global summaries
   useEffect(() => {
     if (!user) return;
     (async () => {
+      try {
       const [allWords, statuses, world, gs, badges] = await Promise.all([
         fetchActiveWords(),
         fetchStatuses(user.id),
@@ -127,6 +129,9 @@ function StudyHome() {
       ]);
       setWeeklyEligible(wk.count ?? 0);
       setMonthlyEligible(mo.count ?? 0);
+      } finally {
+        setLoading(false);
+      }
     })();
   }, [user]);
 
@@ -323,6 +328,11 @@ function StudyHome() {
             <AchievementsStrip earned={earnedBadges} />
           </div>
         </>
+      ) : loading ? (
+        <div className="mt-4 rounded-2xl border bg-card p-6 text-center shadow-card">
+          <div className="font-display text-xl">Loading your stages…</div>
+          <p className="mt-1 text-sm text-muted-foreground">Just a moment.</p>
+        </div>
       ) : (
         <div className="mt-4 rounded-2xl border border-dashed bg-card p-6 text-center shadow-card">
           <div className="font-display text-xl">No stages in {activeWorldLabel} yet</div>
