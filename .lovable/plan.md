@@ -1,54 +1,73 @@
-## Rebrand to EikenTango
+# Fix: "No stages in World 1: Core yet" appears even though words exist
 
-Rename the app everywhere from "Rinka / Vocabulary Atelier / Vocab Trainer" to **EikenTango** (英検 + 単語), with an **ET** monogram logo and a fresher, more playful identity aimed at younger Japanese learners.
+## Root causes
 
-### 1. New brand identity
+I checked the database and the relevant code paths. Two real bugs are combining to produce this message.
 
-**Name & tagline**
-- App name: `EikenTango`
-- Tagline: `英検の単語を、もっと楽しく。` / "Make Eiken vocab fun."
+### 1. Empty-state flashes during loading (primary cause)
 
-**Logo: "ET" monogram**
-- Inline SVG component `src/components/BrandMark.tsx` — a rounded-square badge with bold "ET" letters. Used in header, auth, landing hero, and as favicon.
-- Style: chunky rounded geometric sans, white letters on a vibrant gradient (coral → sunshine), soft drop shadow. Feels sticker-like, friendly, mobile-first.
+In `src/routes/study.index.tsx`:
 
-**Color palette (replace the muted cream/ink/gold "atelier" palette)**
-Updated in `src/styles.css` `:root` and `.dark`:
-- `--background`: soft off-white `oklch(0.98 0.01 250)` (light); deep indigo `oklch(0.22 0.05 270)` (dark)
-- `--primary` (brand): coral-pink `oklch(0.70 0.18 25)` — "Tango Coral"
-- `--accent` (replaces gold): sunshine yellow `oklch(0.86 0.16 95)` — "Sunshine"
-- `--sage` → mint `oklch(0.78 0.12 165)`
-- `--rose` → bubblegum `oklch(0.72 0.18 0)`
-- New token `--sky`: `oklch(0.78 0.12 230)` for accents
-- Increase border radii: `--radius: 1rem` (more rounded, playful)
+- `activeWorld` is initialized to `"tier1"`, and `stages` is initialized to `[]`.
+- `hasStages = stages.length > 0` is computed unconditionally on every render.
+- While the two `useEffect` hooks are still loading (`fetchActiveWords`, `ensureWorldOrder`, `getStarsByStage`, …), `stages` is still `[]`, so the page renders the **"No stages in World 1: Core yet"** empty card on every visit until the data resolves. On a slow connection or cold tab this is very visible — it looks permanent.
 
-**Typography**
-- Display font: **Fredoka** (rounded, friendly, supports JP via fallback) loaded from Google Fonts in `__root.tsx` head links.
-- Body: **Plus Jakarta Sans** + JP fallback `"Hiragino Maru Gothic ProN", "M PLUS Rounded 1c"` so Japanese characters also feel rounded/youthful.
-- Update `--font-display` and `--font-sans` in `styles.css`.
-- Drop the `strong` color override (rose) — replace with brand coral.
+There is no `loading` flag distinguishing "data not loaded yet" from "world genuinely has 0 stages".
 
-### 2. File-by-file changes
+### 2. Supabase 1000-row default limit hides words
 
-- **`src/components/BrandMark.tsx`** (new) — `<BrandMark size={32} />` SVG with rounded gradient square + "ET" letters. Reusable.
-- **`src/components/AppHeader.tsx`** — replace `Sparkles` badge + "Rinka / Vocab Trainer" with `<BrandMark />` + `EikenTango` wordmark, small `英検単語` subtitle on `sm+`.
-- **`src/routes/index.tsx`** (landing)
-  - Hero badge: `英検 Pre-1 ・ Vocabulary` with sunshine pill style.
-  - H1: `EikenTango — 単語を、もっと<em>楽しく</em>。` (with English subline `Eiken vocab, made playful.`)
-  - Body copy rewritten: friendly, encouraging, emoji-light tone targeting JHS/HS students (e.g. "毎日5分でOK。フラッシュカード、クイズ、ステージで英検単語をクリアしよう。").
-  - Feature cards: keep three (Flashcards / Word List / Quiz) but with brighter coral/sunshine/mint icon backgrounds and rounded-2xl, slightly tilted hover.
-  - CTA button label: `はじめる →`.
-  - Replace large `BrandMark` above hero.
-- **`src/routes/auth.tsx`** — swap `Sparkles` for `<BrandMark />`, heading `EikenTango へようこそ`, subtitle `毎日コツコツ、単語マスターへ。`, signup placeholder `たろう`.
-- **`src/routes/__root.tsx`** — update all `title`/`og:title`/`twitter:title` to `EikenTango — 英検単語トレーニング`, descriptions to the new copy. Add Google Fonts `<link>` tags for Fredoka + Plus Jakarta Sans + M PLUS Rounded 1c. Add favicon link to `/favicon.svg`.
-- **`public/favicon.svg`** (new) — same ET monogram, square, gradient bg.
-- **`src/routes/admin.progress.tsx`** — `Rinka's Progress` → `生徒の進捗 / Student Progress`.
-- **`src/styles.css`** — palette + radius + font tokens updated as above; tweak `--shadow-card` and `--shadow-glow` to use the new coral.
+`fetchActiveWords()` in `src/lib/words.ts` does:
 
-### 3. What stays the same
-- All routes, data, study flow, dashboard logic, burger menu, WorldPicker grid, StageMap behavior — purely visual/branding pass.
-- Component APIs unchanged; only `AppHeader` swaps inner content.
+```ts
+supabase.from("words").select("*").eq("is_active", true).order("created_at", { ascending: true })
+```
 
-### 4. Out of scope
-- No raster logo / PNG generation — pure SVG keeps it crisp and free.
-- No copy translation pass beyond hero, auth, and meta titles. Internal admin screens keep current labels except the one rename above.
+The DB currently has **1633 active words**. Supabase caps a single `select` at 1000 rows by default, so the client only ever sees the oldest 1000. Confirmed by querying the DB:
+
+- Total active words: 1633 (tier1: 331, tier2: 693, tier3: 435, tier4: 140, NULL tier: 34)
+- First 1000 by `created_at`: tier1 316, tier2 366, tier3 221, tier4 63, NULL 34
+- The remaining ~633 newer words (including most of tier4 and some of every other tier) are silently dropped.
+
+This affects every screen that calls `fetchActiveWords` (study home, flashcards, quiz, list). It also explains why `student_word_order` rows top out at exactly the truncated counts (e.g. tier1 = 316 for some students).
+
+There are no `phrases` rows in the DB at all, so World 5 is correctly empty — that part of the UI is working as intended.
+
+## Fix
+
+### A. Remove the 1000-row limit in `src/lib/words.ts`
+
+Update `fetchActiveWords` to page through all rows using `.range()` until fewer than the page size come back. Keep the `created_at ASC` ordering so existing `student_word_order` positions stay stable.
+
+```text
+fetchActiveWords:
+  page = 1000
+  for offset = 0; ; offset += page:
+    rows = select * from words where is_active eq true
+              order by created_at asc
+              range(offset, offset + page - 1)
+    push rows
+    if rows.length < page: break
+  return all
+```
+
+This is a one-function change and fixes the data shortfall everywhere it's used.
+
+### B. Add a loading guard in `src/routes/study.index.tsx`
+
+- Add `const [loading, setLoading] = useState(true);` and set it `false` at the end of the first effect (in a `finally` so errors don't leave it stuck).
+- Render order in the JSX:
+  - if `loading` → render a small skeleton/placeholder card ("Loading your stages…") instead of the stages block.
+  - else if `hasStages` → existing stage UI.
+  - else → existing "No stages in {world} yet" empty state.
+
+This way the empty card only appears when the world is genuinely empty, not while fetching.
+
+## Files touched
+
+- `src/lib/words.ts` — paginate `fetchActiveWords`.
+- `src/routes/study.index.tsx` — add `loading` state and gate the empty-state render.
+
+## Out of scope
+
+- No DB migration. No RLS change. No change to `phrases` (genuinely empty).
+- Other call sites of `fetchActiveWords` automatically benefit from the pagination fix.

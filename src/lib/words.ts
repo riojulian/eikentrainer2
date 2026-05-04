@@ -60,13 +60,21 @@ export const MASTERY_BORDER: Record<Mastery, string> = {
 };
 
 export async function fetchActiveWords() {
-  const { data, error } = await supabase
-    .from("words")
-    .select("*")
-    .eq("is_active", true)
-    .order("created_at", { ascending: true });
-  if (error) throw error;
-  return data as Word[];
+  const PAGE = 1000;
+  const all: Word[] = [];
+  for (let offset = 0; ; offset += PAGE) {
+    const { data, error } = await supabase
+      .from("words")
+      .select("*")
+      .eq("is_active", true)
+      .order("created_at", { ascending: true })
+      .range(offset, offset + PAGE - 1);
+    if (error) throw error;
+    const rows = (data ?? []) as Word[];
+    all.push(...rows);
+    if (rows.length < PAGE) break;
+  }
+  return all;
 }
 
 export async function fetchStatuses(studentId: string) {
