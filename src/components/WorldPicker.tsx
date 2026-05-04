@@ -1,7 +1,16 @@
 import { cn } from "@/lib/utils";
-import { Star, Lock } from "lucide-react";
+import { Lock } from "lucide-react";
 import { TIER_LABELS, TIER_SHORT } from "@/lib/words";
 import { WORLD_ORDER } from "@/lib/stages";
+
+// Short topic labels stripped of "World N:" prefix for prominent display
+const WORLD_TOPIC: Record<string, string> = {
+  tier1: "Core",
+  tier2: "Topic",
+  tier3: "R/L",
+  tier4: "Niche",
+  phrases: "Phrases",
+};
 
 const WORLD_ACCENT: Record<string, string> = {
   tier1: "from-rose/30 to-rose/5 border-rose/40",
@@ -34,7 +43,7 @@ export function WorldPicker({
       {ordered.map((s) => {
         const empty = s.totalStages === 0;
         const isActive = s.world === active;
-        const label = TIER_LABELS[s.world]?.replace(/^World \d+:\s*/, "") ?? s.world;
+        const topic = WORLD_TOPIC[s.world] ?? (TIER_LABELS[s.world]?.replace(/^World \d+:\s*/, "") ?? s.world);
         const short = TIER_SHORT[s.world] ?? s.world;
         const pct = s.starsMax > 0 ? (s.starsEarned / s.starsMax) : 0;
         return (
@@ -44,35 +53,35 @@ export function WorldPicker({
             onClick={() => !empty && onChange(s.world)}
             disabled={empty}
             className={cn(
-              "min-w-0 rounded-2xl border bg-gradient-to-br p-2 sm:p-3 text-left shadow-card transition",
+              "min-w-0 rounded-2xl border bg-gradient-to-br p-2 sm:p-3 text-center shadow-card transition",
               WORLD_ACCENT[s.world] ?? "from-muted to-muted/30 border-muted-foreground/30",
               empty && "opacity-50 cursor-not-allowed",
               isActive && "ring-2 ring-gold scale-[1.02]",
               !isActive && !empty && "hover:scale-[1.01]",
             )}
           >
-            <div className="flex items-center justify-between">
-              <div className="font-display text-sm sm:text-base truncate">{short}</div>
+            <div className="text-[9px] sm:text-[10px] font-medium uppercase tracking-wider text-muted-foreground/80 leading-none">
+              {short}
+            </div>
+            <div className="mt-0.5 flex items-center justify-center gap-1">
+              <div className="font-display text-base sm:text-lg font-semibold leading-tight truncate">
+                {topic}
+              </div>
               {empty ? <Lock className="h-3 w-3 text-muted-foreground shrink-0" /> : null}
             </div>
-            <div className="text-[10px] sm:text-[11px] text-muted-foreground line-clamp-1">{label}</div>
-            {!empty && (
+            {!empty ? (
               <>
-                <div className="mt-1.5 text-[11px] sm:text-xs tabular-nums truncate">
-                  <span className="hidden sm:inline">Stage </span>
+                <div className="mt-1 text-[10px] sm:text-[11px] tabular-nums text-muted-foreground">
                   <span className="font-medium text-foreground">{Math.min(s.currentStage, s.totalStages)}</span>
-                  <span className="text-muted-foreground"> / {s.totalStages}</span>
-                </div>
-                <div className="mt-1 flex items-center gap-1 text-[11px] sm:text-xs text-gold">
-                  <Star className="h-3 w-3 fill-gold shrink-0" />
-                  <span className="tabular-nums">{s.starsEarned}<span className="text-muted-foreground">/{s.starsMax}</span></span>
+                  <span> / {s.totalStages}</span>
                 </div>
                 <div className="mt-1 h-1 w-full overflow-hidden rounded-full bg-background/60">
                   <div className="h-full bg-gold transition-all" style={{ width: `${Math.round(pct * 100)}%` }} />
                 </div>
               </>
+            ) : (
+              <div className="mt-1 text-[10px] text-muted-foreground">Empty</div>
             )}
-            {empty && <div className="mt-1.5 text-[10px] sm:text-xs text-muted-foreground">Empty</div>}
           </button>
         );
       })}
