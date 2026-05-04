@@ -11,9 +11,8 @@ import {
   type MasteryOrUnseen,
 } from "@/lib/words";
 import { Button } from "@/components/ui/button";
-import { Shuffle, Check, RotateCcw, ChevronLeft, SkipForward, Keyboard, Undo2, Trophy } from "lucide-react";
+import { Shuffle, Check, RotateCcw, ChevronLeft, SkipForward, Undo2, Trophy } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
 import { ensureWorldOrder, stagize, getCurrentWorld, DEFAULT_WORLD } from "@/lib/stages";
 import { bumpStreak, awardXp, XP_PER_KNOWN_FIRST } from "@/lib/gamification";
