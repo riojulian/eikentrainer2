@@ -308,11 +308,11 @@ function Flashcards() {
 
   return (
     <main className="mx-auto max-w-2xl px-4 py-4">
-      <div className="flex items-center gap-1 mb-2 whitespace-nowrap">
+      <div className="flex items-center gap-2 mb-6 whitespace-nowrap">
         <Button variant="ghost" size="sm" onClick={prev} disabled={idx === 0} aria-label="Previous card" className="shrink-0 h-7 w-7 p-0">
           <ChevronLeft className="h-4 w-4" />
         </Button>
-        <div className="text-xs text-muted-foreground tabular-nums flex items-center gap-1 min-w-0 truncate">
+        <div className="text-xs text-muted-foreground tabular-nums flex items-center gap-1 shrink-0 truncate">
           {missionParam && !freeMode ? (
             <>
               <span className="text-foreground font-medium">{worldShort} · Stage {missionParam}</span>
@@ -326,7 +326,11 @@ function Flashcards() {
             </>
           )}
         </div>
-        {freeMode ? (
+        {missionParam && !freeMode ? (
+          <div className="ml-auto h-1.5 flex-1 min-w-0 rounded-full bg-muted overflow-hidden">
+            <div className="h-full bg-gold transition-all" style={{ width: `${pct}%` }} />
+          </div>
+        ) : freeMode ? (
           <div className="ml-auto flex items-center gap-2 shrink-0">
             <Select value={filter} onValueChange={(v) => setFilter(v as typeof filter)}>
               <SelectTrigger className="w-24 h-7 text-xs"><SelectValue /></SelectTrigger>
@@ -339,9 +343,11 @@ function Flashcards() {
         ) : null}
       </div>
 
-      <div className="h-1.5 w-full rounded-full bg-muted overflow-hidden mb-6">
-        <div className="h-full bg-gold transition-all" style={{ width: `${pct}%` }} />
-      </div>
+      {!(missionParam && !freeMode) && (
+        <div className="h-1.5 w-full rounded-full bg-muted overflow-hidden mb-6">
+          <div className="h-full bg-gold transition-all" style={{ width: `${pct}%` }} />
+        </div>
+      )}
 
       <div
         onClick={() => phase === "front" && reveal()}
