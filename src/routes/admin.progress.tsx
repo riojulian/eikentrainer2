@@ -80,7 +80,7 @@ function Progress() {
 
   return (
     <div className="space-y-6">
-      <h1 className="font-display text-3xl">Rinka's Progress</h1>
+      <h1 className="font-display text-3xl">生徒の進捗 / Student Progress</h1>
       <div className="grid gap-4 sm:grid-cols-3 lg:grid-cols-5">
         {stat("Total", s.totalWords)}
         {stat(MASTERY_LABELS[0], s.tiers[0], "text-rose")}
