@@ -308,11 +308,11 @@ function Flashcards() {
 
   return (
     <main className="mx-auto max-w-2xl px-4 py-4">
-      <div className="flex items-center gap-2 mb-4 whitespace-nowrap">
-        <Button variant="ghost" size="icon" onClick={prev} disabled={idx === 0} aria-label="Previous card" className="shrink-0">
-          <ChevronLeft className="h-5 w-5" />
+      <div className="flex items-center gap-1 mb-2 whitespace-nowrap">
+        <Button variant="ghost" size="sm" onClick={prev} disabled={idx === 0} aria-label="Previous card" className="shrink-0 h-7 w-7 p-0">
+          <ChevronLeft className="h-4 w-4" />
         </Button>
-        <div className="text-sm text-muted-foreground tabular-nums flex items-center gap-1.5 min-w-0 truncate">
+        <div className="text-xs text-muted-foreground tabular-nums flex items-center gap-1 min-w-0 truncate">
           {missionParam && !freeMode ? (
             <>
               <span className="text-foreground font-medium">{worldShort} · Stage {missionParam}</span>
@@ -329,7 +329,7 @@ function Flashcards() {
         {freeMode ? (
           <div className="ml-auto flex items-center gap-2 shrink-0">
             <Select value={filter} onValueChange={(v) => setFilter(v as typeof filter)}>
-              <SelectTrigger className="w-28 h-9"><SelectValue /></SelectTrigger>
+              <SelectTrigger className="w-24 h-7 text-xs"><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All</SelectItem>
                 <SelectItem value="unseen">Unseen</SelectItem>
