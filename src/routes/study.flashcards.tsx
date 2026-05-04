@@ -54,13 +54,16 @@ function nextOnKnown(curr: MasteryOrUnseen): Mastery {
 }
 
 function Flashcards() {
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const search = Route.useSearch();
   const missionParam = search.mission;
   const freeMode = search.free || missionParam === undefined;
+  const requestedDeckKey = `${user?.id ?? "guest"}:${search.world ?? "saved-world"}:${freeMode ? "free" : missionParam ?? "free"}`;
   const [activeWorld, setActiveWorld] = useState<string>(search.world ?? DEFAULT_WORLD);
   const [words, setWords] = useState<Word[]>([]);
   const [statuses, setStatuses] = useState<Record<string, MasteryOrUnseen>>({});
+  const [cardsLoading, setCardsLoading] = useState(true);
+  const [loadedDeckKey, setLoadedDeckKey] = useState<string | null>(null);
   const [filter, setFilter] = useState<"all" | "learning" | "known" | "mastered" | "unseen">("all");
   const [order, setOrder] = useState<string[]>([]);
   const [idx, setIdx] = useState(0);
@@ -70,21 +73,54 @@ function Flashcards() {
   const undoTimer = useRef<number | null>(null);
 
   useEffect(() => {
-    if (!user) return;
+    let cancelled = false;
+    if (authLoading) {
+      setCardsLoading(true);
+      return () => {
+        cancelled = true;
+      };
+    }
+    if (!user) {
+      setWords([]);
+      setStatuses({});
+      setOrder([]);
+      setLoadedDeckKey(requestedDeckKey);
+      setCardsLoading(false);
+      return () => {
+        cancelled = true;
+      };
+    }
+    setCardsLoading(true);
     (async () => {
       const world = search.world ?? (await getCurrentWorld(user.id));
-      setActiveWorld(world);
       const [ordered, s] = await Promise.all([ensureWorldOrder(user.id, world), fetchStatuses(user.id)]);
+      if (cancelled) return;
+      setActiveWorld(world);
+      const nextWords = missionParam && !freeMode ? stagize(ordered)[missionParam - 1] ?? [] : ordered;
+      setWords(nextWords);
+      setOrder(nextWords.map((w) => w.id));
+      setIdx(0);
+      setPhase("front");
+      setSession({ known: 0, review: 0 });
+      setLast(null);
       if (missionParam && !freeMode) {
-        const stages = stagize(ordered);
-        setWords(stages[missionParam - 1] ?? []);
-      } else {
-        setWords(ordered);
+        stagize(ordered);
       }
       setStatuses(s);
+      setLoadedDeckKey(requestedDeckKey);
+      setCardsLoading(false);
       bumpStreak(user.id).catch(() => {});
-    })();
-  }, [user, missionParam, freeMode, search.world]);
+    })().catch(() => {
+      if (cancelled) return;
+      setWords([]);
+      setOrder([]);
+      setLoadedDeckKey(requestedDeckKey);
+      setCardsLoading(false);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [user, authLoading, missionParam, freeMode, search.world, requestedDeckKey]);
 
   const filtered = useMemo(() => {
     return words.filter((w) => {
@@ -108,6 +144,7 @@ function Flashcards() {
   }, [filter, words.length]);
 
   const current = words.find((w) => w.id === order[idx]);
+  const isDeckLoading = authLoading || cardsLoading || loadedDeckKey !== requestedDeckKey;
 
   const advance = useCallback(() => {
     setPhase("front");
@@ -216,6 +253,16 @@ function Flashcards() {
     if (dx < 0) rate("review");
     else rate("known");
   };
+
+  if (isDeckLoading) {
+    return (
+      <main className="mx-auto max-w-2xl px-4 py-6 text-center">
+        <div className="rounded-2xl border bg-card p-6 shadow-card">
+          <p className="mt-1 text-sm text-muted-foreground">Loading your cards…</p>
+        </div>
+      </main>
+    );
+  }
 
   if (!current && phase !== "done") {
     return (
