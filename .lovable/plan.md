@@ -1,80 +1,54 @@
-# Connect World ↔ Stage
+## Rebrand to EikenTango
 
-## Concept
+Rename the app everywhere from "Rinka / Vocabulary Atelier / Vocab Trainer" to **EikenTango** (英検 + 単語), with an **ET** monogram logo and a fresher, more playful identity aimed at younger Japanese learners.
 
-Today, all words across all worlds are concatenated into one global stage list. We change it so **each World owns its own stage track**. Stage count per world is derived: `ceil(activeWords[world] / 10)`.
+### 1. New brand identity
 
-Example with 10 words/stage:
-- World 1 (Core, ~200 words) → 20 stages
-- World 4 (Very specific, ~700 words) → 70 stages
-- Empty world → 0 stages (hidden)
+**Name & tagline**
+- App name: `EikenTango`
+- Tagline: `英検の単語を、もっと楽しく。` / "Make Eiken vocab fun."
 
-A user is "in" one world at a time, and has an **independent current stage per world** (so switching worlds doesn't lose progress).
+**Logo: "ET" monogram**
+- Inline SVG component `src/components/BrandMark.tsx` — a rounded-square badge with bold "ET" letters. Used in header, auth, landing hero, and as favicon.
+- Style: chunky rounded geometric sans, white letters on a vibrant gradient (coral → sunshine), soft drop shadow. Feels sticker-like, friendly, mobile-first.
 
-## Data model
+**Color palette (replace the muted cream/ink/gold "atelier" palette)**
+Updated in `src/styles.css` `:root` and `.dark`:
+- `--background`: soft off-white `oklch(0.98 0.01 250)` (light); deep indigo `oklch(0.22 0.05 270)` (dark)
+- `--primary` (brand): coral-pink `oklch(0.70 0.18 25)` — "Tango Coral"
+- `--accent` (replaces gold): sunshine yellow `oklch(0.86 0.16 95)` — "Sunshine"
+- `--sage` → mint `oklch(0.78 0.12 165)`
+- `--rose` → bubblegum `oklch(0.72 0.18 0)`
+- New token `--sky`: `oklch(0.78 0.12 230)` for accents
+- Increase border radii: `--radius: 1rem` (more rounded, playful)
 
-Schema change:
-- `study_progress`: add `current_world text` (nullable, default `'tier1'`).
-- New table `world_progress (student_id uuid, world text, current_stage int default 1, updated_at timestamptz, primary key (student_id, world))` with RLS (own rows).
+**Typography**
+- Display font: **Fredoka** (rounded, friendly, supports JP via fallback) loaded from Google Fonts in `__root.tsx` head links.
+- Body: **Plus Jakarta Sans** + JP fallback `"Hiragino Maru Gothic ProN", "M PLUS Rounded 1c"` so Japanese characters also feel rounded/youthful.
+- Update `--font-display` and `--font-sans` in `styles.css`.
+- Drop the `strong` color override (rose) — replace with brand coral.
 
-Stage attempts already store `stage_index`; we add `world text` (nullable) so stars are scoped per world. Backfill old rows as `null` (treated as legacy/global, not shown in new per-world maps).
+### 2. File-by-file changes
 
-## Logic (`src/lib/stages.ts`)
+- **`src/components/BrandMark.tsx`** (new) — `<BrandMark size={32} />` SVG with rounded gradient square + "ET" letters. Reusable.
+- **`src/components/AppHeader.tsx`** — replace `Sparkles` badge + "Rinka / Vocab Trainer" with `<BrandMark />` + `EikenTango` wordmark, small `英検単語` subtitle on `sm+`.
+- **`src/routes/index.tsx`** (landing)
+  - Hero badge: `英検 Pre-1 ・ Vocabulary` with sunshine pill style.
+  - H1: `EikenTango — 単語を、もっと<em>楽しく</em>。` (with English subline `Eiken vocab, made playful.`)
+  - Body copy rewritten: friendly, encouraging, emoji-light tone targeting JHS/HS students (e.g. "毎日5分でOK。フラッシュカード、クイズ、ステージで英検単語をクリアしよう。").
+  - Feature cards: keep three (Flashcards / Word List / Quiz) but with brighter coral/sunshine/mint icon backgrounds and rounded-2xl, slightly tilted hover.
+  - CTA button label: `はじめる →`.
+  - Replace large `BrandMark` above hero.
+- **`src/routes/auth.tsx`** — swap `Sparkles` for `<BrandMark />`, heading `EikenTango へようこそ`, subtitle `毎日コツコツ、単語マスターへ。`, signup placeholder `たろう`.
+- **`src/routes/__root.tsx`** — update all `title`/`og:title`/`twitter:title` to `EikenTango — 英検単語トレーニング`, descriptions to the new copy. Add Google Fonts `<link>` tags for Fredoka + Plus Jakarta Sans + M PLUS Rounded 1c. Add favicon link to `/favicon.svg`.
+- **`public/favicon.svg`** (new) — same ET monogram, square, gradient bg.
+- **`src/routes/admin.progress.tsx`** — `Rinka's Progress` → `生徒の進捗 / Student Progress`.
+- **`src/styles.css`** — palette + radius + font tokens updated as above; tweak `--shadow-card` and `--shadow-glow` to use the new coral.
 
-Rewrite around worlds:
+### 3. What stays the same
+- All routes, data, study flow, dashboard logic, burger menu, WorldPicker grid, StageMap behavior — purely visual/branding pass.
+- Component APIs unchanged; only `AppHeader` swaps inner content.
 
-```ts
-export function stagizeByWorld(words: Word[]): Record<string, Word[][]> {
-  // group active words by tier in fixed WORLD_ORDER, then chunk by 10
-}
-
-getCurrentWorld(studentId): string
-setCurrentWorld(studentId, world)
-getWorldProgress(studentId, world): { current_stage }
-setWorldStage(studentId, world, stage)
-getStarsByStage(studentId, world): Record<number, 0|1|2|3>
-buildStageQuiz(stagesForWorld, stageIndex)  // unchanged shape
-```
-
-Word ordering: drop the cross-world `student_word_order` rebuild flow. Words inside a world are still shuffled deterministically per student (seeded by `student_id + world`), so stage membership is stable but personalized. `ensureWordOrder` becomes per-world and stores rows tagged with `world`.
-
-Migration: add `world text` column to `student_word_order`; existing rows tagged `null` are ignored and re-seeded on next load.
-
-## Dashboard UI (`src/routes/study.index.tsx`)
-
-Replace the "Start stages from" select with a **World Picker** row:
-
-```text
-[ World 1 ★★☆ 4/20 ] [ World 2 ★☆☆ 1/15 ] [ World 3 ✕ ] [ World 4 0/70 ] [ World 5 ]
-   selected               
-```
-
-- Horizontal scroll on mobile, grid on sm+.
-- Each card shows: world short name, color band (existing TIER_BAND), `currentStage / totalStages`, and aggregate stars (sum of stage stars / max).
-- Worlds with 0 active words are shown disabled.
-- Selecting a world updates `study_progress.current_world` and re-renders the rest of the dashboard for that world only.
-
-The "Current stage" card, "Your journey" StageMap, and stage quiz CTAs all read from the **selected world's** stage list and progress. The `StageMap` already supports `tierByStage`; since one world = one tier, the band is uniform but kept for visual identity.
-
-Weekly/Monthly review tiles, Achievements, "Browse all words" stay global (unchanged).
-
-## StageMap
-
-No prop changes. Receives the per-world stages and per-world stars/current. Header above it shows: `World 4: Very Specific — Stage 12 of 70`.
-
-## Files touched
-
-- `supabase/migrations/*` — add `world` to `study_progress`, `student_word_order`, `stage_attempts`; create `world_progress` (or just reuse `study_progress` keyed by world — see Open question).
-- `src/lib/stages.ts` — rewrite per-world.
-- `src/lib/words.ts` — add `WORLD_ORDER` export.
-- `src/routes/study.index.tsx` — World Picker + per-world wiring.
-- `src/components/StageMap.tsx` — minor heading text only.
-- `src/routes/study.flashcards.tsx`, `src/routes/study.quiz.tsx` — read stages for the active world (via `current_world`) instead of the global list.
-
-## Open question (need your call before I build)
-
-Per-world current stage storage:
-1. **New `world_progress` table** (cleanest, scales if we add more per-world fields later).
-2. **Reuse `study_progress`** by changing PK to `(student_id, world)` (simpler, but a heavier migration of existing row).
-
-I recommend option 1.
+### 4. Out of scope
+- No raster logo / PNG generation — pure SVG keeps it crisp and free.
+- No copy translation pass beyond hero, auth, and meta titles. Internal admin screens keep current labels except the one rename above.

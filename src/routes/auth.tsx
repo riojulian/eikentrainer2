@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { toast } from "sonner";
 import { useAuth } from "@/lib/auth";
-import { Sparkles } from "lucide-react";
+import { BrandMark } from "@/components/BrandMark";
 
 export const Route = createFileRoute("/auth")({
   component: AuthPage,
@@ -60,11 +60,11 @@ function AuthPage() {
     <div className="min-h-screen grid place-items-center px-4">
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
-          <div className="inline-flex h-12 w-12 items-center justify-center rounded-full bg-gold text-gold-foreground mb-3">
-            <Sparkles className="h-5 w-5" />
+          <div className="flex justify-center mb-3">
+            <BrandMark size={56} />
           </div>
-          <h1 className="font-display text-3xl">Welcome</h1>
-          <p className="text-muted-foreground text-sm mt-1">Sign in to continue your vocabulary practice.</p>
+          <h1 className="font-display text-3xl font-bold">EikenTango へようこそ</h1>
+          <p className="text-muted-foreground text-sm mt-1">毎日コツコツ、単語マスターへ。</p>
         </div>
         <div className="rounded-2xl border bg-card p-6 shadow-card">
           <Tabs defaultValue="signin">
@@ -78,7 +78,7 @@ function AuthPage() {
               <Button className="w-full" disabled={busy} onClick={signIn}>Sign in</Button>
             </TabsContent>
             <TabsContent value="signup" className="space-y-4 mt-4">
-              <div className="space-y-2"><Label>Display name</Label><Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Rinka" /></div>
+              <div className="space-y-2"><Label>Display name</Label><Input value={name} onChange={(e) => setName(e.target.value)} placeholder="たろう" /></div>
               <div className="space-y-2"><Label>Email</Label><Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} /></div>
               <div className="space-y-2"><Label>Password</Label><Input type="password" value={password} onChange={(e) => setPassword(e.target.value)} /></div>
               <Button className="w-full" disabled={busy} onClick={signUp}>Create account</Button>
