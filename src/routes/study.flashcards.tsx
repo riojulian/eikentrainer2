@@ -103,9 +103,6 @@ function Flashcards() {
       setPhase("front");
       setSession({ known: 0, review: 0 });
       setLast(null);
-      if (missionParam && !freeMode) {
-        stagize(ordered);
-      }
       setStatuses(s);
       setLoadedDeckKey(requestedDeckKey);
       setCardsLoading(false);
