@@ -45,11 +45,11 @@ function Progress() {
   useEffect(() => {
     (async () => {
       const [{ data: words }, { data: profiles }, { data: statuses }, { data: results }, { data: stats }] = await Promise.all([
-        supabase.from("words").select("id,word").eq("is_active", true),
-        supabase.from("profiles").select("id,display_name"),
-        supabase.from("word_status").select("student_id,mastery,word_id"),
-        supabase.from("quiz_results").select("student_id,word_id,correct,taken_at").order("taken_at", { ascending: true }),
-        supabase.from("student_stats").select("student_id,xp,current_streak,last_active_date"),
+        supabase.from("words").select("id,word").eq("is_active", true).range(0, 49999),
+        supabase.from("profiles").select("id,display_name").range(0, 9999),
+        supabase.from("word_status").select("student_id,mastery,word_id").range(0, 99999),
+        supabase.from("quiz_results").select("student_id,word_id,correct,taken_at").order("taken_at", { ascending: true }).range(0, 99999),
+        supabase.from("student_stats").select("student_id,xp,current_streak,last_active_date").range(0, 9999),
       ]);
       setRaw({
         words: words ?? [],
