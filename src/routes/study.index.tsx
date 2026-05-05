@@ -16,6 +16,7 @@ import {
 } from "@/lib/stages";
 import { getStats, getEarnedBadges, getMastery, type Stats, type PerWorldMastery, type MasteryBuckets } from "@/lib/gamification";
 import { MasteryHeader } from "@/components/MasteryHeader";
+import { AchievementsStrip } from "@/components/AchievementsStrip";
 import { WeakZoneStrip } from "@/components/WeakZoneStrip";
 import { StageMap } from "@/components/StageMap";
 import { WorldPicker, type WorldSummary } from "@/components/WorldPicker";
