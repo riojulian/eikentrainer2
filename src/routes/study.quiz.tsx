@@ -34,6 +34,7 @@ import {
   bumpSessionStreak,
   checkBadges,
   getReadiness,
+  getCompleteness,
   XP_PER_CORRECT,
   XP_BONUS_3STAR,
   XP_WEEKLY,
