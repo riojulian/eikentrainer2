@@ -1,5 +1,5 @@
 import { Flame } from "lucide-react";
-import { BADGES, BADGES_JA, READINESS_WEIGHTS, type MasteryBuckets, type PerWorldMastery } from "@/lib/gamification";
+import { READINESS_WEIGHTS, type MasteryBuckets, type PerWorldMastery } from "@/lib/gamification";
 import { useLang } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
 import { MASTERY_LABELS } from "@/lib/words";
@@ -11,7 +11,6 @@ type Props = {
   buckets: MasteryBuckets;
   perWorld: Record<string, PerWorldMastery>;
   streak: number;
-  earned: Set<string>;
 };
 
 const WORLD_CHIP_LABEL: Record<string, string> = {
@@ -24,8 +23,8 @@ const WORLD_CHIP_LABEL: Record<string, string> = {
 
 type Seg = { key: keyof MasteryBuckets; cls: string; label: string };
 
-export function MasteryHeader({ pct, total, touched, buckets, perWorld, streak, earned }: Props) {
-  const { t, lang } = useLang();
+export function MasteryHeader({ pct, total, touched, buckets, perWorld, streak }: Props) {
+  const { t } = useLang();
   const textColor = pct >= 80 ? "text-sage" : pct >= 50 ? "text-gold" : "text-rose";
   const tooltip = t("mastery.tooltip");
   const known = buckets.m2 + buckets.m3;
@@ -89,25 +88,6 @@ export function MasteryHeader({ pct, total, touched, buckets, perWorld, streak, 
           <div className="flex items-center gap-1 rounded-full border bg-rose/10 px-2 py-0.5 text-rose text-xs">
             <Flame className="h-3 w-3" />
             <span className="font-display leading-none">{streak}</span>
-          </div>
-          <div className="flex gap-1">
-            {BADGES.map((b) => {
-              const got = earned.has(b.key);
-              const name = lang === "ja" ? BADGES_JA[b.key]?.name ?? b.name : b.name;
-              const desc = lang === "ja" ? BADGES_JA[b.key]?.desc ?? b.desc : b.desc;
-              return (
-                <div
-                  key={b.key}
-                  title={`${name} — ${desc}`}
-                  className={cn(
-                    "h-6 w-6 rounded-md border flex items-center justify-center text-sm",
-                    got ? "bg-gold/20 border-gold/50" : "bg-muted/30 border-dashed grayscale opacity-50",
-                  )}
-                >
-                  {b.emoji}
-                </div>
-              );
-            })}
           </div>
         </div>
       </div>
