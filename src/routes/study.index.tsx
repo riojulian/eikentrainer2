@@ -317,7 +317,6 @@ function StudyHome() {
           buckets={mastery.buckets}
           perWorld={mastery.perWorld}
           streak={gameStats.current_streak}
-          earned={earnedBadges}
         />
       </div>
 
