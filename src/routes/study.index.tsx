@@ -14,8 +14,9 @@ import {
   getWorldStage,
   getStarsByStage,
 } from "@/lib/stages";
-import { getStats, getEarnedBadges, getReadiness, type Stats, type PerWorldReadiness } from "@/lib/gamification";
+import { getStats, getEarnedBadges, getReadiness, getCompleteness, type Stats, type PerWorldReadiness, type PerWorldCompleteness } from "@/lib/gamification";
 import { ReadinessHeader } from "@/components/ReadinessHeader";
+import { CompletenessHeader } from "@/components/CompletenessHeader";
 import { WeakZoneStrip } from "@/components/WeakZoneStrip";
 import { StageMap } from "@/components/StageMap";
 import { WorldPicker, type WorldSummary } from "@/components/WorldPicker";
@@ -61,6 +62,7 @@ function StudyHome() {
   const [gameStats, setGameStats] = useState<Stats>({ xp: 0, current_streak: 0, longest_streak: 0, last_active_date: null });
   const [earnedBadges, setEarnedBadges] = useState<Set<string>>(new Set());
   const [readiness, setReadiness] = useState<{ pct: number; total: number; perWorld: Record<string, PerWorldReadiness> }>({ pct: 0, total: 0, perWorld: {} });
+  const [completeness, setCompleteness] = useState<{ pct: number; known: number; total: number; perWorld: Record<string, PerWorldCompleteness> }>({ pct: 0, known: 0, total: 0, perWorld: {} });
   const [loading, setLoading] = useState(true);
   const initialWorldRef = useRef<string | null>(null);
 
@@ -69,13 +71,14 @@ function StudyHome() {
     if (!user) return;
     (async () => {
       try {
-      const [allWords, statuses, world, gs, badges, rdy] = await Promise.all([
+      const [allWords, statuses, world, gs, badges, rdy, cmp] = await Promise.all([
         fetchActiveWords(),
         fetchStatuses(user.id),
         getCurrentWorld(user.id),
         getStats(user.id),
         getEarnedBadges(user.id),
         getReadiness(user.id),
+        getCompleteness(user.id),
       ]);
 
       // Mastery tallies (global)
@@ -90,6 +93,7 @@ function StudyHome() {
       setGameStats(gs);
       setEarnedBadges(badges);
       setReadiness({ pct: rdy.pct, total: rdy.total, perWorld: rdy.perWorld });
+      setCompleteness(cmp);
 
       // Per-world summaries
       const grouped = groupByWorld(allWords);
@@ -304,6 +308,10 @@ function StudyHome() {
 
       <div className="mt-4">
         <ReadinessHeader pct={readiness.pct} total={readiness.total} streak={gameStats.current_streak} earned={earnedBadges} perWorld={readiness.perWorld} />
+      </div>
+
+      <div className="mt-3">
+        <CompletenessHeader pct={completeness.pct} known={completeness.known} total={completeness.total} perWorld={completeness.perWorld} />
       </div>
 
       <div className="mt-3">
