@@ -63,14 +63,18 @@ const DICT: Dict = {
   "fc.btnKnown": { en: "Got it", ja: "分かった" },
   // Readiness / Weak Zone
   "rdy.title": { en: "Readiness", ja: "理解度" },
-  "rdy.based": { en: "Based on", ja: "回答数" },
-  "rdy.answers": { en: "answers", ja: "問" },
+  "rdy.based": { en: "", ja: "" },
+  "rdy.answers": { en: "words known", ja: "語習得済" },
   "rdy.live": { en: "Readiness", ja: "理解度" },
+  "rdy.tooltip": {
+    en: "Words you Know (mastery 2+: 分かった or 完全に習得). Weighted: W1=60%, others 10% each.",
+    ja: "「分かった」または「完全に習得」した単語の割合。加重: W1=60%, 他は各10%。",
+  },
  "cmp.title": { en: "Completeness", ja: "習得率" },
- "cmp.caption": { en: "words known", ja: "語習得" },
+ "cmp.caption": { en: "words seen", ja: "語接触済" },
  "cmp.tooltip": {
-   en: "Share of all Pre-1 words you've learned. Mastery 2+ = full credit, 1 = half.",
-   ja: "準1級単語のうち習得済みの割合。習得度2以上は満点、1は半分。",
+   en: "Share of Pre-1 words you've encountered, regardless of mastery level. Weighted: W1=60%, others 10% each.",
+   ja: "出会った準1級単語の割合（習得度に関係なし）。加重: W1=60%, 他は各10%。",
  },
   "weak.title": { en: "Weakness", ja: "弱点" },
   "weak.empty": { en: "No weak words — keep it up! ✨", ja: "弱点なし — その調子！ ✨" },

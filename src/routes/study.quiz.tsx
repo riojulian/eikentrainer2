@@ -34,6 +34,7 @@ import {
   bumpSessionStreak,
   checkBadges,
   getReadiness,
+  getCompleteness,
   XP_PER_CORRECT,
   XP_BONUS_3STAR,
   XP_WEEKLY,
@@ -198,12 +199,15 @@ function QuizPage() {
       bumpStreak(user.id).catch(() => {});
       const streak = after?.current_streak ?? 0;
 
-      const rdyAfter = await getReadiness(user.id);
+      const [rdyAfter, cmpAfter] = await Promise.all([
+        getReadiness(user.id),
+        getCompleteness(user.id),
+      ]);
       const newBadges = await checkBadges(user.id, {
         streak,
         mcRun,
         readinessPct: rdyAfter.pct,
-        readinessTotal: rdyAfter.total,
+        touchedCount: cmpAfter.known,
       }).catch(() => [] as BadgeDef[]);
       newBadges.forEach((b) => toast.success(`🏅 ${b.name}`, { description: b.desc }));
 
