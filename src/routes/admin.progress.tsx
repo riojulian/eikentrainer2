@@ -101,13 +101,6 @@ function Progress() {
 
   if (!s) return <div className="text-muted-foreground">Loading…</div>;
 
-  const stat = (label: string, value: string | number, color?: string) => (
-    <div className="rounded-xl border bg-card p-5 shadow-card">
-      <div className="text-xs uppercase tracking-widest text-muted-foreground">{label}</div>
-      <div className={`mt-2 font-display text-3xl ${color ?? ""}`}>{value}</div>
-    </div>
-  );
-
   const segments = [
     { label: MASTERY_LABELS[0], count: s.tiers[0], cls: MASTERY_BG[0] },
     { label: MASTERY_LABELS[1], count: s.tiers[1], cls: MASTERY_BG[1] },
@@ -133,14 +126,6 @@ function Progress() {
 
       <div className="text-sm text-muted-foreground">
         Showing: <span className="font-medium text-foreground">{studentId === "all" ? "All students" : nameOf.get(studentId) ?? "—"}</span>
-      </div>
-
-      <div className="grid gap-4 sm:grid-cols-3 lg:grid-cols-5">
-        {stat("Total", s.totalWords)}
-        {stat(MASTERY_LABELS[0], s.tiers[0], "text-rose")}
-        {stat(MASTERY_LABELS[1], s.tiers[1], "text-gold")}
-        {stat(MASTERY_LABELS[2], s.tiers[2], "text-sage")}
-        {stat(MASTERY_LABELS[3], s.tiers[3], "text-gold")}
       </div>
 
       <div className="rounded-xl border bg-card p-5 shadow-card">
