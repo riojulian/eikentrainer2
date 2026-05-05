@@ -61,7 +61,7 @@ function StudyHome() {
   const [monthlyEligible, setMonthlyEligible] = useState(0);
   const [gameStats, setGameStats] = useState<Stats>({ xp: 0, current_streak: 0, longest_streak: 0, last_active_date: null });
   const [earnedBadges, setEarnedBadges] = useState<Set<string>>(new Set());
-  const [readiness, setReadiness] = useState<{ pct: number; total: number; perWorld: Record<string, PerWorldReadiness> }>({ pct: 0, total: 0, perWorld: {} });
+  const [readiness, setReadiness] = useState<{ pct: number; total: number; correct: number; perWorld: Record<string, PerWorldReadiness> }>({ pct: 0, total: 0, correct: 0, perWorld: {} });
   const [completeness, setCompleteness] = useState<{ pct: number; known: number; total: number; perWorld: Record<string, PerWorldCompleteness> }>({ pct: 0, known: 0, total: 0, perWorld: {} });
   const [loading, setLoading] = useState(true);
   const initialWorldRef = useRef<string | null>(null);
