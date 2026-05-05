@@ -130,17 +130,18 @@ export type PerWorldReadiness = { pct: number; total: number; correct: number };
 export async function getReadiness(
   studentId: string,
 ): Promise<{ pct: number; total: number; correct: number; perWorld: Record<string, PerWorldReadiness> }> {
-  const { data } = await supabase
-    .from("quiz_results")
-    .select("correct, words!inner(tier)")
-    .eq("student_id", studentId);
-  const rows = (data ?? []) as Array<{ correct: boolean; words: { tier: string | null } | null }>;
+  const [{ data: qrData }, { data: wordsData }] = await Promise.all([
+    supabase.from("quiz_results").select("correct, word_id").eq("student_id", studentId),
+    supabase.from("words").select("id, tier"),
+  ]);
+  const tierByWord = new Map<string, string | null>((wordsData ?? []).map((w) => [w.id, w.tier]));
+  const rows = (qrData ?? []).map((r) => ({ correct: r.correct, tier: tierByWord.get(r.word_id) ?? "" }));
   const perWorld: Record<string, PerWorldReadiness> = {};
   for (const k of Object.keys(READINESS_WEIGHTS)) perWorld[k] = { pct: 0, total: 0, correct: 0 };
   let total = 0;
   let correct = 0;
   for (const r of rows) {
-    const tier = r.words?.tier ?? "";
+    const tier = r.tier ?? "";
     if (!(tier in perWorld)) continue;
     perWorld[tier].total += 1;
     if (r.correct) perWorld[tier].correct += 1;
