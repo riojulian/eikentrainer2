@@ -33,8 +33,7 @@ import {
   bumpStreak,
   bumpSessionStreak,
   checkBadges,
-  getReadiness,
-  getCompleteness,
+  getMastery,
   XP_PER_CORRECT,
   XP_BONUS_3STAR,
   XP_WEEKLY,
@@ -117,7 +116,6 @@ function QuizPage() {
   const [outcomes, setOutcomes] = useState<Outcome[]>([]);
   const [finished, setFinished] = useState<FinishResult | null>(null);
   const [livePct, setLivePct] = useState<number>(0);
-  const [liveTotal, setLiveTotal] = useState<number>(0);
   const [readinessBefore, setReadinessBefore] = useState<number>(0);
   const [mcRun, setMcRun] = useState<number>(0);
   const [revealed, setRevealed] = useState(false);
@@ -128,14 +126,14 @@ function QuizPage() {
       if (mode === "mission") {
         const world = search.world ?? await getCurrentWorld(user.id);
         setActiveWorld(world);
-        const [allWords, st, ordered, rdy] = await Promise.all([
+        const [allWords, st, ordered, mst] = await Promise.all([
           fetchActiveWords(),
           fetchStatuses(user.id),
           ensureWorldOrder(user.id, world),
-          getReadiness(user.id),
+          getMastery(user.id),
         ]);
         setStatuses(st);
-        setLivePct(rdy.pct); setLiveTotal(rdy.total); setReadinessBefore(rdy.pct);
+        setLivePct(mst.pct); setReadinessBefore(mst.pct);
         const stages = stagize(ordered);
         const cur = await getWorldStage(user.id, world);
         const idxToUse = missionParam ?? cur;
@@ -144,24 +142,24 @@ function QuizPage() {
         const pool = buildStageQuiz(stages, idxToUse);
         setQuestions(buildQuizQuestions(pool, allWords));
       } else if (mode === "weakness") {
-        const [allWords, st, weak, rdy] = await Promise.all([
+        const [allWords, st, weak, mst] = await Promise.all([
           fetchActiveWords(),
           fetchStatuses(user.id),
           getWeakWords(user.id),
-          getReadiness(user.id),
+          getMastery(user.id),
         ]);
         setStatuses(st);
-        setLivePct(rdy.pct); setLiveTotal(rdy.total); setReadinessBefore(rdy.pct);
+        setLivePct(mst.pct); setReadinessBefore(mst.pct);
         if (weak.length < 1) { setQuestions([]); return; }
         setQuestions(buildQuizQuestions(weak, allWords));
       } else {
-        const [allWords, st, rdy] = await Promise.all([
+        const [allWords, st, mst] = await Promise.all([
           fetchActiveWords(),
           fetchStatuses(user.id),
-          getReadiness(user.id),
+          getMastery(user.id),
         ]);
         setStatuses(st);
-        setLivePct(rdy.pct); setLiveTotal(rdy.total); setReadinessBefore(rdy.pct);
+        setLivePct(mst.pct); setReadinessBefore(mst.pct);
         const days = mode === "weekly" ? 7 : 30;
         const pool = await buildPeriodicQuiz(user.id, days);
         if (pool.length < 4) { setQuestions([]); return; }
@@ -199,15 +197,12 @@ function QuizPage() {
       bumpStreak(user.id).catch(() => {});
       const streak = after?.current_streak ?? 0;
 
-      const [rdyAfter, cmpAfter] = await Promise.all([
-        getReadiness(user.id),
-        getCompleteness(user.id),
-      ]);
+      const mstAfter = await getMastery(user.id);
       const newBadges = await checkBadges(user.id, {
         streak,
         mcRun,
-        readinessPct: rdyAfter.pct,
-        touchedCount: cmpAfter.known,
+        masteryPct: mstAfter.pct,
+        touchedCount: mstAfter.touched,
       }).catch(() => [] as BadgeDef[]);
       newBadges.forEach((b) => toast.success(`🏅 ${b.name}`, { description: b.desc }));
 
@@ -227,7 +222,7 @@ function QuizPage() {
         newStreak: streak,
         newBadges,
         readinessBefore,
-        readinessAfter: rdyAfter.pct,
+        readinessAfter: mstAfter.pct,
         weakAdded,
       });
     })();
@@ -335,20 +330,14 @@ function QuizPage() {
     setMcRun((r) => (correct ? r + 1 : 0));
     setRevealed(true);
 
-    // Live readiness update
-    setLiveTotal((tt) => {
-      const newTotal = tt + 1;
-      const newCorrect = Math.round((livePct / 100) * tt) + (correct ? 1 : 0);
-      setLivePct(Math.round((newCorrect / newTotal) * 100));
-      return newTotal;
-    });
-
     supabase.from("quiz_results").insert({ student_id: user.id, word_id: q.word.id, correct }).then(() => {});
 
     const before = statuses[q.word.id];
     applyQuizResult(user.id, q.word.id, before, correct).then((after) => {
       setStatuses((p) => ({ ...p, [q.word.id]: after }));
       setOutcomes((p) => [...p, { wordId: q.word.id, correct, before, after }]);
+      // Refresh live mastery after persistence
+      getMastery(user.id).then((m) => setLivePct(m.pct)).catch(() => {});
     });
 
     const delay = correct ? 900 : 1800;
@@ -379,7 +368,7 @@ function QuizPage() {
         <span className="rounded-full bg-gold/15 text-gold px-2 py-0.5 text-xs font-medium">{headerLabel}</span>
         <div className="flex items-center gap-2">
           <span className={cn("rounded-full px-2 py-0.5 text-xs font-medium", liveColor)}>
-            {t("rdy.live")} {livePct}%
+            {t("mastery.live")} {livePct}%
           </span>
           <span>{idx + 1} / {questions.length}</span>
         </div>

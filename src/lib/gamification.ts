@@ -91,13 +91,13 @@ export type BadgeDef = { key: string; name: string; desc: string; emoji: string 
 export const BADGES: BadgeDef[] = [
   { key: "streak_5", name: "5-Streak", desc: "5 sessions in a row", emoji: "🔥" },
   { key: "mc_master", name: "MC Master", desc: "20 correct multiple-choice in a row", emoji: "🎯" },
-  { key: "vocab_ready", name: "Vocab Ready", desc: "Readiness ≥ 80% (50+ answers)", emoji: "🟢" },
+  { key: "vocab_ready", name: "Vocab Ready", desc: "Mastery progress ≥ 80% (50+ words seen)", emoji: "🟢" },
 ];
 
 export const BADGES_JA: Record<string, { name: string; desc: string }> = {
   streak_5: { name: "5連続", desc: "5セッション連続達成" },
   mc_master: { name: "選択肢マスター", desc: "選択問題20問連続正解" },
-  vocab_ready: { name: "語彙準備完了", desc: "理解度80%以上 (50問以上)" },
+  vocab_ready: { name: "語彙準備完了", desc: "習得進捗80%以上 (50語以上)" },
 };
 
 export async function getEarnedBadges(studentId: string): Promise<Set<string>> {
@@ -124,51 +124,27 @@ export const READINESS_WEIGHTS: Record<string, number> = {
   phrases: 0.1,
 };
 
-export type PerWorldReadiness = { pct: number; total: number; correct: number };
+export type MasteryBuckets = { untouched: number; m0: number; m1: number; m2: number; m3: number };
 
-export type PerWorldCompleteness = { pct: number; known: number; total: number };
+export type PerWorldMastery = {
+  pct: number;
+  total: number;
+  buckets: MasteryBuckets;
+};
 
-/** Completeness: share of Pre-1 words touched (any word_status row, regardless of mastery).
- *  Headline uses READINESS_WEIGHTS (W1=60%, others 10% each); per-world chips are unweighted. */
-export async function getCompleteness(
+/** Linear credit per word based on mastery level. Untouched=0, m0=0.25, m1=0.5, m2=0.75, m3=1.0. */
+const MASTERY_CREDIT: Record<number, number> = { 0: 0.25, 1: 0.5, 2: 0.75, 3: 1.0 };
+
+/** Unified Mastery Progress: linear credit per word, weighted by world. */
+export async function getMastery(
   studentId: string,
-): Promise<{ pct: number; known: number; total: number; perWorld: Record<string, PerWorldCompleteness> }> {
-  const [allWords, { data: statusData }] = await Promise.all([
-    fetchActiveWords(),
-    supabase.from("word_status").select("word_id").eq("student_id", studentId),
-  ]);
-  const touchedSet = new Set<string>((statusData ?? []).map((r) => r.word_id));
-  const perWorld: Record<string, PerWorldCompleteness> = {};
-  for (const k of Object.keys(READINESS_WEIGHTS)) perWorld[k] = { pct: 0, known: 0, total: 0 };
-  let touchedTotal = 0;
-  let countTotal = 0;
-  for (const w of allWords) {
-    const tier = w.tier ?? "";
-    if (!(tier in perWorld)) continue;
-    const touched = touchedSet.has(w.id) ? 1 : 0;
-    perWorld[tier].known += touched;
-    perWorld[tier].total += 1;
-    touchedTotal += touched;
-    countTotal += 1;
-  }
-  for (const pw of Object.values(perWorld)) {
-    pw.pct = pw.total === 0 ? 0 : Math.round((pw.known / pw.total) * 100);
-  }
-  let weighted = 0;
-  for (const [k, w] of Object.entries(READINESS_WEIGHTS)) {
-    const pw = perWorld[k];
-    const ratio = pw.total === 0 ? 0 : pw.known / pw.total;
-    weighted += w * ratio;
-  }
-  const pct = Math.round(weighted * 100);
-  return { pct, known: touchedTotal, total: countTotal, perWorld };
-}
-
-/** Readiness: share of Pre-1 words you actually know (mastery >= 2: 分かった or 完全に習得).
- *  Headline uses READINESS_WEIGHTS; per-world chips are unweighted. Untouched worlds drag the score. */
-export async function getReadiness(
-  studentId: string,
-): Promise<{ pct: number; total: number; correct: number; perWorld: Record<string, PerWorldReadiness> }> {
+): Promise<{
+  pct: number;
+  total: number;
+  touched: number;
+  buckets: MasteryBuckets;
+  perWorld: Record<string, PerWorldMastery>;
+}> {
   const [allWords, { data: statusData }] = await Promise.all([
     fetchActiveWords(),
     supabase.from("word_status").select("word_id, mastery").eq("student_id", studentId),
@@ -176,29 +152,45 @@ export async function getReadiness(
   const masteryByWord = new Map<string, number>(
     (statusData ?? []).map((r) => [r.word_id, r.mastery as number]),
   );
-  const perWorld: Record<string, PerWorldReadiness> = {};
-  for (const k of Object.keys(READINESS_WEIGHTS)) perWorld[k] = { pct: 0, total: 0, correct: 0 };
+  const perWorld: Record<string, PerWorldMastery> = {};
+  for (const k of Object.keys(READINESS_WEIGHTS)) {
+    perWorld[k] = { pct: 0, total: 0, buckets: { untouched: 0, m0: 0, m1: 0, m2: 0, m3: 0 } };
+  }
+  const buckets: MasteryBuckets = { untouched: 0, m0: 0, m1: 0, m2: 0, m3: 0 };
   let total = 0;
-  let known = 0;
+  let touched = 0;
+  const perWorldCredit: Record<string, number> = {};
+  for (const k of Object.keys(READINESS_WEIGHTS)) perWorldCredit[k] = 0;
+
   for (const w of allWords) {
     const tier = w.tier ?? "";
     if (!(tier in perWorld)) continue;
-    const m = masteryByWord.get(w.id) ?? -1;
-    const isKnown = m >= 2;
-    perWorld[tier].total += 1;
-    if (isKnown) perWorld[tier].correct += 1;
+    const pw = perWorld[tier];
+    pw.total += 1;
     total += 1;
-    if (isKnown) known += 1;
+    const m = masteryByWord.get(w.id);
+    if (m === undefined) {
+      pw.buckets.untouched += 1;
+      buckets.untouched += 1;
+    } else {
+      const key = (`m${m}` as keyof MasteryBuckets);
+      pw.buckets[key] += 1;
+      buckets[key] += 1;
+      touched += 1;
+      const credit = MASTERY_CREDIT[m] ?? 0;
+      perWorldCredit[tier] += credit;
+    }
   }
+
   let weighted = 0;
-  for (const [k, w] of Object.entries(READINESS_WEIGHTS)) {
+  for (const [k, weight] of Object.entries(READINESS_WEIGHTS)) {
     const pw = perWorld[k];
-    pw.pct = pw.total === 0 ? 0 : Math.round((pw.correct / pw.total) * 100);
-    const ratio = pw.total === 0 ? 0 : pw.correct / pw.total;
-    weighted += w * ratio;
+    const ratio = pw.total === 0 ? 0 : perWorldCredit[k] / pw.total;
+    pw.pct = Math.round(ratio * 100);
+    weighted += weight * ratio;
   }
   const pct = Math.round(weighted * 100);
-  return { pct, total, correct: known, perWorld };
+  return { pct, total, touched, buckets, perWorld };
 }
 
 /** Bump session streak (counts consecutive completed sessions; never auto-resets). */
@@ -224,7 +216,7 @@ export async function bumpSessionStreak(studentId: string): Promise<Stats> {
 /** Check & award new badges based on readiness, streak, and MC run. */
 export async function checkBadges(
   studentId: string,
-  ctx: { streak: number; mcRun: number; readinessPct: number; touchedCount: number },
+  ctx: { streak: number; mcRun: number; masteryPct: number; touchedCount: number },
 ): Promise<BadgeDef[]> {
   const earned = await getEarnedBadges(studentId);
   const toAdd: string[] = [];
@@ -233,7 +225,7 @@ export async function checkBadges(
   };
   tryAdd("streak_5", ctx.streak >= 5);
   tryAdd("mc_master", ctx.mcRun >= 20);
-  tryAdd("vocab_ready", ctx.readinessPct >= 80 && ctx.touchedCount >= 50);
+  tryAdd("vocab_ready", ctx.masteryPct >= 80 && ctx.touchedCount >= 50);
   await Promise.all(toAdd.map((k) => awardBadge(studentId, k)));
   return toAdd.map((k) => BADGES.find((b) => b.key === k)!).filter(Boolean);
 }
