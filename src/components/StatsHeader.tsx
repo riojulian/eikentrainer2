@@ -1,7 +1,9 @@
 import { Flame, Star } from "lucide-react";
 import { levelFromXp, xpForLevel, type Stats } from "@/lib/gamification";
+import { useLang } from "@/lib/i18n";
 
 export function StatsHeader({ stats }: { stats: Stats }) {
+  const { t } = useLang();
   const level = levelFromXp(stats.xp);
   const curLevelXp = xpForLevel(level);
   const nextLevelXp = xpForLevel(level + 1);
@@ -13,7 +15,7 @@ export function StatsHeader({ stats }: { stats: Stats }) {
       </div>
       <div className="min-w-0 flex-1">
         <div className="flex items-baseline justify-between gap-2">
-          <span className="text-xs uppercase tracking-widest text-muted-foreground">Level {level}</span>
+          <span className="text-xs uppercase tracking-widest text-muted-foreground">{t("home.level")} {level}</span>
           <span className="text-xs text-muted-foreground tabular-nums">
             {stats.xp} / {nextLevelXp} XP
           </span>

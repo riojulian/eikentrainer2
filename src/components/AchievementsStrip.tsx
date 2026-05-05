@@ -1,12 +1,14 @@
 import { BADGES } from "@/lib/gamification";
 import { cn } from "@/lib/utils";
+import { useLang } from "@/lib/i18n";
 
 export function AchievementsStrip({ earned }: { earned: Set<string> }) {
+  const { t } = useLang();
   const earnedCount = BADGES.filter((b) => earned.has(b.key)).length;
   return (
     <div className="rounded-2xl border bg-card p-4 shadow-card">
       <div className="flex items-baseline justify-between mb-3">
-        <div className="text-sm font-medium">Achievements</div>
+        <div className="text-sm font-medium">{t("home.achievements")}</div>
         <div className="text-xs text-muted-foreground">{earnedCount} / {BADGES.length}</div>
       </div>
       <div className="grid grid-cols-5 gap-2">

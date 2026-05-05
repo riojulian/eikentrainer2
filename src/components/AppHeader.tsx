@@ -3,10 +3,12 @@ import { useAuth } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
 import { LogOut, BookOpen } from "lucide-react";
 import { BrandMark } from "@/components/BrandMark";
+import { useLang } from "@/lib/i18n";
 
 export function AppHeader() {
   const { user, role, displayName, signOut } = useAuth();
   const navigate = useNavigate();
+  const { t } = useLang();
 
   return (
     <header className="border-b border-border/60 bg-card/60 backdrop-blur sticky top-0 z-30">
@@ -21,12 +23,12 @@ export function AppHeader() {
             <>
               {role === "admin" ? (
                 <Button variant="ghost" size="sm" asChild>
-                  <Link to="/admin">Admin</Link>
+                  <Link to="/admin">{t("home.admin")}</Link>
                 </Button>
               ) : null}
               <Button variant="ghost" size="sm" asChild>
                 <Link to="/study">
-                  <BookOpen className="h-4 w-4 mr-1" /> Study
+                  <BookOpen className="h-4 w-4 mr-1" /> {t("nav.study")}
                 </Link>
               </Button>
               <span className="hidden sm:inline text-sm text-muted-foreground mr-2">
@@ -38,7 +40,7 @@ export function AppHeader() {
             </>
           ) : (
             <Button size="sm" asChild>
-              <Link to="/auth">Sign in</Link>
+              <Link to="/auth">{t("nav.signin")}</Link>
             </Button>
           )}
         </nav>
