@@ -114,17 +114,48 @@ async function awardBadge(studentId: string, key: string) {
     .then(() => {}, () => {}); // ignore duplicates
 }
 
-/** Compute live readiness % from quiz_results. */
-export async function getReadiness(studentId: string): Promise<{ pct: number; total: number; correct: number }> {
+/** World weights for the readiness score. Must sum to 1. */
+export const READINESS_WEIGHTS: Record<string, number> = {
+  tier1: 0.6,
+  tier2: 0.1,
+  tier3: 0.1,
+  tier4: 0.1,
+  phrases: 0.1,
+};
+
+export type PerWorldReadiness = { pct: number; total: number; correct: number };
+
+/** Compute live readiness % from quiz_results, weighted per world.
+ *  A world with zero answers contributes 0 (so untouched worlds drag the score down). */
+export async function getReadiness(
+  studentId: string,
+): Promise<{ pct: number; total: number; correct: number; perWorld: Record<string, PerWorldReadiness> }> {
   const { data } = await supabase
     .from("quiz_results")
-    .select("correct")
+    .select("correct, words!inner(tier)")
     .eq("student_id", studentId);
-  const rows = data ?? [];
-  const total = rows.length;
-  const correct = rows.filter((r) => r.correct).length;
-  const pct = total === 0 ? 0 : Math.round((correct / total) * 100);
-  return { pct, total, correct };
+  const rows = (data ?? []) as Array<{ correct: boolean; words: { tier: string | null } | null }>;
+  const perWorld: Record<string, PerWorldReadiness> = {};
+  for (const k of Object.keys(READINESS_WEIGHTS)) perWorld[k] = { pct: 0, total: 0, correct: 0 };
+  let total = 0;
+  let correct = 0;
+  for (const r of rows) {
+    const tier = r.words?.tier ?? "";
+    if (!(tier in perWorld)) continue;
+    perWorld[tier].total += 1;
+    if (r.correct) perWorld[tier].correct += 1;
+    total += 1;
+    if (r.correct) correct += 1;
+  }
+  let weighted = 0;
+  for (const [k, w] of Object.entries(READINESS_WEIGHTS)) {
+    const pw = perWorld[k];
+    pw.pct = pw.total === 0 ? 0 : Math.round((pw.correct / pw.total) * 100);
+    const acc = pw.total === 0 ? 0 : pw.correct / pw.total;
+    weighted += w * acc;
+  }
+  const pct = Math.round(weighted * 100);
+  return { pct, total, correct, perWorld };
 }
 
 /** Bump session streak (counts consecutive completed sessions; never auto-resets). */
