@@ -14,9 +14,8 @@ import {
   getWorldStage,
   getStarsByStage,
 } from "@/lib/stages";
-import { getStats, getEarnedBadges, getReadiness, getCompleteness, type Stats, type PerWorldReadiness, type PerWorldCompleteness } from "@/lib/gamification";
-import { ReadinessHeader } from "@/components/ReadinessHeader";
-import { CompletenessHeader } from "@/components/CompletenessHeader";
+import { getStats, getEarnedBadges, getMastery, type Stats, type PerWorldMastery, type MasteryBuckets } from "@/lib/gamification";
+import { MasteryHeader } from "@/components/MasteryHeader";
 import { WeakZoneStrip } from "@/components/WeakZoneStrip";
 import { StageMap } from "@/components/StageMap";
 import { WorldPicker, type WorldSummary } from "@/components/WorldPicker";
@@ -61,8 +60,13 @@ function StudyHome() {
   const [monthlyEligible, setMonthlyEligible] = useState(0);
   const [gameStats, setGameStats] = useState<Stats>({ xp: 0, current_streak: 0, longest_streak: 0, last_active_date: null });
   const [earnedBadges, setEarnedBadges] = useState<Set<string>>(new Set());
-  const [readiness, setReadiness] = useState<{ pct: number; total: number; correct: number; perWorld: Record<string, PerWorldReadiness> }>({ pct: 0, total: 0, correct: 0, perWorld: {} });
-  const [completeness, setCompleteness] = useState<{ pct: number; known: number; total: number; perWorld: Record<string, PerWorldCompleteness> }>({ pct: 0, known: 0, total: 0, perWorld: {} });
+  const [mastery, setMastery] = useState<{ pct: number; total: number; touched: number; buckets: MasteryBuckets; perWorld: Record<string, PerWorldMastery> }>({
+    pct: 0,
+    total: 0,
+    touched: 0,
+    buckets: { untouched: 0, m0: 0, m1: 0, m2: 0, m3: 0 },
+    perWorld: {},
+  });
   const [loading, setLoading] = useState(true);
   const initialWorldRef = useRef<string | null>(null);
 
@@ -71,14 +75,13 @@ function StudyHome() {
     if (!user) return;
     (async () => {
       try {
-      const [allWords, statuses, world, gs, badges, rdy, cmp] = await Promise.all([
+      const [allWords, statuses, world, gs, badges, mst] = await Promise.all([
         fetchActiveWords(),
         fetchStatuses(user.id),
         getCurrentWorld(user.id),
         getStats(user.id),
         getEarnedBadges(user.id),
-        getReadiness(user.id),
-        getCompleteness(user.id),
+        getMastery(user.id),
       ]);
 
       // Mastery tallies (global)
@@ -92,8 +95,7 @@ function StudyHome() {
       setStats({ total: allWords.length, tiers, unseen: allWords.length - seen });
       setGameStats(gs);
       setEarnedBadges(badges);
-      setReadiness({ pct: rdy.pct, total: rdy.total, correct: rdy.correct, perWorld: rdy.perWorld });
-      setCompleteness(cmp);
+      setMastery(mst);
 
       // Per-world summaries
       const grouped = groupByWorld(allWords);
@@ -307,11 +309,15 @@ function StudyHome() {
       </div>
 
       <div className="mt-4">
-        <ReadinessHeader pct={readiness.pct} correct={readiness.correct} total={readiness.total} streak={gameStats.current_streak} earned={earnedBadges} perWorld={readiness.perWorld} />
-      </div>
-
-      <div className="mt-3">
-        <CompletenessHeader pct={completeness.pct} known={completeness.known} total={completeness.total} perWorld={completeness.perWorld} />
+        <MasteryHeader
+          pct={mastery.pct}
+          total={mastery.total}
+          touched={mastery.touched}
+          buckets={mastery.buckets}
+          perWorld={mastery.perWorld}
+          streak={gameStats.current_streak}
+          earned={earnedBadges}
+        />
       </div>
 
       <div className="mt-3">
