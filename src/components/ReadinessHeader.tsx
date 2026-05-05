@@ -6,6 +6,7 @@ import { cn } from "@/lib/utils";
 type Props = {
   pct: number;
   total: number;
+  correct: number;
   streak: number;
   earned: Set<string>;
   perWorld?: Record<string, PerWorldReadiness>;
@@ -19,7 +20,7 @@ const WORLD_CHIP_LABEL: Record<string, string> = {
   phrases: "Ph",
 };
 
-export function ReadinessHeader({ pct, total, streak, earned, perWorld }: Props) {
+export function ReadinessHeader({ pct, total, correct, streak, earned, perWorld }: Props) {
   const { t, lang } = useLang();
   const ringColor =
     pct >= 80 ? "stroke-sage" : pct >= 50 ? "stroke-gold" : "stroke-rose";
@@ -72,7 +73,7 @@ export function ReadinessHeader({ pct, total, streak, earned, perWorld }: Props)
           </div>
         ) : null}
         <div className="mt-1 text-xs text-muted-foreground">
-          {total} {t("rdy.answers")}
+          {correct} / {total} {t("rdy.answers")}
         </div>
         <div className="mt-1.5 flex items-center gap-2">
           <div className="flex items-center gap-1 rounded-full border bg-rose/10 px-2 py-0.5 text-rose text-xs">
