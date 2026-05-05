@@ -101,13 +101,6 @@ function Progress() {
 
   if (!s) return <div className="text-muted-foreground">Loading…</div>;
 
-  const stat = (label: string, value: string | number, color?: string) => (
-    <div className="rounded-xl border bg-card p-5 shadow-card">
-      <div className="text-xs uppercase tracking-widest text-muted-foreground">{label}</div>
-      <div className={`mt-2 font-display text-3xl ${color ?? ""}`}>{value}</div>
-    </div>
-  );
-
   const segments = [
     { label: MASTERY_LABELS[0], count: s.tiers[0], cls: MASTERY_BG[0] },
     { label: MASTERY_LABELS[1], count: s.tiers[1], cls: MASTERY_BG[1] },
