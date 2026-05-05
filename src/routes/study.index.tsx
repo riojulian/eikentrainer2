@@ -287,11 +287,11 @@ function StudyHome() {
             <DropdownMenuLabel className="flex items-center gap-2">
               <Languages className="h-4 w-4 text-gold" /> {t("menu.language")}
             </DropdownMenuLabel>
-            <DropdownMenuItem onSelect={(e) => { e.preventDefault(); setLang("en"); }}>
+            <DropdownMenuItem onSelect={() => setLang("en")}>
               <span className={lang === "en" ? "font-semibold" : ""}>English</span>
               {lang === "en" ? <span className="ml-auto text-xs text-muted-foreground">✓</span> : null}
             </DropdownMenuItem>
-            <DropdownMenuItem onSelect={(e) => { e.preventDefault(); setLang("ja"); }}>
+            <DropdownMenuItem onSelect={() => setLang("ja")}>
               <span className={lang === "ja" ? "font-semibold" : ""}>日本語</span>
               {lang === "ja" ? <span className="ml-auto text-xs text-muted-foreground">✓</span> : null}
             </DropdownMenuItem>
