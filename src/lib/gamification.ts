@@ -88,17 +88,16 @@ export async function bumpStreak(studentId: string): Promise<Stats> {
 export type BadgeDef = { key: string; name: string; desc: string; emoji: string };
 
 export const BADGES: BadgeDef[] = [
-  { key: "first_steps", name: "First Steps", desc: "Finished Stage 1", emoji: "👣" },
-  { key: "perfect_stage", name: "Flawless", desc: "Got 3 stars on a stage", emoji: "🌟" },
-  { key: "five_stages", name: "Climber", desc: "Cleared 5 stages", emoji: "⛰️" },
-  { key: "ten_stages", name: "Mountaineer", desc: "Cleared 10 stages", emoji: "🏔️" },
-  { key: "perfectionist", name: "Perfectionist", desc: "3-starred 5 stages", emoji: "💎" },
-  { key: "streak_3", name: "On a Roll", desc: "3-day streak", emoji: "🔥" },
-  { key: "streak_7", name: "Marathon", desc: "7-day streak", emoji: "🏃" },
-  { key: "streak_30", name: "Unstoppable", desc: "30-day streak", emoji: "⚡" },
-  { key: "weekly_done", name: "Weekly Warrior", desc: "Finished a weekly review", emoji: "📅" },
-  { key: "monthly_done", name: "Monthly Master", desc: "Finished a monthly review", emoji: "🗓️" },
+  { key: "streak_5", name: "5-Streak", desc: "5 sessions in a row", emoji: "🔥" },
+  { key: "mc_master", name: "MC Master", desc: "20 correct multiple-choice in a row", emoji: "🎯" },
+  { key: "vocab_ready", name: "Vocab Ready", desc: "Readiness ≥ 80% (50+ answers)", emoji: "🟢" },
 ];
+
+export const BADGES_JA: Record<string, { name: string; desc: string }> = {
+  streak_5: { name: "5連続", desc: "5セッション連続達成" },
+  mc_master: { name: "選択肢マスター", desc: "選択問題20問連続正解" },
+  vocab_ready: { name: "語彙準備完了", desc: "理解度80%以上 (50問以上)" },
+};
 
 export async function getEarnedBadges(studentId: string): Promise<Set<string>> {
   const { data } = await supabase
@@ -115,39 +114,52 @@ async function awardBadge(studentId: string, key: string) {
     .then(() => {}, () => {}); // ignore duplicates
 }
 
-/** Check & award any new badges. Returns the list of newly awarded keys. */
+/** Compute live readiness % from quiz_results. */
+export async function getReadiness(studentId: string): Promise<{ pct: number; total: number; correct: number }> {
+  const { data } = await supabase
+    .from("quiz_results")
+    .select("correct")
+    .eq("student_id", studentId);
+  const rows = data ?? [];
+  const total = rows.length;
+  const correct = rows.filter((r) => r.correct).length;
+  const pct = total === 0 ? 0 : Math.round((correct / total) * 100);
+  return { pct, total, correct };
+}
+
+/** Bump session streak (counts consecutive completed sessions; never auto-resets). */
+export async function bumpSessionStreak(studentId: string): Promise<Stats> {
+  const cur = await getStats(studentId);
+  const next = cur.current_streak + 1;
+  const longest = Math.max(cur.longest_streak, next);
+  await supabase
+    .from("student_stats")
+    .upsert(
+      {
+        student_id: studentId,
+        current_streak: next,
+        longest_streak: longest,
+        last_active_date: todayStr(),
+        updated_at: new Date().toISOString(),
+      } as never,
+      { onConflict: "student_id" },
+    );
+  return { ...cur, current_streak: next, longest_streak: longest, last_active_date: todayStr() };
+}
+
+/** Check & award new badges based on readiness, streak, and MC run. */
 export async function checkBadges(
   studentId: string,
-  ctx: {
-    starsByStage: Record<number, 0 | 1 | 2 | 3>;
-    streak: number;
-    justFinishedKind?: "stage" | "weekly" | "monthly";
-    justFinishedStageIndex?: number | null;
-    justFinishedStars?: 0 | 1 | 2 | 3;
-  },
+  ctx: { streak: number; mcRun: number; readinessPct: number; readinessTotal: number },
 ): Promise<BadgeDef[]> {
   const earned = await getEarnedBadges(studentId);
   const toAdd: string[] = [];
-
-  const stageEntries = Object.entries(ctx.starsByStage);
-  const cleared = stageEntries.filter(([, s]) => s >= 1).length;
-  const threeStarCount = stageEntries.filter(([, s]) => s === 3).length;
-
   const tryAdd = (key: string, cond: boolean) => {
     if (cond && !earned.has(key)) toAdd.push(key);
   };
-
-  tryAdd("first_steps", ctx.justFinishedStageIndex === 1 && (ctx.justFinishedStars ?? 0) >= 1);
-  tryAdd("perfect_stage", (ctx.justFinishedStars ?? 0) === 3);
-  tryAdd("five_stages", cleared >= 5);
-  tryAdd("ten_stages", cleared >= 10);
-  tryAdd("perfectionist", threeStarCount >= 5);
-  tryAdd("streak_3", ctx.streak >= 3);
-  tryAdd("streak_7", ctx.streak >= 7);
-  tryAdd("streak_30", ctx.streak >= 30);
-  tryAdd("weekly_done", ctx.justFinishedKind === "weekly");
-  tryAdd("monthly_done", ctx.justFinishedKind === "monthly");
-
+  tryAdd("streak_5", ctx.streak >= 5);
+  tryAdd("mc_master", ctx.mcRun >= 20);
+  tryAdd("vocab_ready", ctx.readinessPct >= 80 && ctx.readinessTotal >= 50);
   await Promise.all(toAdd.map((k) => awardBadge(studentId, k)));
   return toAdd.map((k) => BADGES.find((b) => b.key === k)!).filter(Boolean);
 }
