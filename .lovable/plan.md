@@ -1,25 +1,16 @@
-## Fix word upload to support Tier5 / phrases and multi-word entries
+## Cache `fetchActiveWords` results in `src/lib/words.ts`
 
-**File:** `src/routes/admin.upload.tsx`
+Replace the current `fetchActiveWords` (lines 62–78) with a module-level memoized version so repeated callers share a single in-flight/resolved promise instead of re-paginating the full word list on every navigation.
 
-### Changes
+### Change
 
-1. **Extend `normalizeTier()`** to map Tier5 variants to `phrases`:
-   - Add `5`, `tier5`, `t5`, `world5`, `world 5`, `phrase`, `phrases` → `phrases`
-   - Keep existing `tier1`-`tier4` mappings
+- Add a module-scoped `_wordsCache: Promise<Word[]> | null = null`.
+- `fetchActiveWords()` becomes synchronous-shaped: returns the cached promise if present, otherwise builds it via the same paginated loop already in place.
+- On error, reset `_wordsCache = null` inside the async IIFE so the next call retries instead of permanently caching a rejection.
+- Keep pagination logic identical (`PAGE = 1000`, `range(offset, offset+PAGE-1)`, break when short page).
 
-2. **Rewrite line parser** to handle multi-word phrases:
-   - Trim line, normalize whitespace (collapse tabs / multiple spaces / non-breaking spaces)
-   - Detect leading tier token (e.g. `Tier5`, `tier3`, `phrases`, `1`) case-insensitively
-   - Strip the tier token from the front; the **entire remainder** of the line becomes the word/phrase (e.g. `Tier5 accuse A of B` → tier=`phrases`, word=`accuse A of B`)
-   - If no tier token is present, fall back to current default behavior
+### Notes / trade-offs
 
-3. **Update help/hint text** in the upload UI to show supported formats:
-   - `1 ambiguous`
-   - `tier3 profound`
-   - `Tier5 account for`
-   - `phrases give up`
-
-4. **Dedup check** continues to use the full phrase string so `account for` and `account` are treated as distinct.
-
-No DB schema changes (the `validate_word_tier` trigger already accepts `phrases`).
+- Cache lives for the lifetime of the JS module (page session). A hard refresh clears it. Admin word edits won't appear until refresh — acceptable for student study flow; admins already reload after edits.
+- No API change: signature stays `(): Promise<Word[]>`, all current `await fetchActiveWords()` callers keep working.
+- No DB / schema changes.

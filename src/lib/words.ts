@@ -59,22 +59,32 @@ export const MASTERY_BORDER: Record<Mastery, string> = {
   3: "border-l-gold",
 };
 
-export async function fetchActiveWords() {
-  const PAGE = 1000;
-  const all: Word[] = [];
-  for (let offset = 0; ; offset += PAGE) {
-    const { data, error } = await supabase
-      .from("words")
-      .select("*")
-      .eq("is_active", true)
-      .order("created_at", { ascending: true })
-      .range(offset, offset + PAGE - 1);
-    if (error) throw error;
-    const rows = (data ?? []) as Word[];
-    all.push(...rows);
-    if (rows.length < PAGE) break;
+let _wordsCache: Promise<Word[]> | null = null;
+
+export function fetchActiveWords(): Promise<Word[]> {
+  if (!_wordsCache) {
+    _wordsCache = (async () => {
+      const PAGE = 1000;
+      const all: Word[] = [];
+      for (let offset = 0; ; offset += PAGE) {
+        const { data, error } = await supabase
+          .from("words")
+          .select("*")
+          .eq("is_active", true)
+          .order("created_at", { ascending: true })
+          .range(offset, offset + PAGE - 1);
+        if (error) {
+          _wordsCache = null; // allow retry on error
+          throw error;
+        }
+        const rows = (data ?? []) as Word[];
+        all.push(...rows);
+        if (rows.length < PAGE) break;
+      }
+      return all;
+    })();
   }
-  return all;
+  return _wordsCache;
 }
 
 export async function fetchStatuses(studentId: string) {
