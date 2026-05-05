@@ -128,11 +128,47 @@ export type PerWorldReadiness = { pct: number; total: number; correct: number };
 
 export type PerWorldCompleteness = { pct: number; known: number; total: number };
 
-/** Coverage metric: share of Pre-1 words mastered.
- *  mastery >= 2 → 1.0 credit, mastery == 1 → 0.5 credit, else 0. */
+/** Completeness: share of Pre-1 words touched (any word_status row, regardless of mastery).
+ *  Headline uses READINESS_WEIGHTS (W1=60%, others 10% each); per-world chips are unweighted. */
 export async function getCompleteness(
   studentId: string,
 ): Promise<{ pct: number; known: number; total: number; perWorld: Record<string, PerWorldCompleteness> }> {
+  const [allWords, { data: statusData }] = await Promise.all([
+    fetchActiveWords(),
+    supabase.from("word_status").select("word_id").eq("student_id", studentId),
+  ]);
+  const touchedSet = new Set<string>((statusData ?? []).map((r) => r.word_id));
+  const perWorld: Record<string, PerWorldCompleteness> = {};
+  for (const k of Object.keys(READINESS_WEIGHTS)) perWorld[k] = { pct: 0, known: 0, total: 0 };
+  let touchedTotal = 0;
+  let countTotal = 0;
+  for (const w of allWords) {
+    const tier = w.tier ?? "";
+    if (!(tier in perWorld)) continue;
+    const touched = touchedSet.has(w.id) ? 1 : 0;
+    perWorld[tier].known += touched;
+    perWorld[tier].total += 1;
+    touchedTotal += touched;
+    countTotal += 1;
+  }
+  for (const pw of Object.values(perWorld)) {
+    pw.pct = pw.total === 0 ? 0 : Math.round((pw.known / pw.total) * 100);
+  }
+  let weighted = 0;
+  for (const [k, w] of Object.entries(READINESS_WEIGHTS)) {
+    const pw = perWorld[k];
+    const ratio = pw.total === 0 ? 0 : pw.known / pw.total;
+    weighted += w * ratio;
+  }
+  const pct = Math.round(weighted * 100);
+  return { pct, known: touchedTotal, total: countTotal, perWorld };
+}
+
+/** Readiness: share of Pre-1 words you actually know (mastery >= 2: 分かった or 完全に習得).
+ *  Headline uses READINESS_WEIGHTS; per-world chips are unweighted. Untouched worlds drag the score. */
+export async function getReadiness(
+  studentId: string,
+): Promise<{ pct: number; total: number; correct: number; perWorld: Record<string, PerWorldReadiness> }> {
   const [allWords, { data: statusData }] = await Promise.all([
     fetchActiveWords(),
     supabase.from("word_status").select("word_id, mastery").eq("student_id", studentId),
@@ -140,59 +176,29 @@ export async function getCompleteness(
   const masteryByWord = new Map<string, number>(
     (statusData ?? []).map((r) => [r.word_id, r.mastery as number]),
   );
-  const perWorld: Record<string, PerWorldCompleteness> = {};
-  for (const k of Object.keys(READINESS_WEIGHTS)) perWorld[k] = { pct: 0, known: 0, total: 0 };
-  let knownTotal = 0;
-  let countTotal = 0;
-  for (const w of allWords) {
-    const tier = w.tier ?? "";
-    if (!(tier in perWorld)) continue;
-    const m = masteryByWord.get(w.id) ?? 0;
-    const credit = m >= 2 ? 1 : m === 1 ? 0.5 : 0;
-    perWorld[tier].known += credit;
-    perWorld[tier].total += 1;
-    knownTotal += credit;
-    countTotal += 1;
-  }
-  for (const pw of Object.values(perWorld)) {
-    pw.pct = pw.total === 0 ? 0 : Math.round((pw.known / pw.total) * 100);
-  }
-  const pct = countTotal === 0 ? 0 : Math.round((knownTotal / countTotal) * 100);
-  return { pct, known: Math.round(knownTotal), total: countTotal, perWorld };
-}
-
-/** Compute live readiness % from quiz_results, weighted per world.
- *  A world with zero answers contributes 0 (so untouched worlds drag the score down). */
-export async function getReadiness(
-  studentId: string,
-): Promise<{ pct: number; total: number; correct: number; perWorld: Record<string, PerWorldReadiness> }> {
-  const [{ data: qrData }, { data: wordsData }] = await Promise.all([
-    supabase.from("quiz_results").select("correct, word_id").eq("student_id", studentId),
-    supabase.from("words").select("id, tier"),
-  ]);
-  const tierByWord = new Map<string, string | null>((wordsData ?? []).map((w) => [w.id, w.tier]));
-  const rows = (qrData ?? []).map((r) => ({ correct: r.correct, tier: tierByWord.get(r.word_id) ?? "" }));
   const perWorld: Record<string, PerWorldReadiness> = {};
   for (const k of Object.keys(READINESS_WEIGHTS)) perWorld[k] = { pct: 0, total: 0, correct: 0 };
   let total = 0;
-  let correct = 0;
-  for (const r of rows) {
-    const tier = r.tier ?? "";
+  let known = 0;
+  for (const w of allWords) {
+    const tier = w.tier ?? "";
     if (!(tier in perWorld)) continue;
+    const m = masteryByWord.get(w.id) ?? -1;
+    const isKnown = m >= 2;
     perWorld[tier].total += 1;
-    if (r.correct) perWorld[tier].correct += 1;
+    if (isKnown) perWorld[tier].correct += 1;
     total += 1;
-    if (r.correct) correct += 1;
+    if (isKnown) known += 1;
   }
   let weighted = 0;
   for (const [k, w] of Object.entries(READINESS_WEIGHTS)) {
     const pw = perWorld[k];
     pw.pct = pw.total === 0 ? 0 : Math.round((pw.correct / pw.total) * 100);
-    const acc = pw.total === 0 ? 0 : pw.correct / pw.total;
-    weighted += w * acc;
+    const ratio = pw.total === 0 ? 0 : pw.correct / pw.total;
+    weighted += w * ratio;
   }
   const pct = Math.round(weighted * 100);
-  return { pct, total, correct, perWorld };
+  return { pct, total, correct: known, perWorld };
 }
 
 /** Bump session streak (counts consecutive completed sessions; never auto-resets). */
@@ -218,7 +224,7 @@ export async function bumpSessionStreak(studentId: string): Promise<Stats> {
 /** Check & award new badges based on readiness, streak, and MC run. */
 export async function checkBadges(
   studentId: string,
-  ctx: { streak: number; mcRun: number; readinessPct: number; readinessTotal: number },
+  ctx: { streak: number; mcRun: number; readinessPct: number; touchedCount: number },
 ): Promise<BadgeDef[]> {
   const earned = await getEarnedBadges(studentId);
   const toAdd: string[] = [];
@@ -227,7 +233,7 @@ export async function checkBadges(
   };
   tryAdd("streak_5", ctx.streak >= 5);
   tryAdd("mc_master", ctx.mcRun >= 20);
-  tryAdd("vocab_ready", ctx.readinessPct >= 80 && ctx.readinessTotal >= 50);
+  tryAdd("vocab_ready", ctx.readinessPct >= 80 && ctx.touchedCount >= 50);
   await Promise.all(toAdd.map((k) => awardBadge(studentId, k)));
   return toAdd.map((k) => BADGES.find((b) => b.key === k)!).filter(Boolean);
 }
