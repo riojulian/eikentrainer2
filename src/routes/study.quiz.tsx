@@ -101,7 +101,7 @@ type FinishResult = {
 
 function QuizPage() {
   const { user } = useAuth();
-  const { t } = useLang();
+  const { t, lang } = useLang();
   const search = Route.useSearch();
   const mode: Mode = search.mode ?? "mission";
   const missionParam = search.mission;
