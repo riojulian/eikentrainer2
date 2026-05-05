@@ -89,15 +89,33 @@ export async function bumpStreak(studentId: string): Promise<Stats> {
 export type BadgeDef = { key: string; name: string; desc: string; emoji: string };
 
 export const BADGES: BadgeDef[] = [
+  { key: "first_steps", name: "First Timer", desc: "Study your first word", emoji: "🌱" },
+  { key: "explorer", name: "Explorer", desc: "Touch 25 different words", emoji: "🧭" },
+  { key: "scholar", name: "Scholar", desc: "Touch 100 different words", emoji: "📚" },
+  { key: "streak_3", name: "On a Roll", desc: "3 sessions in a row", emoji: "✨" },
   { key: "streak_5", name: "5-Streak", desc: "5 sessions in a row", emoji: "🔥" },
-  { key: "mc_master", name: "MC Master", desc: "20 correct multiple-choice in a row", emoji: "🎯" },
+  { key: "streak_10", name: "10-Streak", desc: "10 sessions in a row", emoji: "⚡" },
+  { key: "marathon", name: "Marathon", desc: "30 sessions in a row", emoji: "🏃" },
+  { key: "mc_starter", name: "Sharpshooter", desc: "5 correct multiple-choice in a row", emoji: "🎯" },
+  { key: "mc_master", name: "MC Master", desc: "20 correct multiple-choice in a row", emoji: "🏹" },
+  { key: "mc_legend", name: "MC Legend", desc: "50 correct multiple-choice in a row", emoji: "👑" },
   { key: "vocab_ready", name: "Vocab Ready", desc: "Mastery progress ≥ 80% (50+ words seen)", emoji: "🟢" },
+  { key: "vocab_master", name: "Vocab Master", desc: "Mastery progress ≥ 95% (100+ words)", emoji: "🏆" },
 ];
 
 export const BADGES_JA: Record<string, { name: string; desc: string }> = {
+  first_steps: { name: "はじめの一歩", desc: "最初の単語を学習" },
+  explorer: { name: "探検家", desc: "25語に触れた" },
+  scholar: { name: "学者", desc: "100語に触れた" },
+  streak_3: { name: "好調", desc: "3セッション連続達成" },
   streak_5: { name: "5連続", desc: "5セッション連続達成" },
+  streak_10: { name: "10連続", desc: "10セッション連続達成" },
+  marathon: { name: "マラソン", desc: "30セッション連続達成" },
+  mc_starter: { name: "射手", desc: "選択問題5問連続正解" },
   mc_master: { name: "選択肢マスター", desc: "選択問題20問連続正解" },
+  mc_legend: { name: "伝説の射手", desc: "選択問題50問連続正解" },
   vocab_ready: { name: "語彙準備完了", desc: "習得進捗80%以上 (50語以上)" },
+  vocab_master: { name: "語彙マスター", desc: "習得進捗95%以上 (100語以上)" },
 };
 
 export async function getEarnedBadges(studentId: string): Promise<Set<string>> {
@@ -223,9 +241,18 @@ export async function checkBadges(
   const tryAdd = (key: string, cond: boolean) => {
     if (cond && !earned.has(key)) toAdd.push(key);
   };
+  tryAdd("first_steps", ctx.touchedCount >= 1);
+  tryAdd("explorer", ctx.touchedCount >= 25);
+  tryAdd("scholar", ctx.touchedCount >= 100);
+  tryAdd("streak_3", ctx.streak >= 3);
   tryAdd("streak_5", ctx.streak >= 5);
+  tryAdd("streak_10", ctx.streak >= 10);
+  tryAdd("marathon", ctx.streak >= 30);
+  tryAdd("mc_starter", ctx.mcRun >= 5);
   tryAdd("mc_master", ctx.mcRun >= 20);
+  tryAdd("mc_legend", ctx.mcRun >= 50);
   tryAdd("vocab_ready", ctx.masteryPct >= 80 && ctx.touchedCount >= 50);
+  tryAdd("vocab_master", ctx.masteryPct >= 95 && ctx.touchedCount >= 100);
   await Promise.all(toAdd.map((k) => awardBadge(studentId, k)));
   return toAdd.map((k) => BADGES.find((b) => b.key === k)!).filter(Boolean);
 }
