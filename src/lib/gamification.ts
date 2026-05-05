@@ -114,17 +114,49 @@ async function awardBadge(studentId: string, key: string) {
     .then(() => {}, () => {}); // ignore duplicates
 }
 
-/** Compute live readiness % from quiz_results. */
-export async function getReadiness(studentId: string): Promise<{ pct: number; total: number; correct: number }> {
-  const { data } = await supabase
-    .from("quiz_results")
-    .select("correct")
-    .eq("student_id", studentId);
-  const rows = data ?? [];
-  const total = rows.length;
-  const correct = rows.filter((r) => r.correct).length;
-  const pct = total === 0 ? 0 : Math.round((correct / total) * 100);
-  return { pct, total, correct };
+/** World weights for the readiness score. Must sum to 1. */
+export const READINESS_WEIGHTS: Record<string, number> = {
+  tier1: 0.6,
+  tier2: 0.1,
+  tier3: 0.1,
+  tier4: 0.1,
+  phrases: 0.1,
+};
+
+export type PerWorldReadiness = { pct: number; total: number; correct: number };
+
+/** Compute live readiness % from quiz_results, weighted per world.
+ *  A world with zero answers contributes 0 (so untouched worlds drag the score down). */
+export async function getReadiness(
+  studentId: string,
+): Promise<{ pct: number; total: number; correct: number; perWorld: Record<string, PerWorldReadiness> }> {
+  const [{ data: qrData }, { data: wordsData }] = await Promise.all([
+    supabase.from("quiz_results").select("correct, word_id").eq("student_id", studentId),
+    supabase.from("words").select("id, tier"),
+  ]);
+  const tierByWord = new Map<string, string | null>((wordsData ?? []).map((w) => [w.id, w.tier]));
+  const rows = (qrData ?? []).map((r) => ({ correct: r.correct, tier: tierByWord.get(r.word_id) ?? "" }));
+  const perWorld: Record<string, PerWorldReadiness> = {};
+  for (const k of Object.keys(READINESS_WEIGHTS)) perWorld[k] = { pct: 0, total: 0, correct: 0 };
+  let total = 0;
+  let correct = 0;
+  for (const r of rows) {
+    const tier = r.tier ?? "";
+    if (!(tier in perWorld)) continue;
+    perWorld[tier].total += 1;
+    if (r.correct) perWorld[tier].correct += 1;
+    total += 1;
+    if (r.correct) correct += 1;
+  }
+  let weighted = 0;
+  for (const [k, w] of Object.entries(READINESS_WEIGHTS)) {
+    const pw = perWorld[k];
+    pw.pct = pw.total === 0 ? 0 : Math.round((pw.correct / pw.total) * 100);
+    const acc = pw.total === 0 ? 0 : pw.correct / pw.total;
+    weighted += w * acc;
+  }
+  const pct = Math.round(weighted * 100);
+  return { pct, total, correct, perWorld };
 }
 
 /** Bump session streak (counts consecutive completed sessions; never auto-resets). */

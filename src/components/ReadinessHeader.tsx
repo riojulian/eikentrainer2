@@ -1,5 +1,5 @@
 import { Flame } from "lucide-react";
-import { BADGES, BADGES_JA } from "@/lib/gamification";
+import { BADGES, BADGES_JA, READINESS_WEIGHTS, type PerWorldReadiness } from "@/lib/gamification";
 import { useLang } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
 
@@ -8,9 +8,18 @@ type Props = {
   total: number;
   streak: number;
   earned: Set<string>;
+  perWorld?: Record<string, PerWorldReadiness>;
 };
 
-export function ReadinessHeader({ pct, total, streak, earned }: Props) {
+const WORLD_CHIP_LABEL: Record<string, string> = {
+  tier1: "W1",
+  tier2: "W2",
+  tier3: "W3",
+  tier4: "W4",
+  phrases: "Ph",
+};
+
+export function ReadinessHeader({ pct, total, streak, earned, perWorld }: Props) {
   const { t, lang } = useLang();
   const ringColor =
     pct >= 80 ? "stroke-sage" : pct >= 50 ? "stroke-gold" : "stroke-rose";
@@ -19,10 +28,13 @@ export function ReadinessHeader({ pct, total, streak, earned }: Props) {
   const radius = 28;
   const circ = 2 * Math.PI * radius;
   const dash = (pct / 100) * circ;
+  const tooltip = lang === "ja"
+    ? "加重: World 1 = 60%, 他は各10%"
+    : "Weighted: World 1 = 60%, others 10% each";
 
   return (
     <div className="flex items-center gap-3 rounded-2xl border bg-card p-3 shadow-card">
-      <div className="relative h-16 w-16 shrink-0">
+      <div className="relative h-16 w-16 shrink-0" title={tooltip}>
         <svg viewBox="0 0 64 64" className="h-16 w-16 -rotate-90">
           <circle cx="32" cy="32" r={radius} className="stroke-muted" strokeWidth="6" fill="none" />
           <circle
@@ -42,7 +54,27 @@ export function ReadinessHeader({ pct, total, streak, earned }: Props) {
       </div>
       <div className="min-w-0 flex-1">
         <div className="text-xs uppercase tracking-widest text-muted-foreground">{t("rdy.title")}</div>
-        <div className="font-display text-lg leading-tight">{t("rdy.based")} {total} {t("rdy.answers")}</div>
+        {perWorld ? (
+          <div className="flex flex-wrap gap-1 mt-0.5" title={tooltip}>
+            {Object.keys(READINESS_WEIGHTS).map((k) => {
+              const pw = perWorld[k];
+              const dim = !pw || pw.total === 0;
+              return (
+                <span
+                  key={k}
+                  className={cn(
+                    "rounded-md border px-1.5 py-0.5 text-[10px] font-display leading-none",
+                    dim ? "bg-muted/30 text-muted-foreground" : "bg-card",
+                  )}
+                >
+                  {WORLD_CHIP_LABEL[k]} {pw?.pct ?? 0}%
+                </span>
+              );
+            })}
+          </div>
+        ) : (
+          <div className="font-display text-lg leading-tight">{t("rdy.based")} {total} {t("rdy.answers")}</div>
+        )}
         <div className="mt-1.5 flex items-center gap-2">
           <div className="flex items-center gap-1 rounded-full border bg-rose/10 px-2 py-0.5 text-rose text-xs">
             <Flame className="h-3 w-3" />
