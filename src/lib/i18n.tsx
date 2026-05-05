@@ -81,6 +81,19 @@ const DICT: Dict = {
   "quiz.correctAns": { en: "Correct answer", ja: "正解" },
   "quiz.added": { en: "Added to Weak Zone", ja: "弱点ゾーンに追加" },
   "results.delta": { en: "Progress", ja: "進捗" },
+  // Auth
+  "auth.welcome": { en: "Welcome to EikenTango", ja: "EikenTango へようこそ" },
+  "auth.tagline": { en: "A little every day — master the words.", ja: "毎日コツコツ、単語マスターへ。" },
+  "auth.signin": { en: "Sign in", ja: "ログイン" },
+  "auth.signup": { en: "Sign up", ja: "新規登録" },
+  "auth.email": { en: "Email", ja: "メールアドレス" },
+  "auth.password": { en: "Password", ja: "パスワード" },
+  "auth.displayName": { en: "Display name", ja: "表示名" },
+  "auth.signinBtn": { en: "Sign in", ja: "ログイン" },
+  "auth.signupBtn": { en: "Create account", ja: "アカウントを作成" },
+  "auth.welcomeBack": { en: "Welcome back", ja: "おかえりなさい" },
+  "auth.created": { en: "Account created!", ja: "アカウントを作成しました！" },
+  "auth.studentNote": { en: "New accounts are created as students. An admin can promote you in the database.", ja: "新規アカウントは生徒として作成されます。管理者が権限を変更できます。" },
   "results.newBadges": { en: "Badges unlocked!", ja: "バッジ解放！" },
 };
 
@@ -93,15 +106,12 @@ type Ctx = {
 const LangCtx = createContext<Ctx | undefined>(undefined);
 
 export function LangProvider({ children }: { children: ReactNode }) {
-  const [lang, setLangState] = useState<UiLang>("en");
+  const [lang, setLangState] = useState<UiLang>("ja");
 
   useEffect(() => {
     try {
       const saved = localStorage.getItem(STORAGE_KEY) as UiLang | null;
       if (saved === "en" || saved === "ja") setLangState(saved);
-      else if (typeof navigator !== "undefined" && navigator.language?.toLowerCase().startsWith("ja")) {
-        setLangState("ja");
-      }
     } catch {}
   }, []);
 
