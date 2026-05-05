@@ -28,9 +28,7 @@ export function ReadinessHeader({ pct, total, streak, earned, perWorld }: Props)
   const radius = 28;
   const circ = 2 * Math.PI * radius;
   const dash = (pct / 100) * circ;
-  const tooltip = lang === "ja"
-    ? "加重: World 1 = 60%, 他は各10%"
-    : "Weighted: World 1 = 60%, others 10% each";
+  const tooltip = t("rdy.tooltip");
 
   return (
     <div className="flex items-center gap-3 rounded-2xl border bg-card p-3 shadow-card">
@@ -72,9 +70,10 @@ export function ReadinessHeader({ pct, total, streak, earned, perWorld }: Props)
               );
             })}
           </div>
-        ) : (
-          <div className="font-display text-lg leading-tight">{t("rdy.based")} {total} {t("rdy.answers")}</div>
-        )}
+        ) : null}
+        <div className="mt-1 text-xs text-muted-foreground">
+          {total} {t("rdy.answers")}
+        </div>
         <div className="mt-1.5 flex items-center gap-2">
           <div className="flex items-center gap-1 rounded-full border bg-rose/10 px-2 py-0.5 text-rose text-xs">
             <Flame className="h-3 w-3" />
