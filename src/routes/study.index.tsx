@@ -14,10 +14,10 @@ import {
   getWorldStage,
   getStarsByStage,
 } from "@/lib/stages";
-import { getStats, getEarnedBadges, type Stats } from "@/lib/gamification";
-import { StatsHeader } from "@/components/StatsHeader";
+import { getStats, getEarnedBadges, getReadiness, type Stats } from "@/lib/gamification";
+import { ReadinessHeader } from "@/components/ReadinessHeader";
+import { WeakZoneStrip } from "@/components/WeakZoneStrip";
 import { StageMap } from "@/components/StageMap";
-import { AchievementsStrip } from "@/components/AchievementsStrip";
 import { WorldPicker, type WorldSummary } from "@/components/WorldPicker";
 import { Button } from "@/components/ui/button";
 import {
@@ -60,6 +60,7 @@ function StudyHome() {
   const [monthlyEligible, setMonthlyEligible] = useState(0);
   const [gameStats, setGameStats] = useState<Stats>({ xp: 0, current_streak: 0, longest_streak: 0, last_active_date: null });
   const [earnedBadges, setEarnedBadges] = useState<Set<string>>(new Set());
+  const [readiness, setReadiness] = useState<{ pct: number; total: number }>({ pct: 0, total: 0 });
   const [loading, setLoading] = useState(true);
   const initialWorldRef = useRef<string | null>(null);
 
@@ -68,12 +69,13 @@ function StudyHome() {
     if (!user) return;
     (async () => {
       try {
-      const [allWords, statuses, world, gs, badges] = await Promise.all([
+      const [allWords, statuses, world, gs, badges, rdy] = await Promise.all([
         fetchActiveWords(),
         fetchStatuses(user.id),
         getCurrentWorld(user.id),
         getStats(user.id),
         getEarnedBadges(user.id),
+        getReadiness(user.id),
       ]);
 
       // Mastery tallies (global)
@@ -87,6 +89,7 @@ function StudyHome() {
       setStats({ total: allWords.length, tiers, unseen: allWords.length - seen });
       setGameStats(gs);
       setEarnedBadges(badges);
+      setReadiness({ pct: rdy.pct, total: rdy.total });
 
       // Per-world summaries
       const grouped = groupByWorld(allWords);
@@ -300,7 +303,11 @@ function StudyHome() {
       </div>
 
       <div className="mt-4">
-        <StatsHeader stats={gameStats} />
+        <ReadinessHeader pct={readiness.pct} total={readiness.total} streak={gameStats.current_streak} earned={earnedBadges} />
+      </div>
+
+      <div className="mt-3">
+        <WeakZoneStrip />
       </div>
 
       {worldSummaries.length > 0 && (
@@ -354,9 +361,6 @@ function StudyHome() {
             />
           </div>
 
-          <div className="mt-4">
-            <AchievementsStrip earned={earnedBadges} />
-          </div>
         </>
       ) : loading ? (
         <div className="mt-4 rounded-2xl border bg-card p-6 text-center shadow-card">
