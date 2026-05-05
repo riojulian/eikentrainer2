@@ -1,62 +1,78 @@
+## Goal
 
-## Add Completeness alongside Readiness
+Make Readiness and Completeness share the same denominator (active Pre-1 words) and same world weights, but tell two different stories driven by `word_status.mastery`:
 
-A second top-of-home metric that answers a different question:
+- **Completeness** = how much of the deck you've *touched* (any `word_status` row, m=0..3).
+- **Readiness** = how much of the deck you actually *know* (only m≥2: 分かった + 完全に習得)
 
-- **Readiness** = quiz accuracy (how reliably you answer correctly), weighted by world.
-- **Completeness** = coverage (how many of the required Pre-1 words you actually know), segmented per world.
+Both drop the `quiz_results`-based accuracy formula entirely.
 
-Both are needed: a learner can be 90% accurate on the 50 words they've touched (high readiness) while only knowing 5% of the full Pre-1 set (low completeness).
+## Formulas
 
-### Definition
+Per world:
 
-```text
-completeness_world(w) = mastered_in_w / total_active_in_w
-completeness_total   = mastered_total / total_active_total   (unweighted, raw coverage)
+```
+completeness_world = touched_in_world / total_in_world
+   touched = exists(word_status row), regardless of mastery value
+
+readiness_world   = (count of m>=2 in world) / total_in_world
 ```
 
-Where `mastered = word_status.mastery >= 2` ("分かった" or "完全に習得"). Tier 1 mastery counts as 0.5 (partially known) so the bar moves earlier; thresholds:
+Headline (both metrics use the same weights):
 
-- `mastery >= 2` → counts as 1.0 known
-- `mastery == 1` → counts as 0.5 known
-- `mastery == 0` or unseen → 0
-
-This matches the existing 4-tier mastery system in `src/lib/words.ts` and rewards progress without requiring full mastery of every word.
-
-Unlike Readiness, Completeness is **unweighted overall** — every world contributes proportionally to its size, because the goal is total coverage. Per-world bars still show each world's own coverage so the weighting story stays clear.
-
-### Display
-
-A second card under (or beside) the Readiness card:
-
-```text
-[ 🟦 23% ]  COMPLETENESS
-            W1 41%  W2 12%  W3 5%  W4 0%  Ph 8%
-            312 / 1340 words known
+```
+W1 = 0.6, W2 = W3 = W4 = phrases = 0.1
+headline = sum(weight_w * metric_world_w) * 100
 ```
 
-- Same ring style as Readiness, different accent color (blue/sage) to distinguish.
-- Same color thresholds (red <50, amber 50–79, green ≥80).
-- Per-world chips reuse the `WORLD_CHIP_LABEL` map already in `ReadinessHeader`.
-- Tooltip: "Share of all Pre-1 words you've learned. Mastery 2+ = full credit, 1 = half."
+Per-world chips remain unweighted (raw % per world).
 
-On mobile (411px viewport) the two cards stack vertically.
+## Changes
 
-### Files to change
+### `src/lib/gamification.ts`
 
-- **`src/lib/gamification.ts`** — add `getCompleteness(studentId)`:
-  - Fetch all active words grouped by tier (reuse cached `fetchActiveWords()` from `words.ts` to avoid a second query).
-  - Fetch `word_status` for the user (mastery + word_id).
-  - Compute per-world `{ known, total, pct }` and an overall `{ known, total, pct }` using the half-credit rule.
-  - Return `{ pct, known, total, perWorld: Record<string, { pct; known; total }> }`.
-- **`src/components/CompletenessHeader.tsx`** — new component, mirrors `ReadinessHeader` layout (ring + per-world chips + caption). No badge/streak section — those stay on Readiness only.
-- **`src/routes/study.index.tsx`**:
-  - Call `getCompleteness(user.id)` in the initial-load `Promise.all`.
-  - Add `<CompletenessHeader … />` directly under the existing `<ReadinessHeader />`.
-- **`src/lib/i18n.tsx`** — add EN/JA strings: `cmp.title`, `cmp.caption` ("{known} / {total} words known" / "{known} / {total} 語習得"), `cmp.tooltip`.
+- Rewrite `getReadiness(studentId)` to read from `word_status` + `fetchActiveWords()` (drop the `quiz_results` query). Return shape stays `{ pct, total, correct, perWorld }` where:
+  - `total` = total active words across tracked tiers
+  - `correct` = count of words with mastery ≥ 2
+  - `perWorld[tier] = { pct, total, correct }` with `correct` = m≥2 count
+  - `pct` = weighted headline using `READINESS_WEIGHTS`
+- Rewrite `getCompleteness(studentId)`:
+  - `known` (per-world and total) = count of words with any `word_status` row (touched), no fractional credit
+  - `pct` = **weighted** headline using `READINESS_WEIGHTS` (was unweighted)
+  - Per-world chip pct stays `touched/total`
+- Update `checkBadges` `vocab_ready` gate: replace `readinessTotal >= 50` with `readinessTouched >= 50` (touched word count from completeness), since readiness no longer counts answers. Pass it in via the existing `ctx` object — rename `readinessTotal` to `touchedCount` for clarity.
 
-### Out of scope
+### `src/routes/study.quiz.tsx`
 
-- No DB changes. No new tables. The metric is derived live from `words` + `word_status`.
-- Quiz results (`quiz_results`) are not consulted — completeness is purely about mastery state, not test history.
-- No badge tied to completeness yet (can add later, e.g. "Pre-1 Ready: ≥80% completeness").
+- Where `checkBadges` is called, pass the new `touchedCount` (from `getCompleteness`) instead of `readiness.total`. Keep readiness call for the pct.
+
+### `src/components/ReadinessHeader.tsx`
+
+- Update caption/tooltip text: no longer "based on quiz answers"; now "based on words you Know (分かった or 完全に習得)".
+- Caption "X / Y answers" → "X / Y known" (using `correct`/`total` which now mean known/total words).
+
+### `src/components/CompletenessHeader.tsx`
+
+- Caption "X / Y words known" → "X / Y words seen".
+- Tooltip: "any word you've encountered counts, regardless of mastery level".
+
+### `src/lib/i18n.tsx`
+
+- Update existing keys:
+  - `read.caption` → "words known" / "語習得"
+  - `read.tooltip` → mastery-based explanation
+  - `cmp.caption` → "words seen" / "語接触"
+  - `cmp.tooltip` → "any word with progress counts"
+
+## Side effects
+
+- Readiness numbers will drop for users who answered quiz questions correctly but never reached mastery ≥ 2 on those words. This is intentional — it now reflects retained knowledge, not one-time accuracy.
+- Completeness will jump up for any user who's touched many words at m=0, since the half-credit gate is gone.
+- A wrong-on-first-sight quiz answer creates a m=0 row → bumps completeness but not readiness. This matches the requested semantics.
+
+## Out of scope
+
+- No DB schema changes.
+- No changes to flashcards / quiz / mastery transitions.
+- No new badges.
+- WeakZone strip stays as-is (it uses its own logic).
