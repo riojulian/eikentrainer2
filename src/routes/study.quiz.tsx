@@ -108,13 +108,15 @@ function QuizPage() {
   useEffect(() => {
     if (!user) return;
     (async () => {
-      const [allWords, st] = await Promise.all([fetchActiveWords(), fetchStatuses(user.id)]);
-      setStatuses(st);
-
       if (mode === "mission") {
-        const world = search.world ?? (await getCurrentWorld(user.id));
+        const world = search.world ?? await getCurrentWorld(user.id);
         setActiveWorld(world);
-        const ordered = await ensureWorldOrder(user.id, world);
+        const [allWords, st, ordered] = await Promise.all([
+          fetchActiveWords(),
+          fetchStatuses(user.id),
+          ensureWorldOrder(user.id, world),
+        ]);
+        setStatuses(st);
         const stages = stagize(ordered);
         const cur = await getWorldStage(user.id, world);
         const idxToUse = missionParam ?? cur;
@@ -123,6 +125,8 @@ function QuizPage() {
         const pool = buildStageQuiz(stages, idxToUse);
         setQuestions(buildQuizQuestions(pool, allWords));
       } else {
+        const [allWords, st] = await Promise.all([fetchActiveWords(), fetchStatuses(user.id)]);
+        setStatuses(st);
         const days = mode === "weekly" ? 7 : 30;
         const pool = await buildPeriodicQuiz(user.id, days);
         if (pool.length < 4) { setQuestions([]); return; }
