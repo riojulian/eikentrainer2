@@ -368,7 +368,7 @@ function QuizPage() {
         <span className="rounded-full bg-gold/15 text-gold px-2 py-0.5 text-xs font-medium">{headerLabel}</span>
         <div className="flex items-center gap-2">
           <span className={cn("rounded-full px-2 py-0.5 text-xs font-medium", liveColor)}>
-            {t("rdy.live")} {livePct}%
+            {t("mastery.live")} {livePct}%
           </span>
           <span>{idx + 1} / {questions.length}</span>
         </div>
