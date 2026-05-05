@@ -41,16 +41,19 @@ import {
   type BadgeDef,
 } from "@/lib/gamification";
 import { cn } from "@/lib/utils";
+import { getWeakWords } from "@/lib/weakZone";
 import { useLang } from "@/lib/i18n";
 import { toast } from "sonner";
 
-type Mode = "mission" | "weekly" | "monthly";
+type Mode = "mission" | "weekly" | "monthly" | "weakness";
 
 export const Route = createFileRoute("/study/quiz")({
   validateSearch: (s: Record<string, unknown>) => {
     const modeRaw = s.mode;
     const mode: Mode | undefined =
-      modeRaw === "mission" || modeRaw === "weekly" || modeRaw === "monthly" ? modeRaw : undefined;
+      modeRaw === "mission" || modeRaw === "weekly" || modeRaw === "monthly" || modeRaw === "weakness"
+        ? modeRaw
+        : undefined;
     const missionRaw = s.mission;
     const mission = typeof missionRaw === "number" ? missionRaw : typeof missionRaw === "string" ? Number(missionRaw) : undefined;
     const world = typeof s.world === "string" ? s.world : undefined;
@@ -139,6 +142,17 @@ function QuizPage() {
         if (stages.length === 0) { setQuestions([]); return; }
         const pool = buildStageQuiz(stages, idxToUse);
         setQuestions(buildQuizQuestions(pool, allWords));
+      } else if (mode === "weakness") {
+        const [allWords, st, weak, rdy] = await Promise.all([
+          fetchActiveWords(),
+          fetchStatuses(user.id),
+          getWeakWords(user.id),
+          getReadiness(user.id),
+        ]);
+        setStatuses(st);
+        setLivePct(rdy.pct); setLiveTotal(rdy.total); setReadinessBefore(rdy.pct);
+        if (weak.length < 1) { setQuestions([]); return; }
+        setQuestions(buildQuizQuestions(weak, allWords));
       } else {
         const [allWords, st, rdy] = await Promise.all([
           fetchActiveWords(),
@@ -161,14 +175,16 @@ function QuizPage() {
       const total = questions.length;
       const stars = mode === "mission" ? starsForScore(score, total) : 0;
 
-      await recordAttempt(
-        user.id,
-        mode === "mission" ? "stage" : mode,
-        score,
-        total,
-        mode === "mission" ? stageIndex : null,
-        mode === "mission" ? activeWorld : null,
-      ).catch(() => {});
+      if (mode !== "weakness") {
+        await recordAttempt(
+          user.id,
+          mode === "mission" ? "stage" : mode,
+          score,
+          total,
+          mode === "mission" ? stageIndex : null,
+          mode === "mission" ? activeWorld : null,
+        ).catch(() => {});
+      }
 
       let xp = score * XP_PER_CORRECT;
       if (mode === "mission" && stars === 3) xp += XP_BONUS_3STAR;
