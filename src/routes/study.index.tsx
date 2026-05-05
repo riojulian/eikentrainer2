@@ -92,7 +92,7 @@ function StudyHome() {
       setStats({ total: allWords.length, tiers, unseen: allWords.length - seen });
       setGameStats(gs);
       setEarnedBadges(badges);
-      setReadiness({ pct: rdy.pct, total: rdy.total, perWorld: rdy.perWorld });
+      setReadiness({ pct: rdy.pct, total: rdy.total, correct: rdy.correct, perWorld: rdy.perWorld });
       setCompleteness(cmp);
 
       // Per-world summaries
