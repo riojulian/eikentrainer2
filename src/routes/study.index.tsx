@@ -388,6 +388,10 @@ function StudyHome() {
           <p className="mt-1 text-sm text-muted-foreground">{t("home.noStagesHint")}</p>
         </div>
       )}
+
+      <div className="mt-4">
+        <AchievementsStrip earned={earnedBadges} />
+      </div>
     </main>
   );
 }
