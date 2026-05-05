@@ -43,6 +43,7 @@ import {
 import { cn } from "@/lib/utils";
 import { getWeakWords } from "@/lib/weakZone";
 import { useLang } from "@/lib/i18n";
+import { BADGES_JA } from "@/lib/gamification";
 import { toast } from "sonner";
 
 type Mode = "mission" | "weekly" | "monthly" | "weakness";
@@ -100,7 +101,7 @@ type FinishResult = {
 
 function QuizPage() {
   const { user } = useAuth();
-  const { t } = useLang();
+  const { t, lang } = useLang();
   const search = Route.useSearch();
   const mode: Mode = search.mode ?? "mission";
   const missionParam = search.mission;
@@ -204,7 +205,12 @@ function QuizPage() {
         masteryPct: mstAfter.pct,
         touchedCount: mstAfter.touched,
       }).catch(() => [] as BadgeDef[]);
-      newBadges.forEach((b) => toast.success(`🏅 ${b.name}`, { description: b.desc }));
+      newBadges.forEach((b) => {
+        const ja = BADGES_JA[b.key];
+        const name = lang === "ja" && ja ? ja.name : b.name;
+        const desc = lang === "ja" && ja ? ja.desc : b.desc;
+        toast.success(`🏅 ${name}`, { description: desc });
+      });
 
       const weakAdded = outcomes.filter((o) => !o.correct).length;
 

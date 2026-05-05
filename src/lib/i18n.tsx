@@ -98,6 +98,18 @@ const DICT: Dict = {
   "auth.created": { en: "Account created!", ja: "アカウントを作成しました！" },
   "auth.studentNote": { en: "New accounts are created as students. An admin can promote you in the database.", ja: "新規アカウントは生徒として作成されます。管理者が権限を変更できます。" },
   "results.newBadges": { en: "Badges unlocked!", ja: "バッジ解放！" },
+  // Toasts
+  "toast.upload.extracting": { en: "Extracting vocabulary…", ja: "単語を抽出中…" },
+  "toast.upload.found": { en: "Found {n} words", ja: "{n}語見つかりました" },
+  "toast.upload.failed": { en: "Upload failed", ja: "アップロードに失敗しました" },
+  "toast.enrich.noLines": { en: "No valid lines. Format: <tier> <word>, e.g. '1 ambiguous'", ja: "有効な行がありません。形式: <ティア> <単語>（例: '1 ambiguous'）" },
+  "toast.enrich.skipped": { en: "Skipped {n} unparseable lines", ja: "解析できない{n}行をスキップしました" },
+  "toast.enrich.enriching": { en: "Enriching {n} items…", ja: "{n}件を補強中…" },
+  "toast.enrich.done": { en: "Enriched {n} words", ja: "{n}語を補強しました" },
+  "toast.enrich.failed": { en: "Enrich failed", ja: "補強に失敗しました" },
+  "toast.words.saved": { en: "Saved to word bank", ja: "単語バンクに保存しました" },
+  "toast.words.updated": { en: "Updated", ja: "更新しました" },
+  "toast.words.created": { en: "Created", ja: "作成しました" },
 };
 
 type Ctx = {

@@ -8,6 +8,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
 import { Upload, Loader2, Trash2, Check, Camera, ImagePlus, Sparkles } from "lucide-react";
+import { useLang } from "@/lib/i18n";
 
 export const Route = createFileRoute("/admin/upload")({
   component: UploadPage,
@@ -45,6 +46,7 @@ function normalizeTier(raw: string): Tier | null {
 }
 
 function UploadPage() {
+  const { t } = useLang();
   const [file, setFile] = useState<File | null>(null);
   const [label, setLabel] = useState("");
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
@@ -69,14 +71,14 @@ function UploadPage() {
       const { data: signed } = await supabase.storage.from("exam-images").createSignedUrl(path, 600);
       setPreviewUrl(signed?.signedUrl ?? null);
 
-      toast.info("Extracting vocabulary…");
+      toast.info(t("toast.upload.extracting"));
       const { data, error } = await supabase.functions.invoke("extract-words", { body: { imageUrl: signed?.signedUrl } });
       if (error) throw error;
       if ((data as { error?: string })?.error) throw new Error((data as { error: string }).error);
       setRows(((data as { words: Extracted[] }).words ?? []).map((w) => ({ ...w, tier: (w.tier ?? "") as Tier, word: w.word.toLowerCase() })));
-      toast.success(`Found ${(data as { words: Extracted[] }).words?.length ?? 0} words`);
+      toast.success(t("toast.upload.found").replace("{n}", String((data as { words: Extracted[] }).words?.length ?? 0)));
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Upload failed");
+      toast.error(e instanceof Error ? e.message : t("toast.upload.failed"));
     } finally {
       setBusy(false);
     }
@@ -102,20 +104,20 @@ function UploadPage() {
       seen.add(key);
       items.push({ word, tier });
     }
-    if (items.length === 0) return toast.error("No valid lines. Format: <tier> <word>, e.g. '1 ambiguous'");
-    if (skipped > 0) toast.warning(`Skipped ${skipped} unparseable line${skipped === 1 ? "" : "s"}`);
+    if (items.length === 0) return toast.error(t("toast.enrich.noLines"));
+    if (skipped > 0) toast.warning(t("toast.enrich.skipped").replace("{n}", String(skipped)));
     setBusy(true);
     try {
-      toast.info(`Enriching ${items.length} item${items.length === 1 ? "" : "s"}…`);
+      toast.info(t("toast.enrich.enriching").replace("{n}", String(items.length)));
       const { data, error } = await supabase.functions.invoke("enrich-words", { body: { items } });
       if (error) throw error;
       if ((data as { error?: string })?.error) throw new Error((data as { error: string }).error);
       setRows(((data as { words: Extracted[] }).words ?? []).map((w) => ({ ...w, tier: (w.tier ?? "") as Tier, word: w.word.toLowerCase() })));
       setImageId(null);
       setPreviewUrl(null);
-      toast.success(`Enriched ${(data as { words: Extracted[] }).words?.length ?? 0} words`);
+      toast.success(t("toast.enrich.done").replace("{n}", String((data as { words: Extracted[] }).words?.length ?? 0)));
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Enrich failed");
+      toast.error(e instanceof Error ? e.message : t("toast.enrich.failed"));
     } finally {
       setBusy(false);
     }
@@ -138,7 +140,7 @@ function UploadPage() {
     if (imageId) await supabase.from("images").update({ processed: true }).eq("id", imageId);
     setBusy(false);
     if (error) return toast.error(error.message);
-    toast.success("Saved to word bank");
+    toast.success(t("toast.words.saved"));
     setRows([]); setFile(null); setPreviewUrl(null); setImageId(null); setLabel(""); setWordList("");
   };
 
