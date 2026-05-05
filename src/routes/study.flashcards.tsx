@@ -16,6 +16,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { cn } from "@/lib/utils";
 import { ensureWorldOrder, stagize, getCurrentWorld, DEFAULT_WORLD } from "@/lib/stages";
 import { bumpStreak, awardXp, XP_PER_KNOWN_FIRST } from "@/lib/gamification";
+import { useLang } from "@/lib/i18n";
 
 export const Route = createFileRoute("/study/flashcards")({
   validateSearch: (s: Record<string, unknown>) => {
@@ -54,6 +55,7 @@ function nextOnKnown(curr: MasteryOrUnseen): Mastery {
 
 function Flashcards() {
   const { user, loading: authLoading } = useAuth();
+  const { lang, t } = useLang();
   const search = Route.useSearch();
   const missionParam = search.mission;
   const freeMode = search.free || missionParam === undefined;
@@ -254,7 +256,7 @@ function Flashcards() {
     return (
       <main className="mx-auto max-w-2xl px-4 py-6 text-center">
         <div className="rounded-2xl border bg-card p-6 shadow-card">
-          <p className="mt-1 text-sm text-muted-foreground">Loading your cards…</p>
+          <p className="mt-1 text-sm text-muted-foreground">{t("fc.loading")}</p>
         </div>
       </main>
     );
@@ -263,9 +265,9 @@ function Flashcards() {
   if (!current && phase !== "done") {
     return (
       <main className="mx-auto max-w-2xl px-4 py-6 text-center">
-        <h1 className="font-display text-3xl mb-4">No cards here</h1>
-        <p className="text-muted-foreground mb-6">Try a different filter or add some words.</p>
-        <Button asChild><Link to="/study">Back to study</Link></Button>
+        <h1 className="font-display text-3xl mb-4">{t("fc.noCards")}</h1>
+        <p className="text-muted-foreground mb-6">{t("fc.tryAnother")}</p>
+        <Button asChild><Link to="/study">{t("fc.back")}</Link></Button>
       </main>
     );
   }
@@ -274,29 +276,29 @@ function Flashcards() {
     const total = session.known + session.review;
     return (
       <main className="mx-auto max-w-2xl px-4 py-6 text-center">
-        <h1 className="font-display text-4xl mb-3">Deck complete</h1>
+        <h1 className="font-display text-4xl mb-3">{t("fc.deckDone")}</h1>
         <p className="text-muted-foreground mb-8">
-          You reviewed {total} card{total === 1 ? "" : "s"} —{" "}
-          <span className="text-sage font-medium">{session.known} knew</span>,{" "}
-          <span className="text-rose font-medium">{session.review} still learning</span>.
+          {total} —{" "}
+          <span className="text-sage font-medium">{session.known} {t("fc.knew")}</span>,{" "}
+          <span className="text-rose font-medium">{session.review} {t("fc.stillLearning")}</span>.
         </p>
         <div className="flex flex-wrap gap-3 justify-center">
           {missionParam && !freeMode && (
             <Button asChild>
               <Link to="/study/quiz" search={{ mode: "mission" as const, mission: missionParam, world: activeWorld }}>
-                <Trophy className="h-4 w-4 mr-1" /> Take stage {missionParam} quiz
+                <Trophy className="h-4 w-4 mr-1" /> {t("fc.takeStageQuiz")} {missionParam}
               </Link>
             </Button>
           )}
           {session.review > 0 && (
             <Button variant="outline" onClick={() => { setFilter("learning"); }}>
-              <RotateCcw className="h-4 w-4 mr-1" /> Review the {session.review} again
+              <RotateCcw className="h-4 w-4 mr-1" /> {t("fc.reviewAgain")} ({session.review})
             </Button>
           )}
           <Button variant="outline" onClick={() => { setOrder(shuffle(filtered.map((w) => w.id))); setIdx(0); setPhase("front"); setSession({ known: 0, review: 0 }); }}>
-            <Shuffle className="h-4 w-4 mr-1" /> Shuffle and restart
+            <Shuffle className="h-4 w-4 mr-1" /> {t("fc.shuffle")}
           </Button>
-          <Button variant="ghost" asChild><Link to="/study">Back to study</Link></Button>
+          <Button variant="ghost" asChild><Link to="/study">{t("fc.back")}</Link></Button>
         </div>
       </main>
     );
@@ -322,7 +324,7 @@ function Flashcards() {
             <>
               <span className="text-foreground font-medium">{worldShort}</span>
               <span>· {idx + 1}/{order.length} ·</span>
-              <span>Free study</span>
+                <span>{t("fc.freeStudy")}</span>
             </>
           )}
         </div>
@@ -369,11 +371,20 @@ function Flashcards() {
         {phase === "back" && current && (
           <div className="mt-6 space-y-4 animate-in fade-in slide-in-from-bottom-2 duration-200">
             <div className="rounded-xl bg-muted/50 p-4">
-              <div className="text-sm text-muted-foreground mb-1">Definition</div>
-              <div>{current.definition}</div>
-              {current.definition_ja ? (
-                <div className="mt-2 text-sm text-muted-foreground">{current.definition_ja}</div>
-              ) : null}
+              <div className="text-sm text-muted-foreground mb-1">{t("fc.definition")}</div>
+              {lang === "ja" && current.definition_ja ? (
+                <>
+                  <div>{current.definition_ja}</div>
+                  <div className="mt-2 text-sm text-muted-foreground">{current.definition}</div>
+                </>
+              ) : (
+                <>
+                  <div>{current.definition}</div>
+                  {current.definition_ja ? (
+                    <div className="mt-2 text-sm text-muted-foreground">{current.definition_ja}</div>
+                  ) : null}
+                </>
+              )}
             </div>
             {current.example_sentence ? (
               <p className="italic text-lg" dangerouslySetInnerHTML={{ __html: current.example_sentence }} />
@@ -389,14 +400,14 @@ function Flashcards() {
             onClick={() => { if (phase === "front") reveal(); rate("review"); }}
             className="h-14 text-base bg-rose text-rose-foreground hover:bg-rose/90"
           >
-            <RotateCcw className="h-5 w-5 mr-2" /> 勉強中
+            <RotateCcw className="h-5 w-5 mr-2" /> {t("fc.btnLearning")}
           </Button>
           <Button
             size="lg"
             onClick={() => { if (phase === "front") reveal(); rate("known"); }}
             className="h-14 text-base bg-sage text-sage-foreground hover:bg-sage/90"
           >
-            <Check className="h-5 w-5 mr-2" /> 分かった
+            <Check className="h-5 w-5 mr-2" /> {t("fc.btnKnown")}
           </Button>
         </div>
       </div>
