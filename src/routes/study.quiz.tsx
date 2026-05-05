@@ -205,7 +205,12 @@ function QuizPage() {
         masteryPct: mstAfter.pct,
         touchedCount: mstAfter.touched,
       }).catch(() => [] as BadgeDef[]);
-      newBadges.forEach((b) => toast.success(`🏅 ${b.name}`, { description: b.desc }));
+      newBadges.forEach((b) => {
+        const ja = BADGES_JA[b.key];
+        const name = lang === "ja" && ja ? ja.name : b.name;
+        const desc = lang === "ja" && ja ? ja.desc : b.desc;
+        toast.success(`🏅 ${name}`, { description: desc });
+      });
 
       const weakAdded = outcomes.filter((o) => !o.correct).length;
 
