@@ -238,6 +238,8 @@ function QuizPage() {
         <p className="text-muted-foreground mt-2">
           {mode === "mission"
             ? "Need at least a few words with example sentences in this stage."
+            : mode === "weakness"
+            ? "No weak words to quiz — keep practicing!"
             : `Study at least 4 words in the last ${mode === "weekly" ? "7" : "30"} days to take this review.`}
         </p>
         <Button asChild className="mt-6"><Link to="/study">Back to study</Link></Button>
@@ -361,6 +363,8 @@ function QuizPage() {
       ? "Weekly review"
       : mode === "monthly"
       ? "Monthly review"
+      : mode === "weakness"
+      ? "Weakness quiz"
       : "Quiz";
 
   const liveColor = livePct >= 80 ? "text-sage bg-sage/10" : livePct >= 50 ? "text-gold bg-gold/10" : "text-rose bg-rose/10";
