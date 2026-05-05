@@ -13,7 +13,7 @@ import {
   type MasteryOrUnseen,
 } from "@/lib/words";
 import { Button } from "@/components/ui/button";
-import { ArrowUp, ArrowDown, Trophy, Star, Flame, Sparkles } from "lucide-react";
+import { Flame, Star } from "lucide-react";
 import {
   ensureWorldOrder,
   stagize,
@@ -31,7 +31,9 @@ import {
 import {
   awardXp,
   bumpStreak,
+  bumpSessionStreak,
   checkBadges,
+  getReadiness,
   XP_PER_CORRECT,
   XP_BONUS_3STAR,
   XP_WEEKLY,
@@ -39,6 +41,8 @@ import {
   type BadgeDef,
 } from "@/lib/gamification";
 import { cn } from "@/lib/utils";
+import { useLang } from "@/lib/i18n";
+import { toast } from "sonner";
 
 type Mode = "mission" | "weekly" | "monthly";
 
@@ -86,10 +90,14 @@ type FinishResult = {
   xpGained: number;
   newStreak: number;
   newBadges: BadgeDef[];
+  readinessBefore: number;
+  readinessAfter: number;
+  weakAdded: number;
 };
 
 function QuizPage() {
   const { user } = useAuth();
+  const { t } = useLang();
   const search = Route.useSearch();
   const mode: Mode = search.mode ?? "mission";
   const missionParam = search.mission;
@@ -104,6 +112,11 @@ function QuizPage() {
   const [done, setDone] = useState(false);
   const [outcomes, setOutcomes] = useState<Outcome[]>([]);
   const [finished, setFinished] = useState<FinishResult | null>(null);
+  const [livePct, setLivePct] = useState<number>(0);
+  const [liveTotal, setLiveTotal] = useState<number>(0);
+  const [readinessBefore, setReadinessBefore] = useState<number>(0);
+  const [mcRun, setMcRun] = useState<number>(0);
+  const [revealed, setRevealed] = useState(false);
 
   useEffect(() => {
     if (!user) return;
@@ -111,12 +124,14 @@ function QuizPage() {
       if (mode === "mission") {
         const world = search.world ?? await getCurrentWorld(user.id);
         setActiveWorld(world);
-        const [allWords, st, ordered] = await Promise.all([
+        const [allWords, st, ordered, rdy] = await Promise.all([
           fetchActiveWords(),
           fetchStatuses(user.id),
           ensureWorldOrder(user.id, world),
+          getReadiness(user.id),
         ]);
         setStatuses(st);
+        setLivePct(rdy.pct); setLiveTotal(rdy.total); setReadinessBefore(rdy.pct);
         const stages = stagize(ordered);
         const cur = await getWorldStage(user.id, world);
         const idxToUse = missionParam ?? cur;
@@ -125,8 +140,13 @@ function QuizPage() {
         const pool = buildStageQuiz(stages, idxToUse);
         setQuestions(buildQuizQuestions(pool, allWords));
       } else {
-        const [allWords, st] = await Promise.all([fetchActiveWords(), fetchStatuses(user.id)]);
+        const [allWords, st, rdy] = await Promise.all([
+          fetchActiveWords(),
+          fetchStatuses(user.id),
+          getReadiness(user.id),
+        ]);
         setStatuses(st);
+        setLivePct(rdy.pct); setLiveTotal(rdy.total); setReadinessBefore(rdy.pct);
         const days = mode === "weekly" ? 7 : 30;
         const pool = await buildPeriodicQuiz(user.id, days);
         if (pool.length < 4) { setQuestions([]); return; }
@@ -156,17 +176,22 @@ function QuizPage() {
       if (mode === "monthly") xp += XP_MONTHLY;
       await awardXp(user.id, xp).catch(() => {});
 
-      const after = await bumpStreak(user.id).catch(() => null);
+      // Bump session streak (consecutive completed sessions; never auto-resets).
+      const after = await bumpSessionStreak(user.id).catch(() => null);
+      // Also bump the legacy day-streak so old data keeps moving (Q3=a).
+      bumpStreak(user.id).catch(() => {});
       const streak = after?.current_streak ?? 0;
 
-      const starsByStage = await getStarsByStage(user.id, mode === "mission" ? activeWorld : undefined);
+      const rdyAfter = await getReadiness(user.id);
       const newBadges = await checkBadges(user.id, {
-        starsByStage,
         streak,
-        justFinishedKind: mode === "mission" ? "stage" : mode,
-        justFinishedStageIndex: mode === "mission" ? stageIndex : null,
-        justFinishedStars: stars,
+        mcRun,
+        readinessPct: rdyAfter.pct,
+        readinessTotal: rdyAfter.total,
       }).catch(() => [] as BadgeDef[]);
+      newBadges.forEach((b) => toast.success(`🏅 ${b.name}`, { description: b.desc }));
+
+      const weakAdded = outcomes.filter((o) => !o.correct).length;
 
       // Advance per-world current stage if they cleared the suggested one
       if (mode === "mission" && stageIndex) {
@@ -176,9 +201,17 @@ function QuizPage() {
         }
       }
 
-      setFinished({ stars, xpGained: xp, newStreak: streak, newBadges });
+      setFinished({
+        stars,
+        xpGained: xp,
+        newStreak: streak,
+        newBadges,
+        readinessBefore,
+        readinessAfter: rdyAfter.pct,
+        weakAdded,
+      });
     })();
-  }, [done, user, questions, finished, mode, score, stageIndex, activeWorld]);
+  }, [done, user, questions, finished, mode, score, stageIndex, activeWorld, mcRun, readinessBefore, outcomes]);
 
   if (!questions) return <main className="p-10 text-center text-muted-foreground">Loading…</main>;
 
@@ -197,55 +230,45 @@ function QuizPage() {
   }
 
   if (done) {
-    const movedUp = outcomes.filter((o) => o.after > (o.before ?? 0)).length;
-    const movedDown = outcomes.filter((o) => o.after < (o.before ?? 0)).length;
-    const reachedMastered = outcomes.filter((o) => o.after === 3 && o.before !== 3).length;
-    const stars = finished?.stars ?? 0;
-    const msg =
-      stars === 3 ? "Flawless victory!" :
-      stars === 2 ? "Great work!" :
-      stars === 1 ? "Nice — you cleared it!" :
-      "Keep practicing — you've got this.";
+    const before = finished?.readinessBefore ?? readinessBefore;
+    const afterPct = finished?.readinessAfter ?? livePct;
+    const delta = afterPct - before;
 
     return (
       <main className="mx-auto max-w-xl px-4 py-6 text-center">
-        {mode === "mission" && (
-          <div className="flex justify-center gap-3 mb-3">
-            {[1, 2, 3].map((n) => (
-              <Star
-                key={n}
-                className={cn(
-                  "h-14 w-14 transition-all duration-500",
-                  n <= stars
-                    ? "fill-gold text-gold drop-shadow-[0_0_12px_rgba(201,168,76,0.6)] animate-in zoom-in-50"
-                    : "text-muted-foreground/30",
-                )}
-                style={{ animationDelay: `${n * 200}ms` }}
-              />
-            ))}
-          </div>
-        )}
-
-        <div className="text-5xl mb-2">{score >= 8 ? "🎉" : score >= 5 ? "✨" : "🌱"}</div>
+        <div className="text-5xl mb-2">{delta >= 5 ? "🎉" : delta >= 0 ? "✨" : "🌱"}</div>
         <h1 className="font-display text-4xl">{score} / {questions.length}</h1>
-        <p className="text-muted-foreground mt-2">{msg}</p>
 
-        {finished && (
-          <div className="mt-5 flex justify-center gap-3 flex-wrap">
-            <div className="flex items-center gap-1.5 rounded-full border bg-gold/10 text-gold px-3 py-1.5 font-display animate-in fade-in slide-in-from-bottom-2 duration-500">
-              <Sparkles className="h-4 w-4" />
-              +{finished.xpGained} XP
-            </div>
-            <div className="flex items-center gap-1.5 rounded-full border bg-rose/10 text-rose px-3 py-1.5 font-display animate-in fade-in slide-in-from-bottom-2 duration-500" style={{ animationDelay: "100ms" }}>
+        <div className="mt-5 flex justify-center gap-3 flex-wrap">
+          <div className="flex items-center gap-2 rounded-full border bg-card px-4 py-2 font-display">
+            <span className="text-xs uppercase tracking-widest text-muted-foreground">{t("results.delta")}</span>
+            <span className={cn(
+              "text-base",
+              afterPct >= 80 ? "text-sage" : afterPct >= 50 ? "text-gold" : "text-rose",
+            )}>{before}% → {afterPct}%</span>
+            {delta !== 0 && (
+              <span className={cn("text-xs", delta > 0 ? "text-sage" : "text-rose")}>
+                {delta > 0 ? "+" : ""}{delta}
+              </span>
+            )}
+          </div>
+          {finished && (
+            <div className="flex items-center gap-1.5 rounded-full border bg-rose/10 text-rose px-3 py-1.5 font-display">
               <Flame className="h-4 w-4" />
-              {finished.newStreak} day{finished.newStreak === 1 ? "" : "s"}
+              {finished.newStreak}
             </div>
+          )}
+        </div>
+
+        {finished && finished.weakAdded > 0 && (
+          <div className="mt-4 inline-block rounded-full border border-rose/40 bg-rose/5 text-rose px-3 py-1 text-sm">
+            🔴 +{finished.weakAdded} {t("weak.title")}
           </div>
         )}
 
         {finished && finished.newBadges.length > 0 && (
-          <div className="mt-5 rounded-2xl border bg-gradient-to-br from-gold/10 to-amber-300/5 border-gold/40 p-4 animate-in fade-in zoom-in-95 duration-500">
-            <div className="text-xs uppercase tracking-widest text-gold font-medium mb-2">Achievements unlocked!</div>
+          <div className="mt-5 rounded-2xl border bg-gradient-to-br from-gold/10 to-amber-300/5 border-gold/40 p-4">
+            <div className="text-xs uppercase tracking-widest text-gold font-medium mb-2">{t("results.newBadges")}</div>
             <div className="flex flex-wrap gap-3 justify-center">
               {finished.newBadges.map((b) => (
                 <div key={b.key} className="flex flex-col items-center w-20">
@@ -257,26 +280,6 @@ function QuizPage() {
           </div>
         )}
 
-        <div className="mt-6 rounded-2xl border bg-card p-5 shadow-card text-left">
-          <div className="text-sm font-medium mb-3">What changed</div>
-          <ul className="space-y-2 text-sm">
-            <li className="flex items-center gap-2">
-              <ArrowUp className="h-4 w-4 text-sage" />
-              <span>{movedUp} word{movedUp === 1 ? "" : "s"} moved up</span>
-            </li>
-            <li className="flex items-center gap-2">
-              <ArrowDown className="h-4 w-4 text-rose" />
-              <span>{movedDown} word{movedDown === 1 ? "" : "s"} stepped back</span>
-            </li>
-            {reachedMastered > 0 && (
-              <li className="flex items-center gap-2">
-                <Trophy className="h-4 w-4 text-gold" />
-                <span>{reachedMastered} reached <span className="text-gold font-medium">{MASTERY_LABELS[3]}</span></span>
-              </li>
-            )}
-          </ul>
-        </div>
-
         <div className="mt-8 flex flex-wrap justify-center gap-3">
           {mode === "mission" && stageIndex ? (
             <>
@@ -285,13 +288,11 @@ function QuizPage() {
                   Study stage {stageIndex + 1}
                 </Link>
               </Button>
-              {stars < 3 && (
-                <Button variant="outline" asChild>
-                  <Link to="/study/quiz" search={{ mode: "mission" as const, mission: stageIndex, world: activeWorld }} reloadDocument>
-                    Retry for 3 stars
-                  </Link>
-                </Button>
-              )}
+              <Button variant="outline" asChild>
+                <Link to="/study/quiz" search={{ mode: "mission" as const, mission: stageIndex, world: activeWorld }} reloadDocument>
+                  Retry
+                </Link>
+              </Button>
             </>
           ) : (
             <Button onClick={() => location.reload()}>Try again</Button>
@@ -309,6 +310,16 @@ function QuizPage() {
     setPicked(opt);
     const correct = opt === q.answer;
     if (correct) setScore((s) => s + 1);
+    setMcRun((r) => (correct ? r + 1 : 0));
+    setRevealed(true);
+
+    // Live readiness update
+    setLiveTotal((tt) => {
+      const newTotal = tt + 1;
+      const newCorrect = Math.round((livePct / 100) * tt) + (correct ? 1 : 0);
+      setLivePct(Math.round((newCorrect / newTotal) * 100));
+      return newTotal;
+    });
 
     supabase.from("quiz_results").insert({ student_id: user.id, word_id: q.word.id, correct }).then(() => {});
 
@@ -318,10 +329,12 @@ function QuizPage() {
       setOutcomes((p) => [...p, { wordId: q.word.id, correct, before, after }]);
     });
 
+    const delay = correct ? 900 : 1800;
     setTimeout(() => {
+      setRevealed(false);
       if (idx + 1 >= questions.length) setDone(true);
       else { setIdx((i) => i + 1); setPicked(null); }
-    }, 1200);
+    }, delay);
   };
 
   const worldShort = TIER_SHORT[activeWorld] ?? activeWorld;
@@ -334,11 +347,18 @@ function QuizPage() {
       ? "Monthly review"
       : "Quiz";
 
+  const liveColor = livePct >= 80 ? "text-sage bg-sage/10" : livePct >= 50 ? "text-gold bg-gold/10" : "text-rose bg-rose/10";
+
   return (
     <main className="mx-auto max-w-xl px-4 py-4">
       <div className="flex items-center justify-between text-sm text-muted-foreground mb-2">
         <span className="rounded-full bg-gold/15 text-gold px-2 py-0.5 text-xs font-medium">{headerLabel}</span>
-        <span>Question {idx + 1} of {questions.length}</span>
+        <div className="flex items-center gap-2">
+          <span className={cn("rounded-full px-2 py-0.5 text-xs font-medium", liveColor)}>
+            {t("rdy.live")} {livePct}%
+          </span>
+          <span>{idx + 1} / {questions.length}</span>
+        </div>
       </div>
       <div className="h-1.5 w-full rounded-full bg-muted overflow-hidden mb-6">
         <div className="h-full bg-gold" style={{ width: `${((idx + 1) / questions.length) * 100}%` }} />
@@ -363,6 +383,12 @@ function QuizPage() {
             );
           })}
         </div>
+        {revealed && picked !== q.answer && (
+          <div className="mt-4 rounded-xl border border-rose/40 bg-rose/5 p-3 text-sm">
+            <div className="text-rose font-medium">{t("quiz.correctAns")}: <span className="font-display">{q.answer}</span></div>
+            <div className="mt-1 text-xs text-muted-foreground">🔴 {t("quiz.added")}</div>
+          </div>
+        )}
       </div>
     </main>
   );
