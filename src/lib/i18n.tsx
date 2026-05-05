@@ -61,6 +61,17 @@ const DICT: Dict = {
   "fc.freeStudy": { en: "Free study", ja: "自由学習" },
   "fc.btnLearning": { en: "Still learning", ja: "勉強中" },
   "fc.btnKnown": { en: "Got it", ja: "分かった" },
+  // Readiness / Weak Zone
+  "rdy.title": { en: "Readiness", ja: "理解度" },
+  "rdy.based": { en: "Based on", ja: "回答数" },
+  "rdy.answers": { en: "answers", ja: "問" },
+  "rdy.live": { en: "Readiness", ja: "理解度" },
+  "weak.title": { en: "Weak Zone", ja: "弱点ゾーン" },
+  "weak.empty": { en: "No weak words — keep it up! ✨", ja: "弱点なし — その調子！ ✨" },
+  "quiz.correctAns": { en: "Correct answer", ja: "正解" },
+  "quiz.added": { en: "Added to Weak Zone", ja: "弱点ゾーンに追加" },
+  "results.delta": { en: "Readiness", ja: "理解度" },
+  "results.newBadges": { en: "Badges unlocked!", ja: "バッジ解放！" },
 };
 
 type Ctx = {
