@@ -8,6 +8,7 @@ import { Switch } from "@/components/ui/switch";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import { Plus, Pencil, Trash2 } from "lucide-react";
+import { useLang } from "@/lib/i18n";
 
 export const Route = createFileRoute("/admin/words")({
   component: WordsAdmin,
@@ -19,6 +20,7 @@ type Row = {
 };
 
 function WordsAdmin() {
+  const { t } = useLang();
   const [rows, setRows] = useState<Row[]>([]);
   const [q, setQ] = useState("");
   const [editing, setEditing] = useState<Row | null>(null);
@@ -35,12 +37,12 @@ function WordsAdmin() {
     const payload = { ...editing };
     if (editing.id) {
       await supabase.from("words").update(payload).eq("id", editing.id);
-      toast.success("Updated");
+      toast.success(t("toast.words.updated"));
     } else {
       const { id: _ignored, ...insert } = payload;
       void _ignored;
       await supabase.from("words").insert(insert);
-      toast.success("Created");
+      toast.success(t("toast.words.created"));
     }
     setOpen(false);
     setEditing(null);
