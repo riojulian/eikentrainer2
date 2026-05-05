@@ -66,6 +66,12 @@ const DICT: Dict = {
   "rdy.based": { en: "Based on", ja: "回答数" },
   "rdy.answers": { en: "answers", ja: "問" },
   "rdy.live": { en: "Readiness", ja: "理解度" },
+ "cmp.title": { en: "Completeness", ja: "習得率" },
+ "cmp.caption": { en: "words known", ja: "語習得" },
+ "cmp.tooltip": {
+   en: "Share of all Pre-1 words you've learned. Mastery 2+ = full credit, 1 = half.",
+   ja: "準1級単語のうち習得済みの割合。習得度2以上は満点、1は半分。",
+ },
   "weak.title": { en: "Weakness", ja: "弱点" },
   "weak.empty": { en: "No weak words — keep it up! ✨", ja: "弱点なし — その調子！ ✨" },
   "weak.review": { en: "Review", ja: "復習" },

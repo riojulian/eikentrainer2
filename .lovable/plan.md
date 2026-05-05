@@ -1,37 +1,62 @@
-## Weighted Readiness by World
 
-Change the 🟢 Readiness Score so it reflects Eiken priorities instead of a flat lifetime accuracy.
+## Add Completeness alongside Readiness
 
-### New formula
+A second top-of-home metric that answers a different question:
+
+- **Readiness** = quiz accuracy (how reliably you answer correctly), weighted by world.
+- **Completeness** = coverage (how many of the required Pre-1 words you actually know), segmented per world.
+
+Both are needed: a learner can be 90% accurate on the 50 words they've touched (high readiness) while only knowing 5% of the full Pre-1 set (low completeness).
+
+### Definition
 
 ```text
-readiness = 0.60 * acc(tier1)
-          + 0.10 * acc(tier2)
-          + 0.10 * acc(tier3)
-          + 0.10 * acc(tier4)
-          + 0.10 * acc(phrases)
+completeness_world(w) = mastered_in_w / total_active_in_w
+completeness_total   = mastered_total / total_active_total   (unweighted, raw coverage)
 ```
 
-Where `acc(world) = correct_in_world / total_in_world` from `quiz_results`, joined to `words.tier`. A world with **zero answers contributes 0** (not skipped) — so a brand-new user starts at 0% and the only way to reach 100% is to also practice the smaller worlds. This is what makes the weighting actually push the user toward World 1 first while still rewarding breadth later.
+Where `mastered = word_status.mastery >= 2` ("分かった" or "完全に習得"). Tier 1 mastery counts as 0.5 (partially known) so the bar moves earlier; thresholds:
+
+- `mastery >= 2` → counts as 1.0 known
+- `mastery == 1` → counts as 0.5 known
+- `mastery == 0` or unseen → 0
+
+This matches the existing 4-tier mastery system in `src/lib/words.ts` and rewards progress without requiring full mastery of every word.
+
+Unlike Readiness, Completeness is **unweighted overall** — every world contributes proportionally to its size, because the goal is total coverage. Per-world bars still show each world's own coverage so the weighting story stays clear.
 
 ### Display
 
-- Same ring + % as today (red <50, amber 50–79, green ≥80).
-- Subtitle changes from "based on N answers" to a tiny breakdown chip row:
-  `W1 72% · W2 30% · W3 0% · W4 0% · Ph 0%` (each chip dimmed if 0 answers).
-- Tooltip on the ring: "Weighted: World 1 = 60%, others = 10% each".
-- Live chip in the quiz header keeps showing the same overall weighted %.
+A second card under (or beside) the Readiness card:
 
-### Files touched
+```text
+[ 🟦 23% ]  COMPLETENESS
+            W1 41%  W2 12%  W3 5%  W4 0%  Ph 8%
+            312 / 1340 words known
+```
 
-- `src/lib/gamification.ts` — rewrite `getReadiness()`:
-  - One query: `quiz_results` joined with `words(tier)` for the student.
-  - Bucket rows by tier, compute per-world accuracy, return `{ pct, total, perWorld: Record<World, {pct, total}> }`.
-  - Keep the existing return shape additive (still expose `total`) so callers that only read `pct`/`total` keep working.
-- `src/components/ReadinessHeader.tsx` — render the per-world chip row using the new `perWorld` map; show `WORLD_LABELS_SHORT` from `src/lib/words.ts`.
-- `src/routes/study.quiz.tsx` — already calls `getReadiness()`; just consumes the new `pct`. No other change.
-- `src/lib/i18n.tsx` — add EN/JA strings for the tooltip and the breakdown label.
+- Same ring style as Readiness, different accent color (blue/sage) to distinguish.
+- Same color thresholds (red <50, amber 50–79, green ≥80).
+- Per-world chips reuse the `WORLD_CHIP_LABEL` map already in `ReadinessHeader`.
+- Tooltip: "Share of all Pre-1 words you've learned. Mastery 2+ = full credit, 1 = half."
 
-### Open questions
+On mobile (411px viewport) the two cards stack vertically.
 
-None — weights are fixed (60/10/10/10/10) and zero-answer worlds count as 0 by design, matching the user's intent.
+### Files to change
+
+- **`src/lib/gamification.ts`** — add `getCompleteness(studentId)`:
+  - Fetch all active words grouped by tier (reuse cached `fetchActiveWords()` from `words.ts` to avoid a second query).
+  - Fetch `word_status` for the user (mastery + word_id).
+  - Compute per-world `{ known, total, pct }` and an overall `{ known, total, pct }` using the half-credit rule.
+  - Return `{ pct, known, total, perWorld: Record<string, { pct; known; total }> }`.
+- **`src/components/CompletenessHeader.tsx`** — new component, mirrors `ReadinessHeader` layout (ring + per-world chips + caption). No badge/streak section — those stay on Readiness only.
+- **`src/routes/study.index.tsx`**:
+  - Call `getCompleteness(user.id)` in the initial-load `Promise.all`.
+  - Add `<CompletenessHeader … />` directly under the existing `<ReadinessHeader />`.
+- **`src/lib/i18n.tsx`** — add EN/JA strings: `cmp.title`, `cmp.caption` ("{known} / {total} words known" / "{known} / {total} 語習得"), `cmp.tooltip`.
+
+### Out of scope
+
+- No DB changes. No new tables. The metric is derived live from `words` + `word_status`.
+- Quiz results (`quiz_results`) are not consulted — completeness is purely about mastery state, not test history.
+- No badge tied to completeness yet (can add later, e.g. "Pre-1 Ready: ≥80% completeness").
