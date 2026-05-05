@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useAuth } from "@/lib/auth";
 import { fetchActiveWords, fetchStatuses, MASTERY_LABELS, MASTERY_BG, TIER_LABELS, type Mastery } from "@/lib/words";
 import { BookOpen, ScrollText, Trophy, CalendarDays, CalendarRange, MoreVertical, BarChart3 } from "lucide-react";
@@ -59,6 +59,7 @@ function StudyHome() {
   const [gameStats, setGameStats] = useState<Stats>({ xp: 0, current_streak: 0, longest_streak: 0, last_active_date: null });
   const [earnedBadges, setEarnedBadges] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
+  const initialWorldRef = useRef<string | null>(null);
 
   // Initial load: figure out active world + global summaries
   useEffect(() => {
@@ -118,6 +119,17 @@ function StudyHome() {
         chosen = summaries.find((s) => s.totalStages > 0)?.world ?? "tier1";
         if (chosen !== world) await setCurrentWorld(user.id, chosen);
       }
+      const chosenSummaryFinal = summaries.find((s) => s.world === chosen);
+      const [orderedInit, starsInit] = await Promise.all([
+        ensureWorldOrder(user.id, chosen),
+        getStarsByStage(user.id, chosen),
+      ]);
+      const initStages = stagize(orderedInit);
+      setStages(initStages);
+      setStarsByStage(starsInit);
+      const csInit = chosenSummaryFinal?.currentStage ?? 1;
+      setStageState(Math.min(csInit, Math.max(1, initStages.length)));
+      initialWorldRef.current = chosen;
       setActiveWorld(chosen);
 
       // Weekly / monthly review counts (global)
@@ -138,6 +150,10 @@ function StudyHome() {
   // Load stages + stars for the active world
   useEffect(() => {
     if (!user || !activeWorld) return;
+    if (activeWorld === initialWorldRef.current) {
+      initialWorldRef.current = null;
+      return;
+    }
     (async () => {
       const [ordered, stars, cs] = await Promise.all([
         ensureWorldOrder(user.id, activeWorld),
