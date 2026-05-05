@@ -135,14 +135,6 @@ function Progress() {
         Showing: <span className="font-medium text-foreground">{studentId === "all" ? "All students" : nameOf.get(studentId) ?? "—"}</span>
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-3 lg:grid-cols-5">
-        {stat("Total", s.totalWords)}
-        {stat(MASTERY_LABELS[0], s.tiers[0], "text-rose")}
-        {stat(MASTERY_LABELS[1], s.tiers[1], "text-gold")}
-        {stat(MASTERY_LABELS[2], s.tiers[2], "text-sage")}
-        {stat(MASTERY_LABELS[3], s.tiers[3], "text-gold")}
-      </div>
-
       <div className="rounded-xl border bg-card p-5 shadow-card">
         <div className="font-display text-xl mb-3">Mastery distribution</div>
         {s.totalWords > 0 ? (
