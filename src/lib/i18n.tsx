@@ -61,21 +61,16 @@ const DICT: Dict = {
   "fc.freeStudy": { en: "Free study", ja: "自由学習" },
   "fc.btnLearning": { en: "Still learning", ja: "勉強中" },
   "fc.btnKnown": { en: "Got it", ja: "分かった" },
-  // Readiness / Weak Zone
-  "rdy.title": { en: "Readiness", ja: "理解度" },
-  "rdy.based": { en: "", ja: "" },
-  "rdy.answers": { en: "words known", ja: "語習得済" },
-  "rdy.live": { en: "Readiness", ja: "理解度" },
-  "rdy.tooltip": {
-    en: "Words you Know (mastery 2+: 分かった or 完全に習得). Weighted: W1=60%, others 10% each.",
-    ja: "「分かった」または「完全に習得」した単語の割合。加重: W1=60%, 他は各10%。",
+  // Mastery progress
+  "mastery.title": { en: "Mastery progress", ja: "習得進捗" },
+  "mastery.caption": { en: "words seen", ja: "語接触済" },
+  "mastery.known": { en: "known", ja: "習得済" },
+  "mastery.live": { en: "Progress", ja: "進捗" },
+  "mastery.legend.untouched": { en: "untouched", ja: "未学習" },
+  "mastery.tooltip": {
+    en: "Linear credit per mastery level: untouched=0, 勉強中=0.25, 分かり始めた=0.5, 分かった=0.75, 完全に習得=1.0. Weighted: W1=60%, others 10%.",
+    ja: "習得度ごとの線形配点: 未学習=0, 勉強中=0.25, 分かり始めた=0.5, 分かった=0.75, 完全に習得=1.0。加重: W1=60%, 他は各10%。",
   },
- "cmp.title": { en: "Completeness", ja: "習得率" },
- "cmp.caption": { en: "words seen", ja: "語接触済" },
- "cmp.tooltip": {
-   en: "Share of Pre-1 words you've encountered, regardless of mastery level. Weighted: W1=60%, others 10% each.",
-   ja: "出会った準1級単語の割合（習得度に関係なし）。加重: W1=60%, 他は各10%。",
- },
   "weak.title": { en: "Weakness", ja: "弱点" },
   "weak.empty": { en: "No weak words — keep it up! ✨", ja: "弱点なし — その調子！ ✨" },
   "weak.review": { en: "Review", ja: "復習" },
@@ -85,7 +80,7 @@ const DICT: Dict = {
   "weak.of": { en: "of", ja: "/" },
   "quiz.correctAns": { en: "Correct answer", ja: "正解" },
   "quiz.added": { en: "Added to Weak Zone", ja: "弱点ゾーンに追加" },
-  "results.delta": { en: "Readiness", ja: "理解度" },
+  "results.delta": { en: "Progress", ja: "進捗" },
   "results.newBadges": { en: "Badges unlocked!", ja: "バッジ解放！" },
 };
 
