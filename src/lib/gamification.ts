@@ -1,4 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
+import { fetchActiveWords } from "@/lib/words";
 
 export type Stats = {
   xp: number;
@@ -124,6 +125,41 @@ export const READINESS_WEIGHTS: Record<string, number> = {
 };
 
 export type PerWorldReadiness = { pct: number; total: number; correct: number };
+
+export type PerWorldCompleteness = { pct: number; known: number; total: number };
+
+/** Coverage metric: share of Pre-1 words mastered.
+ *  mastery >= 2 → 1.0 credit, mastery == 1 → 0.5 credit, else 0. */
+export async function getCompleteness(
+  studentId: string,
+): Promise<{ pct: number; known: number; total: number; perWorld: Record<string, PerWorldCompleteness> }> {
+  const [allWords, { data: statusData }] = await Promise.all([
+    fetchActiveWords(),
+    supabase.from("word_status").select("word_id, mastery").eq("student_id", studentId),
+  ]);
+  const masteryByWord = new Map<string, number>(
+    (statusData ?? []).map((r) => [r.word_id, r.mastery as number]),
+  );
+  const perWorld: Record<string, PerWorldCompleteness> = {};
+  for (const k of Object.keys(READINESS_WEIGHTS)) perWorld[k] = { pct: 0, known: 0, total: 0 };
+  let knownTotal = 0;
+  let countTotal = 0;
+  for (const w of allWords) {
+    const tier = w.tier ?? "";
+    if (!(tier in perWorld)) continue;
+    const m = masteryByWord.get(w.id) ?? 0;
+    const credit = m >= 2 ? 1 : m === 1 ? 0.5 : 0;
+    perWorld[tier].known += credit;
+    perWorld[tier].total += 1;
+    knownTotal += credit;
+    countTotal += 1;
+  }
+  for (const pw of Object.values(perWorld)) {
+    pw.pct = pw.total === 0 ? 0 : Math.round((pw.known / pw.total) * 100);
+  }
+  const pct = countTotal === 0 ? 0 : Math.round((knownTotal / countTotal) * 100);
+  return { pct, known: Math.round(knownTotal), total: countTotal, perWorld };
+}
 
 /** Compute live readiness % from quiz_results, weighted per world.
  *  A world with zero answers contributes 0 (so untouched worlds drag the score down). */
