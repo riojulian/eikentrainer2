@@ -1,14 +1,20 @@
-# Restore Achievements grid
+## Changes to `src/routes/admin.progress.tsx`
 
-## Problem
-The full badge grid (First Timer, Marathon, etc., including unearned/greyed-out ones) is no longer visible. When `MasteryHeader` was introduced, it only renders earned badges as small chips, and `AchievementsStrip` was no longer mounted anywhere.
+**1. Remove the "Per-student breakdown" table**
+- Delete the entire breakdown table block and the `StudentRow` type / `studentRows` memo logic that powers it.
+- Keep the student dropdown at the top (still needed to filter the rest of the page). Populate its options from `profiles` directly instead of `studentRows`.
+- Drop the now-unused `student_stats` fetch and the `Table*` imports.
 
-## Change
-**`src/routes/study.index.tsx`**
-- Import `AchievementsStrip` from `@/components/AchievementsStrip`.
-- Render `<AchievementsStrip earned={earnedBadges} />` near the bottom of the page (after the StageMap card, before closing `</main>`), so all badges — earned and unearned — are visible again.
+**2. Fix "Total words" showing 1000**
+- Real active count in DB is **2141**, but the page shows 1000. Cause: the current code does `supabase.from("words").select("id,word")…` and uses `words.length` as the total. PostgREST caps row payloads, and we only need the count, not the rows.
+- Replace the words fetch with a head-count query:
+  ```ts
+  supabase.from("words").select("*", { count: "exact", head: true }).eq("is_active", true)
+  ```
+  Use the returned `count` as `totalWords`.
+- For the "Words to revisit" list we still need word text → fetch only the words that actually appear in `quiz_results` (`.in("id", [...wordIds])`) instead of pulling the whole table.
 
-## Out of scope
-- No changes to `MasteryHeader` (keeps its compact earned-only chips).
-- No changes to badge logic, data, or i18n.
-- `AchievementsStrip.tsx` itself stays as-is.
+**3. Result**
+- Admin dropdown remains, filters mastery distribution / accuracy chart / weak words per student (or All).
+- Total words reflects true active count (2141, kept in sync automatically).
+- No giant per-student table cluttering the page.

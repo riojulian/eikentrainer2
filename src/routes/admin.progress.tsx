@@ -4,7 +4,6 @@ import { supabase } from "@/integrations/supabase/client";
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from "recharts";
 import { MASTERY_LABELS, MASTERY_BG, type Mastery } from "@/lib/words";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 
 export const Route = createFileRoute("/admin/progress")({
   component: Progress,
@@ -18,24 +17,11 @@ type Stats = {
   weakest: { word: string; correct: number; total: number; accuracy: number }[];
 };
 
-type StudentRow = {
-  id: string;
-  name: string;
-  mastered: number;
-  attempts: number;
-  correct: number;
-  accuracy: number;
-  xp: number;
-  streak: number;
-  lastActive: string | null;
-};
-
 type RawData = {
-  words: { id: string; word: string }[];
+  totalWords: number;
   profiles: { id: string; display_name: string | null }[];
   statuses: { student_id: string; word_id: string; mastery: number }[];
   results: { student_id: string; word_id: string; correct: boolean; taken_at: string }[];
-  stats: { student_id: string; xp: number; current_streak: number; last_active_date: string | null }[];
 };
 
 function Progress() {
@@ -44,19 +30,25 @@ function Progress() {
 
   useEffect(() => {
     (async () => {
-      const [{ data: words }, { data: profiles }, { data: statuses }, { data: results }, { data: stats }] = await Promise.all([
-        supabase.from("words").select("id,word").eq("is_active", true).range(0, 49999),
+      const [{ count: wordsCount }, { data: profiles }, { data: statuses }, { data: results }] = await Promise.all([
+        supabase.from("words").select("*", { count: "exact", head: true }).eq("is_active", true),
         supabase.from("profiles").select("id,display_name").range(0, 9999),
         supabase.from("word_status").select("student_id,mastery,word_id").range(0, 99999),
         supabase.from("quiz_results").select("student_id,word_id,correct,taken_at").order("taken_at", { ascending: true }).range(0, 99999),
-        supabase.from("student_stats").select("student_id,xp,current_streak,last_active_date").range(0, 9999),
       ]);
+      const rawResults = (results ?? []) as RawData["results"];
+      const wordIds = [...new Set(rawResults.map((r) => r.word_id))];
+      let wordTexts: { id: string; word: string }[] = [];
+      if (wordIds.length) {
+        const { data: w } = await supabase.from("words").select("id,word").in("id", wordIds);
+        wordTexts = w ?? [];
+      }
+      (window as any).__wordTexts = wordTexts;
       setRaw({
-        words: words ?? [],
+        totalWords: wordsCount ?? 0,
         profiles: profiles ?? [],
         statuses: (statuses ?? []) as RawData["statuses"],
-        results: (results ?? []) as RawData["results"],
-        stats: (stats ?? []) as RawData["stats"],
+        results: rawResults,
       });
     })();
   }, []);
@@ -67,40 +59,12 @@ function Progress() {
     return m;
   }, [raw]);
 
-  const studentRows = useMemo<StudentRow[]>(() => {
-    if (!raw) return [];
-    const ids = new Set<string>();
-    raw.profiles.forEach((p) => ids.add(p.id));
-    raw.statuses.forEach((r) => ids.add(r.student_id));
-    raw.results.forEach((r) => ids.add(r.student_id));
-    raw.stats.forEach((r) => ids.add(r.student_id));
-    const byStat = new Map(raw.stats.map((r) => [r.student_id, r]));
-    return [...ids].map((id) => {
-      const mastered = raw.statuses.filter((r) => r.student_id === id && r.mastery >= 3).length;
-      const attempts = raw.results.filter((r) => r.student_id === id);
-      const correct = attempts.filter((r) => r.correct).length;
-      const st = byStat.get(id);
-      return {
-        id,
-        name: nameOf.get(id) ?? "(unknown)",
-        mastered,
-        attempts: attempts.length,
-        correct,
-        accuracy: attempts.length ? Math.round((correct / attempts.length) * 100) : 0,
-        xp: st?.xp ?? 0,
-        streak: st?.current_streak ?? 0,
-        lastActive: st?.last_active_date ?? null,
-      };
-    }).sort((a, b) => b.xp - a.xp || b.attempts - a.attempts);
-  }, [raw, nameOf]);
-
   const s = useMemo<Stats | null>(() => {
     if (!raw) return null;
-    const words = raw.words;
     const statuses = studentId === "all" ? raw.statuses : raw.statuses.filter((r) => r.student_id === studentId);
     const results = studentId === "all" ? raw.results : raw.results.filter((r) => r.student_id === studentId);
 
-    const totalWords = words.length;
+    const totalWords = raw.totalWords;
       const tiers: Record<Mastery, number> = { 0: 0, 1: 0, 2: 0, 3: 0 };
       let seen = 0;
       statuses.forEach((r) => {
@@ -118,7 +82,8 @@ function Progress() {
       });
       const daily = [...byDay.entries()].map(([date, v]) => ({ date, correct: v.c, total: v.t, accuracy: Math.round((v.c / v.t) * 100) }));
 
-      const wordIdToText = new Map(words.map((w) => [w.id, w.word]));
+      const wordTexts = ((typeof window !== "undefined" ? (window as any).__wordTexts : []) ?? []) as { id: string; word: string }[];
+      const wordIdToText = new Map(wordTexts.map((w) => [w.id, w.word]));
       const byWord = new Map<string, { c: number; t: number }>();
       results.forEach((r) => {
         const v = byWord.get(r.word_id) ?? { c: 0, t: 0 };
@@ -159,52 +124,11 @@ function Progress() {
           <SelectTrigger className="w-[220px]"><SelectValue /></SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All students</SelectItem>
-            {studentRows.map((r) => (
-              <SelectItem key={r.id} value={r.id}>{r.name}</SelectItem>
+            {(raw?.profiles ?? []).map((p) => (
+              <SelectItem key={p.id} value={p.id}>{p.display_name ?? "—"}</SelectItem>
             ))}
           </SelectContent>
         </Select>
-      </div>
-
-      <div className="rounded-xl border bg-card p-5 shadow-card overflow-x-auto">
-        <div className="font-display text-xl mb-3">Per-student breakdown</div>
-        {studentRows.length === 0 ? (
-          <p className="text-muted-foreground text-sm">No students yet.</p>
-        ) : (
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Name</TableHead>
-                <TableHead className="text-right">XP</TableHead>
-                <TableHead className="text-right">Streak</TableHead>
-                <TableHead className="text-right">Mastered</TableHead>
-                <TableHead className="text-right">Quizzes</TableHead>
-                <TableHead className="text-right">Accuracy</TableHead>
-                <TableHead className="text-right">Last active</TableHead>
-                <TableHead></TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {studentRows.map((r) => (
-                <TableRow key={r.id} className={studentId === r.id ? "bg-muted/40" : ""}>
-                  <TableCell className="font-medium">{r.name}</TableCell>
-                  <TableCell className="text-right">{r.xp}</TableCell>
-                  <TableCell className="text-right">{r.streak}</TableCell>
-                  <TableCell className="text-right">{r.mastered}</TableCell>
-                  <TableCell className="text-right">{r.attempts}</TableCell>
-                  <TableCell className="text-right">{r.attempts ? `${r.accuracy}%` : "—"}</TableCell>
-                  <TableCell className="text-right text-muted-foreground">{r.lastActive ?? "—"}</TableCell>
-                  <TableCell className="text-right">
-                    <button
-                      className="text-xs text-primary hover:underline"
-                      onClick={() => setStudentId(r.id)}
-                    >View</button>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        )}
       </div>
 
       <div className="text-sm text-muted-foreground">
