@@ -2,7 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 import { useAuth } from "@/lib/auth";
 import { fetchActiveWords, fetchStatuses, MASTERY_LABELS, MASTERY_BG, TIER_LABELS, type Mastery } from "@/lib/words";
-import { BookOpen, ScrollText, Trophy, CalendarDays, CalendarRange, MoreVertical, BarChart3 } from "lucide-react";
+import { BookOpen, ScrollText, Trophy, CalendarDays, CalendarRange, MoreVertical, BarChart3, Languages } from "lucide-react";
 import {
   ensureWorldOrder,
   stagize,
@@ -37,6 +37,7 @@ import {
 } from "@/components/ui/dialog";
 import type { Word } from "@/lib/words";
 import { supabase } from "@/integrations/supabase/client";
+import { useLang } from "@/lib/i18n";
 
 export const Route = createFileRoute("/study/")({
   component: StudyHome,
@@ -44,6 +45,7 @@ export const Route = createFileRoute("/study/")({
 
 function StudyHome() {
   const { user, displayName } = useAuth();
+  const { lang, setLang, t } = useLang();
   const [stats, setStats] = useState<{ total: number; tiers: Record<Mastery, number>; unseen: number }>({
     total: 0,
     tiers: { 0: 0, 1: 0, 2: 0, 3: 0 },
@@ -197,16 +199,16 @@ function StudyHome() {
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-64">
-            <DropdownMenuLabel>Reviews & Library</DropdownMenuLabel>
+            <DropdownMenuLabel>{t("menu.reviewsLib")}</DropdownMenuLabel>
             <DropdownMenuSeparator />
             <Dialog>
               <DialogTrigger asChild>
                 <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
                   <BarChart3 className="h-4 w-4 mr-2 text-gold" />
                   <div className="flex flex-col">
-                    <span>Words you know</span>
+                    <span>{t("menu.wordsKnow")}</span>
                     <span className="text-xs text-muted-foreground">
-                      {masteredish} / {stats.total} mastered
+                      {masteredish} / {stats.total} {t("menu.mastered")}
                     </span>
                   </div>
                 </DropdownMenuItem>
@@ -256,9 +258,9 @@ function StudyHome() {
               <Link to="/study/quiz" search={{ mode: "weekly" as const }}>
                 <CalendarDays className="h-4 w-4 mr-2 text-gold" />
                 <div className="flex flex-col">
-                  <span>Weekly review</span>
+                  <span>{t("menu.weekly")}</span>
                   <span className="text-xs text-muted-foreground">
-                    {weeklyEligible >= 4 ? `${weeklyEligible} words from last 7 days` : "Study 4+ words to unlock"}
+                    {weeklyEligible >= 4 ? `${weeklyEligible} ${t("menu.weeklyHint")}` : t("menu.unlockHint")}
                   </span>
                 </div>
               </Link>
@@ -267,9 +269,9 @@ function StudyHome() {
               <Link to="/study/quiz" search={{ mode: "monthly" as const }}>
                 <CalendarRange className="h-4 w-4 mr-2 text-gold" />
                 <div className="flex flex-col">
-                  <span>Monthly review</span>
+                  <span>{t("menu.monthly")}</span>
                   <span className="text-xs text-muted-foreground">
-                    {monthlyEligible >= 4 ? `${monthlyEligible} words from last 30 days` : "Study 4+ words to unlock"}
+                    {monthlyEligible >= 4 ? `${monthlyEligible} ${t("menu.monthlyHint")}` : t("menu.unlockHint")}
                   </span>
                 </div>
               </Link>
@@ -278,8 +280,20 @@ function StudyHome() {
             <DropdownMenuItem asChild>
               <Link to="/study/list">
                 <ScrollText className="h-4 w-4 mr-2 text-gold" />
-                Browse all words
+                {t("menu.browse")}
               </Link>
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuLabel className="flex items-center gap-2">
+              <Languages className="h-4 w-4 text-gold" /> {t("menu.language")}
+            </DropdownMenuLabel>
+            <DropdownMenuItem onSelect={(e) => { e.preventDefault(); setLang("en"); }}>
+              <span className={lang === "en" ? "font-semibold" : ""}>English</span>
+              {lang === "en" ? <span className="ml-auto text-xs text-muted-foreground">✓</span> : null}
+            </DropdownMenuItem>
+            <DropdownMenuItem onSelect={(e) => { e.preventDefault(); setLang("ja"); }}>
+              <span className={lang === "ja" ? "font-semibold" : ""}>日本語</span>
+              {lang === "ja" ? <span className="ml-auto text-xs text-muted-foreground">✓</span> : null}
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
