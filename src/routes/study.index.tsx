@@ -191,7 +191,7 @@ function StudyHome() {
   return (
     <main className="mx-auto max-w-3xl px-4 py-6">
       <div className="flex items-center justify-between gap-2">
-        <h1 className="font-display text-3xl truncate">Hello, {displayName ?? "friend"} 🌸</h1>
+        <h1 className="font-display text-3xl truncate">{t("home.hello")}, {displayName ?? t("home.friend")} 🌸</h1>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="outline" size="icon" className="shrink-0">
@@ -215,11 +215,11 @@ function StudyHome() {
               </DialogTrigger>
               <DialogContent className="max-w-md">
                 <DialogHeader>
-                  <DialogTitle>Words you know</DialogTitle>
+                  <DialogTitle>{t("home.wordsKnowTitle")}</DialogTitle>
                 </DialogHeader>
                 <div className="rounded-2xl border bg-card p-4">
                   <div className="flex items-baseline justify-between">
-                    <div className="text-sm text-muted-foreground">Mastered</div>
+                    <div className="text-sm text-muted-foreground">{t("home.mastered")}</div>
                     <div className="font-display text-2xl">
                       {masteredish} <span className="text-muted-foreground text-base">/ {stats.total}</span>
                     </div>
@@ -245,7 +245,7 @@ function StudyHome() {
                         ))}
                       </div>
                       <div className="mt-2 flex items-center justify-between rounded-lg border border-dashed border-muted-foreground/30 bg-muted/30 px-3 py-1.5 text-sm">
-                        <span className="text-muted-foreground">未勉強</span>
+                        <span className="text-muted-foreground">{t("home.unseen")}</span>
                         <span className="font-display text-base">{stats.unseen}</span>
                       </div>
                     </div>
@@ -306,8 +306,8 @@ function StudyHome() {
       {worldSummaries.length > 0 && (
         <div className="mt-6">
           <div className="mb-2 flex items-baseline justify-between">
-            <div className="text-sm font-medium">Pick a world</div>
-            <div className="text-xs text-muted-foreground">Each world has its own stages</div>
+            <div className="text-sm font-medium">{t("home.pickWorld")}</div>
+            <div className="text-xs text-muted-foreground">{t("home.worldHint")}</div>
           </div>
           <WorldPicker summaries={worldSummaries} active={activeWorld} onChange={onWorldChange} />
         </div>
@@ -319,9 +319,9 @@ function StudyHome() {
             <div className="flex items-center justify-between">
               <div className="min-w-0">
                 <div className="text-xs uppercase tracking-widest text-gold truncate">{activeWorldLabel}</div>
-                <div className="font-display text-2xl mt-0.5">Stage {currentStage}</div>
+                <div className="font-display text-2xl mt-0.5">{t("home.stage")} {currentStage}</div>
                 <div className="text-sm text-muted-foreground">
-                  {stages[currentStage - 1]?.length ?? 0} words · Stage {currentStage} of {totalStages}
+                  {stages[currentStage - 1]?.length ?? 0} {t("home.words")} · {t("home.stage")} {currentStage} {t("home.of")} {totalStages}
                 </div>
               </div>
               <BookOpen className="h-8 w-8 text-gold shrink-0" />
@@ -329,12 +329,12 @@ function StudyHome() {
             <div className="mt-4 grid gap-2 sm:grid-cols-2">
               <Button asChild size="lg" className="h-12">
                 <Link to="/study/flashcards" search={{ mission: currentStage, world: activeWorld }}>
-                  <BookOpen className="h-4 w-4 mr-1" /> Study stage
+                  <BookOpen className="h-4 w-4 mr-1" /> {t("home.studyStage")}
                 </Link>
               </Button>
               <Button asChild size="lg" variant="outline" className="h-12">
                 <Link to="/study/quiz" search={{ mode: "mission" as const, mission: currentStage, world: activeWorld }}>
-                  <Trophy className="h-4 w-4 mr-1" /> Take stage quiz
+                  <Trophy className="h-4 w-4 mr-1" /> {t("home.takeQuiz")}
                 </Link>
               </Button>
             </div>
@@ -342,8 +342,8 @@ function StudyHome() {
 
           <div className="mt-4 rounded-2xl border bg-card p-4 shadow-card">
             <div className="flex items-baseline justify-between mb-1">
-              <div className="text-sm font-medium">Your journey</div>
-              <div className="text-xs text-muted-foreground">Stage {currentStage} of {totalStages}</div>
+              <div className="text-sm font-medium">{t("home.journey")}</div>
+              <div className="text-xs text-muted-foreground">{t("home.stage")} {currentStage} {t("home.of")} {totalStages}</div>
             </div>
             <StageMap
               total={totalStages}
@@ -360,15 +360,13 @@ function StudyHome() {
         </>
       ) : loading ? (
         <div className="mt-4 rounded-2xl border bg-card p-6 text-center shadow-card">
-          <div className="font-display text-xl">Loading your stages…</div>
-          <p className="mt-1 text-sm text-muted-foreground">Just a moment.</p>
+          <div className="font-display text-xl">{t("home.loading")}</div>
+          <p className="mt-1 text-sm text-muted-foreground">{t("home.justMoment")}</p>
         </div>
       ) : (
         <div className="mt-4 rounded-2xl border border-dashed bg-card p-6 text-center shadow-card">
-          <div className="font-display text-xl">No stages in {activeWorldLabel} yet</div>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Add at least {STAGE_SIZE} words to this world, or pick another world above.
-          </p>
+          <div className="font-display text-xl">{t("home.noStages")}</div>
+          <p className="mt-1 text-sm text-muted-foreground">{t("home.noStagesHint")}</p>
         </div>
       )}
     </main>

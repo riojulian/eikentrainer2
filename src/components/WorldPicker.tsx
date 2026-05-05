@@ -2,14 +2,22 @@ import { cn } from "@/lib/utils";
 import { Lock } from "lucide-react";
 import { TIER_LABELS, TIER_SHORT } from "@/lib/words";
 import { WORLD_ORDER } from "@/lib/stages";
+import { useLang } from "@/lib/i18n";
 
 // Short topic labels stripped of "World N:" prefix for prominent display
-const WORLD_TOPIC: Record<string, string> = {
+const WORLD_TOPIC_EN: Record<string, string> = {
   tier1: "Core",
   tier2: "Topic",
   tier3: "R/L",
   tier4: "Niche",
   phrases: "Phrases",
+};
+const WORLD_TOPIC_JA: Record<string, string> = {
+  tier1: "基礎",
+  tier2: "分野",
+  tier3: "読解/聴解",
+  tier4: "上級",
+  phrases: "熟語",
 };
 
 const WORLD_ACCENT: Record<string, string> = {
@@ -37,14 +45,17 @@ export function WorldPicker({
   active: string;
   onChange: (world: string) => void;
 }) {
+  const { lang, t } = useLang();
   const ordered = WORLD_ORDER.map((w) => summaries.find((s) => s.world === w)).filter(Boolean) as WorldSummary[];
   return (
     <div className="grid grid-cols-5 gap-1.5 sm:gap-2">
       {ordered.map((s) => {
         const empty = s.totalStages === 0;
         const isActive = s.world === active;
-        const topic = WORLD_TOPIC[s.world] ?? (TIER_LABELS[s.world]?.replace(/^World \d+:\s*/, "") ?? s.world);
-        const short = TIER_SHORT[s.world] ?? s.world;
+        const topicMap = lang === "ja" ? WORLD_TOPIC_JA : WORLD_TOPIC_EN;
+        const topic = topicMap[s.world] ?? (TIER_LABELS[s.world]?.replace(/^World \d+:\s*/, "") ?? s.world);
+        const shortBase = TIER_SHORT[s.world] ?? s.world;
+        const short = lang === "ja" ? shortBase.replace(/^World\s*/, "ワールド") : shortBase;
         const pct = s.starsMax > 0 ? (s.starsEarned / s.starsMax) : 0;
         return (
           <button
@@ -80,7 +91,7 @@ export function WorldPicker({
                 </div>
               </>
             ) : (
-              <div className="mt-1 text-[10px] text-muted-foreground">Empty</div>
+              <div className="mt-1 text-[10px] text-muted-foreground">{t("home.empty")}</div>
             )}
           </button>
         );
