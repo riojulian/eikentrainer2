@@ -33,6 +33,9 @@ const DICT: Dict = {
   "home.signOut": { en: "Sign out", ja: "ログアウト" },
   "home.admin": { en: "Admin", ja: "管理" },
   "home.wordsKnowTitle": { en: "Words you know", ja: "覚えた単語" },
+ "home.tabs.progress": { en: "Progress", ja: "進捗" },
+ "home.tabs.map": { en: "Map", ja: "マップ" },
+ "home.tabs.badges": { en: "Badges", ja: "バッジ" },
   // Menu
   "menu.reviewsLib": { en: "Reviews & Library", ja: "復習・単語帳" },
   "menu.wordsKnow": { en: "Words you know", ja: "覚えた単語" },

@@ -21,6 +21,7 @@ import { WeakZoneStrip } from "@/components/WeakZoneStrip";
 import { StageMap } from "@/components/StageMap";
 import { WorldPicker, type WorldSummary } from "@/components/WorldPicker";
 import { Button } from "@/components/ui/button";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -309,21 +310,6 @@ function StudyHome() {
         </DropdownMenu>
       </div>
 
-      <div className="mt-4">
-        <MasteryHeader
-          pct={mastery.pct}
-          total={mastery.total}
-          touched={mastery.touched}
-          buckets={mastery.buckets}
-          perWorld={mastery.perWorld}
-          streak={gameStats.current_streak}
-        />
-      </div>
-
-      <div className="mt-3">
-        <WeakZoneStrip />
-      </div>
-
       {worldSummaries.length > 0 && (
         <div className="mt-6">
           <div className="mb-2 flex items-baseline justify-between">
@@ -360,21 +346,6 @@ function StudyHome() {
               </Button>
             </div>
           </div>
-
-          <div className="mt-4 rounded-2xl border bg-card p-4 shadow-card">
-            <div className="flex items-baseline justify-between mb-1">
-              <div className="text-sm font-medium">{t("home.journey")}</div>
-              <div className="text-xs text-muted-foreground">{t("home.stage")} {currentStage} {t("home.of")} {totalStages}</div>
-            </div>
-            <StageMap
-              total={totalStages}
-              currentStage={currentStage}
-              starsByStage={starsByStage}
-              tierByStage={tierByStage}
-              world={activeWorld}
-            />
-          </div>
-
         </>
       ) : loading ? (
         <div className="mt-4 rounded-2xl border bg-card p-6 text-center shadow-card">
@@ -388,8 +359,45 @@ function StudyHome() {
         </div>
       )}
 
-      <div className="mt-4">
-        <AchievementsStrip earned={earnedBadges} />
+      <div className="mt-6">
+        <Tabs defaultValue="progress" className="w-full">
+          <TabsList className="grid w-full grid-cols-3">
+            <TabsTrigger value="progress">{t("home.tabs.progress")}</TabsTrigger>
+            <TabsTrigger value="map">{t("home.tabs.map")}</TabsTrigger>
+            <TabsTrigger value="badges">{t("home.tabs.badges")}</TabsTrigger>
+          </TabsList>
+          <TabsContent value="progress" className="mt-3 space-y-3">
+            <MasteryHeader
+              pct={mastery.pct}
+              total={mastery.total}
+              touched={mastery.touched}
+              buckets={mastery.buckets}
+              perWorld={mastery.perWorld}
+              streak={gameStats.current_streak}
+            />
+            <WeakZoneStrip />
+          </TabsContent>
+          <TabsContent value="map" className="mt-3">
+            {hasStages ? (
+              <div className="rounded-2xl border bg-card p-4 shadow-card">
+                <div className="flex items-baseline justify-between mb-1">
+                  <div className="text-sm font-medium">{t("home.journey")}</div>
+                  <div className="text-xs text-muted-foreground">{t("home.stage")} {currentStage} {t("home.of")} {totalStages}</div>
+                </div>
+                <StageMap
+                  total={totalStages}
+                  currentStage={currentStage}
+                  starsByStage={starsByStage}
+                  tierByStage={tierByStage}
+                  world={activeWorld}
+                />
+              </div>
+            ) : null}
+          </TabsContent>
+          <TabsContent value="badges" className="mt-3">
+            <AchievementsStrip earned={earnedBadges} />
+          </TabsContent>
+        </Tabs>
       </div>
     </main>
   );
