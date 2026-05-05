@@ -41,16 +41,19 @@ import {
   type BadgeDef,
 } from "@/lib/gamification";
 import { cn } from "@/lib/utils";
+import { getWeakWords } from "@/lib/weakZone";
 import { useLang } from "@/lib/i18n";
 import { toast } from "sonner";
 
-type Mode = "mission" | "weekly" | "monthly";
+type Mode = "mission" | "weekly" | "monthly" | "weakness";
 
 export const Route = createFileRoute("/study/quiz")({
   validateSearch: (s: Record<string, unknown>) => {
     const modeRaw = s.mode;
     const mode: Mode | undefined =
-      modeRaw === "mission" || modeRaw === "weekly" || modeRaw === "monthly" ? modeRaw : undefined;
+      modeRaw === "mission" || modeRaw === "weekly" || modeRaw === "monthly" || modeRaw === "weakness"
+        ? modeRaw
+        : undefined;
     const missionRaw = s.mission;
     const mission = typeof missionRaw === "number" ? missionRaw : typeof missionRaw === "string" ? Number(missionRaw) : undefined;
     const world = typeof s.world === "string" ? s.world : undefined;
@@ -139,6 +142,17 @@ function QuizPage() {
         if (stages.length === 0) { setQuestions([]); return; }
         const pool = buildStageQuiz(stages, idxToUse);
         setQuestions(buildQuizQuestions(pool, allWords));
+      } else if (mode === "weakness") {
+        const [allWords, st, weak, rdy] = await Promise.all([
+          fetchActiveWords(),
+          fetchStatuses(user.id),
+          getWeakWords(user.id),
+          getReadiness(user.id),
+        ]);
+        setStatuses(st);
+        setLivePct(rdy.pct); setLiveTotal(rdy.total); setReadinessBefore(rdy.pct);
+        if (weak.length < 1) { setQuestions([]); return; }
+        setQuestions(buildQuizQuestions(weak, allWords));
       } else {
         const [allWords, st, rdy] = await Promise.all([
           fetchActiveWords(),
@@ -161,14 +175,16 @@ function QuizPage() {
       const total = questions.length;
       const stars = mode === "mission" ? starsForScore(score, total) : 0;
 
-      await recordAttempt(
-        user.id,
-        mode === "mission" ? "stage" : mode,
-        score,
-        total,
-        mode === "mission" ? stageIndex : null,
-        mode === "mission" ? activeWorld : null,
-      ).catch(() => {});
+      if (mode !== "weakness") {
+        await recordAttempt(
+          user.id,
+          mode === "mission" ? "stage" : mode,
+          score,
+          total,
+          mode === "mission" ? stageIndex : null,
+          mode === "mission" ? activeWorld : null,
+        ).catch(() => {});
+      }
 
       let xp = score * XP_PER_CORRECT;
       if (mode === "mission" && stars === 3) xp += XP_BONUS_3STAR;
@@ -222,6 +238,8 @@ function QuizPage() {
         <p className="text-muted-foreground mt-2">
           {mode === "mission"
             ? "Need at least a few words with example sentences in this stage."
+            : mode === "weakness"
+            ? "No weak words to quiz — keep practicing!"
             : `Study at least 4 words in the last ${mode === "weekly" ? "7" : "30"} days to take this review.`}
         </p>
         <Button asChild className="mt-6"><Link to="/study">Back to study</Link></Button>
@@ -345,6 +363,8 @@ function QuizPage() {
       ? "Weekly review"
       : mode === "monthly"
       ? "Monthly review"
+      : mode === "weakness"
+      ? "Weakness quiz"
       : "Quiz";
 
   const liveColor = livePct >= 80 ? "text-sage bg-sage/10" : livePct >= 50 ? "text-gold bg-gold/10" : "text-rose bg-rose/10";
