@@ -307,7 +307,7 @@ function StudyHome() {
       </div>
 
       <div className="mt-4">
-        <ReadinessHeader pct={readiness.pct} total={readiness.total} streak={gameStats.current_streak} earned={earnedBadges} perWorld={readiness.perWorld} />
+        <ReadinessHeader pct={readiness.pct} correct={readiness.correct} total={readiness.total} streak={gameStats.current_streak} earned={earnedBadges} perWorld={readiness.perWorld} />
       </div>
 
       <div className="mt-3">
