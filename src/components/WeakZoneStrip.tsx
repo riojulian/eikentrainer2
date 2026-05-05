@@ -51,20 +51,8 @@ export function WeakZoneStrip({ refreshKey = 0 }: { refreshKey?: number }) {
           </div>
         )}
       </div>
-      {words.length === 0 ? (
+      {words.length === 0 && (
         <div className="text-xs text-muted-foreground py-1">{t("weak.empty")}</div>
-      ) : (
-        <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1">
-          {words.map((w) => (
-            <button
-              key={w.id}
-              onClick={() => setOpen(w)}
-              className="shrink-0 rounded-full border border-rose/40 bg-card px-3 py-1 text-sm hover:bg-rose/10 transition"
-            >
-              {w.word}
-            </button>
-          ))}
-        </div>
       )}
       <Dialog open={!!open} onOpenChange={(v) => !v && setOpen(null)}>
         <DialogContent className="max-w-md">
