@@ -43,6 +43,7 @@ import {
 import { cn } from "@/lib/utils";
 import { getWeakWords } from "@/lib/weakZone";
 import { useLang } from "@/lib/i18n";
+import { BADGES_JA } from "@/lib/gamification";
 import { toast } from "sonner";
 
 type Mode = "mission" | "weekly" | "monthly" | "weakness";
