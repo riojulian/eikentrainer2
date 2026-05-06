@@ -9,6 +9,7 @@ import { toast } from "sonner";
 import { useAuth } from "@/lib/auth";
 import { BrandMark } from "@/components/BrandMark";
 import { useLang } from "@/lib/i18n";
+import { migrateGuestMasteryToSupabase } from "@/lib/guestMastery";
 
 export const Route = createFileRoute("/auth")({
   component: AuthPage,
@@ -36,6 +37,7 @@ function AuthPage() {
     let dest: "/admin" | "/study" = "/study";
     const uid = data.user?.id;
     if (uid) {
+      migrateGuestMasteryToSupabase(uid).catch(() => {});
       const { data: roles } = await supabase.from("user_roles").select("role").eq("user_id", uid);
       if (roles?.some((r) => r.role === "admin")) dest = "/admin";
     }
@@ -44,7 +46,7 @@ function AuthPage() {
 
   const signUp = async () => {
     setBusy(true);
-    const { error } = await supabase.auth.signUp({
+    const { data, error } = await supabase.auth.signUp({
       email,
       password,
       options: {
@@ -54,6 +56,7 @@ function AuthPage() {
     });
     setBusy(false);
     if (error) return toast.error(error.message);
+    if (data.user) migrateGuestMasteryToSupabase(data.user.id).catch(() => {});
     toast.success(t("auth.created"));
     navigate({ to: "/study" });
   };
