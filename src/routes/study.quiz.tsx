@@ -398,17 +398,30 @@ function QuizPage() {
     if (isGuest) {
       const before = getGuestMasteryForWord(q.word.id);
       const base = before ?? 0;
+      // First-try = no prior outcome for this word, or the prior was correct.
+      const prior = [...outcomes].reverse().find((o) => o.wordId === q.word.id);
+      const firstTry = !prior || prior.correct === true;
       let after: Mastery;
-      if (correct) after = Math.min(3, base + 1) as Mastery;
+      if (correct) after = (firstTry ? Math.min(3, base + 1) : base) as Mastery;
       else if (base === 3) after = 1;
       else after = Math.max(0, base - 1) as Mastery;
       setGuestMasteryForWord(q.word.id, after);
       setStatuses((p) => ({ ...p, [q.word.id]: after }));
       setOutcomes((p) => [...p, { wordId: q.word.id, correct, before, after }]);
     } else {
-      supabase.from("quiz_results").insert({ student_id: user!.id, word_id: q.word.id, correct }).then(() => {});
       const before = statuses[q.word.id];
-      applyQuizResult(user!.id, q.word.id, before, correct).then((after) => {
+      // Look up the most recent prior attempt for this word BEFORE inserting the new row.
+      const { data: prior } = await supabase
+        .from("quiz_results")
+        .select("correct")
+        .eq("student_id", user!.id)
+        .eq("word_id", q.word.id)
+        .order("taken_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      const firstTry = !prior || prior.correct === true;
+      supabase.from("quiz_results").insert({ student_id: user!.id, word_id: q.word.id, correct }).then(() => {});
+      applyQuizResult(user!.id, q.word.id, before, correct, firstTry).then((after) => {
         setStatuses((p) => ({ ...p, [q.word.id]: after }));
         setOutcomes((p) => [...p, { wordId: q.word.id, correct, before, after }]);
         getMastery(user!.id).then((m) => setLivePct(m.pct)).catch(() => {});

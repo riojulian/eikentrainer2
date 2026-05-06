@@ -123,18 +123,23 @@ export async function bumpMastery(
   return next;
 }
 
-/** Apply a single quiz outcome and return the new tier. */
+/**
+ * Apply a single quiz outcome and return the new tier.
+ * - first-try correct → +1 (real learning signal)
+ * - recovery correct (firstTry=false) → no change (clears wrong streak, no inflation)
+ * - wrong → −1, with the 3 → 1 exception so one slip doesn't nuke a mastered word
+ */
 export async function applyQuizResult(
   studentId: string,
   wordId: string,
   current: MasteryOrUnseen,
   correct: boolean,
+  firstTry: boolean = true,
 ): Promise<Mastery> {
   let next: Mastery;
   if (correct) {
-    next = clamp((current ?? 0) + 1);
+    next = firstTry ? clamp((current ?? 0) + 1) : ((current ?? 0) as Mastery);
   } else {
-    // Don't nuke a mastered word from one mistake — drop to 1.
     if (current === 3) next = 1;
     else next = clamp((current ?? 0) - 1);
   }
