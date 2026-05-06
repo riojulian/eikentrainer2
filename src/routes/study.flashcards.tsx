@@ -96,8 +96,20 @@ function Flashcards() {
     }
     setCardsLoading(true);
     (async () => {
-      const world = search.world ?? (await getCurrentWorld(user.id));
-      const [ordered, s] = await Promise.all([ensureWorldOrder(user.id, world), fetchStatuses(user.id)]);
+      const world = search.world ?? (await queryClient.ensureQueryData({
+        queryKey: qk.currentWorld(user.id),
+        queryFn: () => getCurrentWorld(user.id),
+      }));
+      const [ordered, s] = await Promise.all([
+        queryClient.ensureQueryData({
+          queryKey: qk.worldOrder(user.id, world),
+          queryFn: () => ensureWorldOrder(user.id, world),
+        }),
+        queryClient.ensureQueryData({
+          queryKey: qk.statuses(user.id),
+          queryFn: () => fetchStatuses(user.id),
+        }),
+      ]);
       if (cancelled) return;
       setActiveWorld(world);
       const nextWords = missionParam && !freeMode ? stagize(ordered)[missionParam - 1] ?? [] : ordered;
