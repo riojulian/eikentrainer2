@@ -482,8 +482,8 @@ function StudyHome() {
 
 
 function GuestStudyHome() {
-  const [words, setWords] = useState<Word[]>([]);
-  const [stages, setStages] = useState<Word[][]>([]);
+  const [activeWorld, setActiveWorld] = useState<string>(GUEST_FREE_WORLD);
+  const [stagesByWorld, setStagesByWorld] = useState<Record<string, Word[][]>>({});
   const [loading, setLoading] = useState(true);
   const mastery = getGuestMastery();
 
@@ -491,10 +491,13 @@ function GuestStudyHome() {
     let cancelled = false;
     (async () => {
       try {
-        const w = await getGuestWords(GUEST_FREE_WORLD);
+        const entries = await Promise.all(
+          WORLD_ORDER.map(async (w) => [w, stagize(await getGuestWords(w))] as const),
+        );
         if (cancelled) return;
-        setWords(w);
-        setStages(stagize(w));
+        const map: Record<string, Word[][]> = {};
+        for (const [w, s] of entries) map[w] = s;
+        setStagesByWorld(map);
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -504,8 +507,15 @@ function GuestStudyHome() {
     };
   }, []);
 
+  const summaries: WorldSummary[] = WORLD_ORDER.map((w) => {
+    const s = stagesByWorld[w] ?? [];
+    return { world: w, totalStages: s.length, currentStage: 1, starsEarned: 0, starsMax: s.length * 3 };
+  });
+  const stages = stagesByWorld[activeWorld] ?? [];
   const totalStages = stages.length;
   const masteredCount = Object.values(mastery).filter((m) => m >= 2).length;
+  const totalWords = Object.values(stagesByWorld).reduce((a, s) => a + s.reduce((x, st) => x + st.length, 0), 0);
+  const activeLabel = TIER_LABELS[activeWorld] ?? activeWorld;
 
   return (
     <main className="mx-auto max-w-3xl px-4 py-6">
@@ -514,9 +524,9 @@ function GuestStudyHome() {
           <div className="font-display text-base sm:text-lg">
             Sign up free to unlock all 5 worlds and save your progress.
           </div>
-          {words.length > 0 && (
+          {totalWords > 0 && (
             <div className="text-xs text-muted-foreground mt-0.5">
-              {masteredCount} / {words.length} words learned in this preview
+              {masteredCount} words learned in this preview
             </div>
           )}
         </div>
@@ -525,8 +535,18 @@ function GuestStudyHome() {
         </Button>
       </div>
 
+      {summaries.some((s) => s.totalStages > 0) && (
+        <div className="mt-6">
+          <div className="mb-2 flex items-baseline justify-between">
+            <div className="text-sm font-medium">Pick a world</div>
+            <div className="text-xs text-muted-foreground">{GUEST_FREE_STAGES} free stages each</div>
+          </div>
+          <WorldPicker summaries={summaries} active={activeWorld} onChange={setActiveWorld} />
+        </div>
+      )}
+
       <div className="mt-6">
-        <h2 className="font-display text-2xl">World 1: Core</h2>
+        <h2 className="font-display text-2xl">{activeLabel}</h2>
         <p className="text-sm text-muted-foreground">
           {GUEST_FREE_STAGES} free stages · sign up to unlock the rest
         </p>
@@ -542,13 +562,13 @@ function GuestStudyHome() {
         <div className="mt-4 space-y-3">
           {stages.map((stageWords, idx) => {
             const stageNum = idx + 1;
-            const allowed = isGuestAllowed(GUEST_FREE_WORLD, stageNum);
+            const allowed = isGuestAllowed(activeWorld, stageNum);
             if (allowed) {
               return (
                 <Link
                   key={stageNum}
                   to="/study/flashcards"
-                  search={{ mission: stageNum, world: GUEST_FREE_WORLD }}
+                  search={{ mission: stageNum, world: activeWorld }}
                   className="block rounded-2xl border bg-card p-4 shadow-card hover:bg-accent/50 transition"
                 >
                   <div className="flex items-center justify-between">
