@@ -13,6 +13,7 @@ import {
   setCurrentWorld,
   getWorldStage,
   getStarsByStage,
+  getAllStarsByWorld,
 } from "@/lib/stages";
 import { getStats, getEarnedBadges, getMastery, type Stats, type PerWorldMastery, type MasteryBuckets } from "@/lib/gamification";
 import { MasteryHeader } from "@/components/MasteryHeader";
@@ -77,13 +78,14 @@ function StudyHome() {
     if (!user) return;
     (async () => {
       try {
-      const [allWords, statuses, world, gs, badges, mst] = await Promise.all([
+      const [allWords, statuses, world, gs, badges, mst, allStars] = await Promise.all([
         fetchActiveWords(),
         fetchStatuses(user.id),
         getCurrentWorld(user.id),
         getStats(user.id),
         getEarnedBadges(user.id),
         getMastery(user.id),
+        getAllStarsByWorld(user.id),
       ]);
 
       // Mastery tallies (global)
@@ -107,11 +109,8 @@ function StudyHome() {
           let curStage = 1;
           let starsEarned = 0;
           if (totalStages > 0) {
-            const [cs, stars] = await Promise.all([
-              getWorldStage(user.id, w),
-              getStarsByStage(user.id, w),
-            ]);
-            curStage = cs;
+            curStage = await getWorldStage(user.id, w);
+            const stars = allStars[w] ?? {};
             starsEarned = Object.values(stars).reduce((a: number, b) => a + (b as number), 0);
           }
           return {
