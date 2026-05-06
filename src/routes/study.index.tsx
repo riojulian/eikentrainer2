@@ -43,6 +43,7 @@ import {
 import type { Word } from "@/lib/words";
 import { supabase } from "@/integrations/supabase/client";
 import { useLang } from "@/lib/i18n";
+import { Skeleton } from "@/components/ui/skeleton";
 
 export const Route = createFileRoute("/study/")({
   component: StudyHome,
@@ -212,6 +213,59 @@ function StudyHome() {
   const hasStages = totalStages > 0;
   const tierByStage = stages.map((stage) => stage[0]?.tier ?? null);
   const activeWorldLabel = TIER_LABELS[activeWorld] ?? activeWorld;
+
+  if (loading) {
+    return (
+      <main className="mx-auto max-w-3xl px-4 py-6">
+        {/* Header */}
+        <div className="flex items-center justify-between gap-2">
+          <Skeleton className="h-9 w-64" />
+          <Skeleton className="h-9 w-9 rounded-md" />
+        </div>
+
+        {/* StatsHeader */}
+        <div className="mt-4 rounded-2xl border bg-card p-3 shadow-card">
+          <Skeleton className="h-4 w-32" />
+          <Skeleton className="mt-2 h-2 w-full" />
+        </div>
+
+        {/* WorldPicker */}
+        <div className="mt-6">
+          <Skeleton className="h-4 w-40" />
+          <div className="mt-2 grid grid-cols-5 gap-1.5 sm:gap-2">
+            {[...Array(5)].map((_, i) => (
+              <Skeleton key={i} className="h-20 rounded-2xl" />
+            ))}
+          </div>
+        </div>
+
+        {/* Stage card */}
+        <div className="mt-4 rounded-2xl border bg-card p-5 shadow-card">
+          <div className="space-y-2">
+            <Skeleton className="h-3 w-24" />
+            <Skeleton className="h-7 w-40" />
+            <Skeleton className="h-4 w-56" />
+          </div>
+          <div className="mt-4 grid gap-2 sm:grid-cols-2">
+            <Skeleton className="h-12 rounded-md" />
+            <Skeleton className="h-12 rounded-md" />
+          </div>
+        </div>
+
+        {/* StageMap */}
+        <div className="mt-6 rounded-2xl border bg-card p-4 shadow-card">
+          <Skeleton className="h-4 w-32" />
+          <div className="mt-3 space-y-3">
+            {[...Array(3)].map((_, i) => (
+              <div key={i} className="flex">
+                <Skeleton className="h-16 w-[88%] sm:w-[72%] rounded-2xl" />
+              </div>
+            ))}
+          </div>
+        </div>
+      </main>
+    );
+  }
 
   return (
     <main className="mx-auto max-w-3xl px-4 py-6">
