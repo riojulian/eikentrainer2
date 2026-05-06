@@ -1,4 +1,4 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, Navigate } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { qk } from "@/lib/queryKeys";
@@ -220,7 +220,7 @@ function StudyHome() {
   const activeWorldLabel = TIER_LABELS[activeWorld] ?? activeWorld;
 
   if (isGuest) {
-    return <GuestStudyHome />;
+    return <Navigate to="/study/flashcards" search={{ mission: 1, world: GUEST_FREE_WORLD }} />;
   }
 
   if (loading) {
