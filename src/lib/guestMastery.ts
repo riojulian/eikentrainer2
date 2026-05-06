@@ -38,7 +38,6 @@ export function clearGuestMastery(): void {
 }
 
 export function isGuestAllowed(world: string, stage: number | undefined): boolean {
-  if (world !== GUEST_FREE_WORLD) return false;
   if (stage === undefined) return true;
   return stage >= 1 && stage <= GUEST_FREE_STAGES;
 }
