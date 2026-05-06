@@ -27,8 +27,20 @@ function WordsAdmin() {
   const [open, setOpen] = useState(false);
 
   const load = async () => {
-    const { data } = await supabase.from("words").select("*").order("created_at", { ascending: false });
-    setRows((data ?? []) as Row[]);
+    const all: Row[] = [];
+    const pageSize = 1000;
+    for (let from = 0; ; from += pageSize) {
+      const { data, error } = await supabase
+        .from("words")
+        .select("*")
+        .order("created_at", { ascending: false })
+        .range(from, from + pageSize - 1);
+      if (error) break;
+      const batch = (data ?? []) as Row[];
+      all.push(...batch);
+      if (batch.length < pageSize) break;
+    }
+    setRows(all);
   };
   useEffect(() => { load(); }, []);
 
