@@ -35,7 +35,7 @@ function Index() {
           </p>
           <div className="mt-10 flex items-center justify-center gap-3">
             <Button asChild size="lg" className="rounded-full shadow-[var(--shadow-glow)] px-8">
-              <Link to="/auth">はじめる →</Link>
+              <Link to="/study">はじめる →</Link>
             </Button>
           </div>
         </div>
