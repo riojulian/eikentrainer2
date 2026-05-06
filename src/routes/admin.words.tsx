@@ -9,6 +9,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, Dialog
 import { toast } from "sonner";
 import { Plus, Pencil, Trash2 } from "lucide-react";
 import { useLang } from "@/lib/i18n";
+import { Skeleton } from "@/components/ui/skeleton";
 
 export const Route = createFileRoute("/admin/words")({
   component: WordsAdmin,
@@ -131,6 +132,17 @@ function WordsAdmin() {
             </tr>
           </thead>
           <tbody>
+            {loading && rows.length === 0
+              ? Array.from({ length: 8 }).map((_, i) => (
+                  <tr key={`sk-${i}`} className="border-t">
+                    <td className="px-3 py-2"><Skeleton className="h-4 w-32" /></td>
+                    <td className="px-3 py-2 hidden md:table-cell"><Skeleton className="h-4 w-20" /></td>
+                    <td className="px-3 py-2 hidden lg:table-cell"><Skeleton className="h-4 w-full max-w-md" /></td>
+                    <td className="px-3 py-2"><Skeleton className="h-5 w-9 rounded-full" /></td>
+                    <td className="px-3 py-2 text-right"><Skeleton className="h-4 w-16 ml-auto" /></td>
+                  </tr>
+                ))
+              : null}
             {filtered.map((r) => (
               <tr key={r.id} className="border-t">
                 <td className="px-3 py-2 font-medium">{r.word} <span className="text-xs text-muted-foreground">{r.part_of_speech}</span></td>
@@ -145,7 +157,7 @@ function WordsAdmin() {
             ))}
           </tbody>
         </table>
-        {loading ? <div className="p-8 text-center text-muted-foreground">Loading…</div> : filtered.length === 0 ? <div className="p-8 text-center text-muted-foreground">No words yet.</div> : null}
+        {!loading && filtered.length === 0 ? <div className="p-8 text-center text-muted-foreground">No words yet.</div> : null}
       </div>
     </div>
   );
