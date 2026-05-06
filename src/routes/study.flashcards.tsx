@@ -1,4 +1,4 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { qk } from "@/lib/queryKeys";
@@ -16,9 +16,17 @@ import { Button } from "@/components/ui/button";
 import { Shuffle, Check, RotateCcw, ChevronLeft, SkipForward, Undo2, Trophy } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
-import { ensureWorldOrder, stagize, getCurrentWorld, DEFAULT_WORLD } from "@/lib/stages";
+import { ensureWorldOrder, stagize, getCurrentWorld, DEFAULT_WORLD, getGuestWords } from "@/lib/stages";
 import { bumpStreak, awardXp, XP_PER_KNOWN_FIRST } from "@/lib/gamification";
 import { useLang } from "@/lib/i18n";
+import {
+  isGuestAllowed,
+  GUEST_FREE_STAGES,
+  GUEST_FREE_WORLD,
+  getGuestMasteryForWord,
+  setGuestMasteryForWord,
+} from "@/lib/guestMastery";
+import { SignupGate } from "@/components/SignupGate";
 
 export const Route = createFileRoute("/study/flashcards")({
   validateSearch: (s: Record<string, unknown>) => {
@@ -57,6 +65,8 @@ function nextOnKnown(curr: MasteryOrUnseen): Mastery {
 
 function Flashcards() {
   const { user, loading: authLoading } = useAuth();
+  const isGuest = !user;
+  const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { lang, t } = useLang();
   const search = Route.useSearch();
@@ -84,32 +94,32 @@ function Flashcards() {
         cancelled = true;
       };
     }
-    if (!user) {
-      setWords([]);
-      setStatuses({});
-      setOrder([]);
-      setLoadedDeckKey(requestedDeckKey);
-      setCardsLoading(false);
+    if (isGuest && !isGuestAllowed(search.world ?? GUEST_FREE_WORLD, missionParam)) {
+      navigate({ to: "/auth" });
       return () => {
         cancelled = true;
       };
     }
     setCardsLoading(true);
     (async () => {
-      const world = search.world ?? (await queryClient.ensureQueryData({
-        queryKey: qk.currentWorld(user.id),
-        queryFn: () => getCurrentWorld(user.id),
-      }));
-      const [ordered, s] = await Promise.all([
-        queryClient.ensureQueryData({
-          queryKey: qk.worldOrder(user.id, world),
-          queryFn: () => ensureWorldOrder(user.id, world),
-        }),
-        queryClient.ensureQueryData({
-          queryKey: qk.statuses(user.id),
-          queryFn: () => fetchStatuses(user.id),
-        }),
-      ]);
+      const world = isGuest
+        ? (search.world ?? GUEST_FREE_WORLD)
+        : (search.world ?? (await queryClient.ensureQueryData({
+            queryKey: qk.currentWorld(user!.id),
+            queryFn: () => getCurrentWorld(user!.id),
+          })));
+      const ordered = isGuest
+        ? await getGuestWords(world)
+        : await queryClient.ensureQueryData({
+            queryKey: qk.worldOrder(user!.id, world),
+            queryFn: () => ensureWorldOrder(user!.id, world),
+          });
+      const s: Record<string, MasteryOrUnseen> = isGuest
+        ? {}
+        : await queryClient.ensureQueryData({
+            queryKey: qk.statuses(user!.id),
+            queryFn: () => fetchStatuses(user!.id),
+          });
       if (cancelled) return;
       setActiveWorld(world);
       const nextWords = missionParam && !freeMode ? stagize(ordered)[missionParam - 1] ?? [] : ordered;
@@ -122,7 +132,7 @@ function Flashcards() {
       setStatuses(s);
       setLoadedDeckKey(requestedDeckKey);
       setCardsLoading(false);
-      bumpStreak(user.id).catch(() => {});
+      if (!isGuest) bumpStreak(user!.id).catch(() => {});
     })().catch(() => {
       if (cancelled) return;
       setWords([]);
@@ -133,7 +143,7 @@ function Flashcards() {
     return () => {
       cancelled = true;
     };
-  }, [user, authLoading, missionParam, freeMode, search.world, requestedDeckKey]);
+  }, [user, isGuest, authLoading, missionParam, freeMode, search.world, requestedDeckKey]);
 
   const filtered = useMemo(() => {
     return words.filter((w) => {
@@ -174,8 +184,9 @@ function Flashcards() {
 
   const rate = useCallback(
     (kind: RatedKind) => {
-      if (!user || !current) return;
-      const prev = statuses[current.id];
+      if (!current) return;
+      if (!isGuest && !user) return;
+      const prev = isGuest ? getGuestMasteryForWord(current.id) : statuses[current.id];
       const after: Mastery = kind === "review" ? 0 : nextOnKnown(prev);
       setStatuses((p) => ({ ...p, [current.id]: after }));
       setSession((s) => ({
@@ -183,22 +194,27 @@ function Flashcards() {
         review: s.review + (kind === "review" ? 1 : 0),
       }));
       setLast({ wordId: current.id, prev, after, kind });
-    setMastery(user.id, current.id, after).then(() => {
-      queryClient.invalidateQueries({ queryKey: qk.statuses(user.id) });
-      queryClient.invalidateQueries({ queryKey: qk.mastery(user.id) });
-    }).catch(() => {});
-      if (kind === "known" && (prev === null || prev === undefined || prev < 2)) {
-        awardXp(user.id, XP_PER_KNOWN_FIRST).catch(() => {});
+      if (isGuest) {
+        setGuestMasteryForWord(current.id, after);
+      } else {
+        setMastery(user!.id, current.id, after).then(() => {
+          queryClient.invalidateQueries({ queryKey: qk.statuses(user!.id) });
+          queryClient.invalidateQueries({ queryKey: qk.mastery(user!.id) });
+        }).catch(() => {});
+        if (kind === "known" && (prev === null || prev === undefined || prev < 2)) {
+          awardXp(user!.id, XP_PER_KNOWN_FIRST).catch(() => {});
+        }
       }
       if (undoTimer.current) window.clearTimeout(undoTimer.current);
       undoTimer.current = window.setTimeout(() => setLast(null), 900);
       advance();
     },
-    [user, current, statuses, advance],
+    [user, isGuest, current, statuses, advance, queryClient],
   );
 
   const undo = useCallback(() => {
-    if (!user || !last) return;
+    if (!last) return;
+    if (!isGuest && !user) return;
     const { wordId, prev, kind } = last;
     setStatuses((p) => {
       const n = { ...p };
@@ -210,10 +226,19 @@ function Flashcards() {
       known: s.known - (kind === "known" ? 1 : 0),
       review: s.review - (kind === "review" ? 1 : 0),
     }));
-    setMastery(user.id, wordId, prev ?? null).then(() => {
-      queryClient.invalidateQueries({ queryKey: qk.statuses(user.id) });
-      queryClient.invalidateQueries({ queryKey: qk.mastery(user.id) });
-    }).catch(() => {});
+    if (isGuest) {
+      if (prev === null || prev === undefined) {
+        // no-op: guest store has no delete-by-set; leave at 0
+        setGuestMasteryForWord(wordId, 0);
+      } else {
+        setGuestMasteryForWord(wordId, prev as Mastery);
+      }
+    } else {
+      setMastery(user!.id, wordId, prev ?? null).then(() => {
+        queryClient.invalidateQueries({ queryKey: qk.statuses(user!.id) });
+        queryClient.invalidateQueries({ queryKey: qk.mastery(user!.id) });
+      }).catch(() => {});
+    }
     const backIdx = order.indexOf(wordId);
     if (backIdx >= 0) {
       setIdx(backIdx);
@@ -221,7 +246,7 @@ function Flashcards() {
     }
     setLast(null);
     if (undoTimer.current) window.clearTimeout(undoTimer.current);
-  }, [user, last, order]);
+  }, [user, isGuest, last, order, queryClient]);
 
   const prev = useCallback(() => {
     setPhase("front");
@@ -294,6 +319,20 @@ function Flashcards() {
   }
 
   if (phase === "done") {
+    if (isGuest && missionParam === GUEST_FREE_STAGES) {
+      return (
+        <main className="mx-auto max-w-2xl px-4 py-6">
+          <SignupGate
+            trigger="stage-complete"
+            onRetry={() => {
+              setIdx(0);
+              setPhase("front");
+              setSession({ known: 0, review: 0 });
+            }}
+          />
+        </main>
+      );
+    }
     const total = session.known + session.review;
     return (
       <main className="mx-auto max-w-2xl px-4 py-6 text-center">
