@@ -26,7 +26,7 @@ function Index() {
             <Sparkles className="h-3 w-3" /> 英検 Pre-1 ・ Vocabulary
           </span>
           <h1 className="mt-6 font-display text-5xl sm:text-7xl font-bold leading-[1.05] tracking-tight">
-            EikenTango <br className="sm:hidden" />
+            EikenTango <br />
             <span className="text-primary">単語を、もっと<em className="not-italic">楽しく</em>。</span>
           </h1>
           <p className="mx-auto mt-5 max-w-xl text-base sm:text-lg text-muted-foreground">
