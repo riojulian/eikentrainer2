@@ -65,7 +65,12 @@ function WordsAdmin() {
   return (
     <div>
       <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
-        <h1 className="font-display text-3xl">Word Bank</h1>
+        <div>
+          <h1 className="font-display text-3xl">Word Bank</h1>
+          <p className="text-sm text-muted-foreground">
+            Showing {filtered.length} of {rows.length} ({rows.filter((r) => r.is_active).length} active)
+          </p>
+        </div>
         <div className="flex gap-2">
           <Input placeholder="Search…" value={q} onChange={(e) => setQ(e.target.value)} className="w-56" />
           <Dialog open={open} onOpenChange={setOpen}>
