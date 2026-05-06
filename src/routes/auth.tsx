@@ -137,30 +137,31 @@ function AuthPage() {
               <span className="text-xs text-muted-foreground">{t("auth.or") || "or"}</span>
               <div className="h-px flex-1 bg-border" />
             </div>
-            <div className="flex items-center justify-center gap-3">
+            <div className="space-y-2">
               <button
                 type="button"
-                aria-label={t("auth.continueWithGoogle") || "Continue with Google"}
-                title={t("auth.continueWithGoogle") || "Continue with Google"}
                 disabled={busy}
                 onClick={() => signInWithProvider("google")}
-                className="size-11 rounded-full border bg-background hover:bg-accent transition flex items-center justify-center disabled:opacity-50"
+                className="w-full h-11 rounded-md border bg-background hover:bg-accent transition flex items-center justify-center gap-3 text-sm font-medium disabled:opacity-50"
               >
                 <svg className="size-5" viewBox="0 0 24 24" aria-hidden="true">
-                  <path fill="#EA4335" d="M12 10.2v3.9h5.5c-.2 1.4-1.7 4.1-5.5 4.1-3.3 0-6-2.7-6-6.1s2.7-6.1 6-6.1c1.9 0 3.1.8 3.8 1.5l2.6-2.5C16.8 3.5 14.6 2.5 12 2.5 6.8 2.5 2.6 6.7 2.6 12s4.2 9.5 9.4 9.5c5.4 0 9-3.8 9-9.2 0-.6-.1-1.1-.2-1.6H12z"/>
+                  <path fill="#EA4335" d="M12 10.2v3.9h5.5c-.2 1.4-1.7 4.1-5.5 4.1-3.3 0-6-2.7-6-6.1s2.7-6.1 6-6.1c1.7 0 2.8.7 3.5 1.3l2.4-2.3C16.3 3.7 14.3 2.9 12 2.9 6.9 2.9 2.8 7 2.8 12.1S6.9 21.3 12 21.3c6.9 0 9.2-4.8 9.2-7.3 0-.5 0-.9-.1-1.3l-9.1-.5z"/>
+                  <path fill="#34A853" d="M3.9 7.3l3.2 2.4c.9-2.2 2.9-3.7 5.4-3.7 1.7 0 2.8.7 3.5 1.3l2.4-2.3C16.3 3.7 14.3 2.9 12 2.9c-3.4 0-6.4 2-7.8 4.9l-.3-.5z"/>
+                  <path fill="#FBBC05" d="M12 21.3c2.3 0 4.2-.8 5.6-2.1l-2.6-2.1c-.8.6-1.8.9-3 .9-2.4 0-4.5-1.6-5.2-3.8l-3.2 2.5C5 19.7 8.2 21.3 12 21.3z"/>
+                  <path fill="#4285F4" d="M21.2 12.1c0-.5 0-.9-.1-1.3H12v3.9h5.5c-.3 1.3-1.1 2.4-2.3 3.1l2.6 2.1c1.6-1.4 3.4-3.7 3.4-7.8z"/>
                 </svg>
+                <span>{t("auth.continueWithGoogle") || "Continue with Google"}</span>
               </button>
               <button
                 type="button"
-                aria-label={t("auth.continueWithApple") || "Continue with Apple"}
-                title={t("auth.continueWithApple") || "Continue with Apple"}
                 disabled={busy}
                 onClick={() => signInWithProvider("apple")}
-                className="size-11 rounded-full border bg-background hover:bg-accent transition flex items-center justify-center disabled:opacity-50"
+                className="w-full h-11 rounded-md border bg-background hover:bg-accent transition flex items-center justify-center gap-3 text-sm font-medium disabled:opacity-50"
               >
                 <svg className="size-5" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
                   <path d="M16.4 12.6c0-2.3 1.9-3.4 2-3.4-1.1-1.6-2.8-1.8-3.4-1.9-1.5-.1-2.8.9-3.6.9-.7 0-1.9-.8-3.1-.8-1.6 0-3.1.9-3.9 2.4-1.7 2.9-.4 7.2 1.2 9.5.8 1.1 1.7 2.4 3 2.4 1.2 0 1.7-.8 3.1-.8s1.9.8 3.1.8c1.3 0 2.1-1.2 2.9-2.3.9-1.3 1.3-2.6 1.3-2.7-.1 0-2.6-1-2.6-3.9zM14 5.4c.7-.8 1.1-1.9 1-3-1 0-2.1.6-2.8 1.4-.6.7-1.2 1.8-1 2.9 1.1.1 2.2-.5 2.8-1.3z"/>
                 </svg>
+                <span>{t("auth.continueWithApple") || "Continue with Apple"}</span>
               </button>
             </div>
           </div>
