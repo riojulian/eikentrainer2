@@ -145,7 +145,6 @@ function WordsAdmin() {
             ))}
           </tbody>
         </table>
-        {filtered.length === 0 ? <div className="p-8 text-center text-muted-foreground">No words yet.</div> : null}
         {loading ? <div className="p-8 text-center text-muted-foreground">Loading…</div> : filtered.length === 0 ? <div className="p-8 text-center text-muted-foreground">No words yet.</div> : null}
       </div>
     </div>
