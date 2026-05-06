@@ -185,15 +185,20 @@ function StudyHome() {
     if (!isGuest) return;
     let cancelled = false;
     (async () => {
-      const { data: tierRows, error } = await supabase
-        .from("words")
-        .select("tier")
-        .eq("is_active", true);
-      if (error || cancelled) return;
+      const counts = await Promise.all(
+        WORLD_ORDER.map((w) =>
+          supabase
+            .from("words")
+            .select("id", { count: "exact", head: true })
+            .eq("is_active", true)
+            .eq("tier", w),
+        ),
+      );
+      if (cancelled) return;
       const countByTier: Record<string, number> = {};
-      for (const row of tierRows ?? []) {
-        if (row.tier) countByTier[row.tier] = (countByTier[row.tier] ?? 0) + 1;
-      }
+      WORLD_ORDER.forEach((w, i) => {
+        countByTier[w] = counts[i].count ?? 0;
+      });
       const summaries: WorldSummary[] = WORLD_ORDER.map((w) => {
         const count = countByTier[w] ?? 0;
         const totalStages = Math.ceil(count / STAGE_SIZE);
