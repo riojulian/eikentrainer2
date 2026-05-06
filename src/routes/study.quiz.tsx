@@ -142,6 +142,7 @@ function QuizPage() {
     }
     if (!isGuest && !user) return;
     (async () => {
+      if (!isGuest && !user) return;
       if (mode === "mission") {
         const world = isGuest
           ? (search.world ?? GUEST_FREE_WORLD)
