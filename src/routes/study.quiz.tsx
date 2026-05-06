@@ -165,7 +165,7 @@ function QuizPage() {
           return;
         }
         const [allWords, st, ordered, mst] = await Promise.all([
-          queryClient.ensureQueryData({ queryKey: qk.words(), queryFn: fetchActiveWords }),
+          queryClient.ensureQueryData({ queryKey: qk.words(), queryFn: fetchActiveWords, staleTime: Infinity }),
           queryClient.ensureQueryData({ queryKey: qk.statuses(user.id), queryFn: () => fetchStatuses(user.id) }),
           queryClient.ensureQueryData({ queryKey: qk.worldOrder(user!.id, world), queryFn: () => ensureWorldOrder(user!.id, world) }),
           queryClient.ensureQueryData({ queryKey: qk.mastery(user!.id), queryFn: () => getMastery(user!.id) }),
@@ -181,7 +181,7 @@ function QuizPage() {
         setQuestions(buildQuizQuestions(pool, allWords));
       } else if (mode === "weakness") {
         const [allWords, st, weak, mst] = await Promise.all([
-          queryClient.ensureQueryData({ queryKey: qk.words(), queryFn: fetchActiveWords }),
+          queryClient.ensureQueryData({ queryKey: qk.words(), queryFn: fetchActiveWords, staleTime: Infinity }),
           queryClient.ensureQueryData({ queryKey: qk.statuses(user!.id), queryFn: () => fetchStatuses(user!.id) }),
           getWeakWords(user!.id),
           queryClient.ensureQueryData({ queryKey: qk.mastery(user!.id), queryFn: () => getMastery(user!.id) }),
@@ -192,7 +192,7 @@ function QuizPage() {
         setQuestions(buildQuizQuestions(weak, allWords));
       } else {
         const [allWords, st, mst] = await Promise.all([
-          queryClient.ensureQueryData({ queryKey: qk.words(), queryFn: fetchActiveWords }),
+          queryClient.ensureQueryData({ queryKey: qk.words(), queryFn: fetchActiveWords, staleTime: Infinity }),
           queryClient.ensureQueryData({ queryKey: qk.statuses(user!.id), queryFn: () => fetchStatuses(user!.id) }),
           queryClient.ensureQueryData({ queryKey: qk.mastery(user!.id), queryFn: () => getMastery(user!.id) }),
         ]);
