@@ -259,3 +259,15 @@ export async function getAllStarsByWorld(studentId: string): Promise<Record<stri
   });
   return out;
 }
+
+export async function getGuestWords(world: string): Promise<Word[]> {
+  const { data, error } = await supabase
+    .from("words")
+    .select("*")
+    .eq("tier", world)
+    .eq("is_active", true)
+    .order("created_at", { ascending: true })
+    .limit(GUEST_FREE_STAGES * STAGE_SIZE);
+  if (error) throw error;
+  return (data ?? []) as Word[];
+}
