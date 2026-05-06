@@ -82,7 +82,10 @@ function ListPage() {
 
   return (
     <main className="mx-auto max-w-5xl px-4 py-4">
-      <h1 className="font-display text-3xl mb-4">Word List</h1>
+      <h1 className="font-display text-3xl mb-1">Word List</h1>
+      <p className="text-sm text-muted-foreground mb-4">
+        Showing {filtered.length} of {words.length} words
+      </p>
       <div className="flex flex-wrap gap-3 mb-6">
         <Input placeholder="Search words…" value={q} onChange={(e) => setQ(e.target.value)} className="max-w-sm" />
         <Select value={cat} onValueChange={setCat}>
