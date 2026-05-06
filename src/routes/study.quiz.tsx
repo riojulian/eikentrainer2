@@ -15,6 +15,7 @@ import {
   type MasteryOrUnseen,
 } from "@/lib/words";
 import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Flame, Star } from "lucide-react";
 import {
   ensureWorldOrder,
@@ -279,7 +280,22 @@ function QuizPage() {
     })();
   }, [done, user, isGuest, questions, finished, mode, score, stageIndex, activeWorld, mcRun, readinessBefore, outcomes, lang]);
 
-  if (!questions) return <main className="p-10 text-center text-muted-foreground">Loading…</main>;
+  if (!questions)
+    return (
+      <main className="mx-auto max-w-xl px-4 py-8">
+        <div className="space-y-6 rounded-2xl border bg-card p-6 shadow-card">
+          <Skeleton className="mx-auto h-4 w-24" />
+          <Skeleton className="h-6 w-full" />
+          <Skeleton className="mx-auto h-5 w-40" />
+          <div className="grid grid-cols-2 gap-3">
+            <Skeleton className="h-16 rounded-xl" />
+            <Skeleton className="h-16 rounded-xl" />
+            <Skeleton className="h-16 rounded-xl" />
+            <Skeleton className="h-16 rounded-xl" />
+          </div>
+        </div>
+      </main>
+    );
 
   if (questions.length === 0) {
     return (
