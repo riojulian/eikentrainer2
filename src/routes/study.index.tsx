@@ -480,3 +480,119 @@ function StudyHome() {
   );
 }
 
+
+function GuestStudyHome() {
+  const [words, setWords] = useState<Word[]>([]);
+  const [stages, setStages] = useState<Word[][]>([]);
+  const [loading, setLoading] = useState(true);
+  const mastery = getGuestMastery();
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const w = await getGuestWords(GUEST_FREE_WORLD);
+        if (cancelled) return;
+        setWords(w);
+        setStages(stagize(w));
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const totalStages = stages.length;
+  const masteredCount = Object.values(mastery).filter((m) => m >= 2).length;
+
+  return (
+    <main className="mx-auto max-w-3xl px-4 py-6">
+      <div className="rounded-2xl border bg-gradient-to-r from-primary/10 to-gold/10 p-4 shadow-sm flex items-center justify-between gap-3">
+        <div className="min-w-0">
+          <div className="font-display text-base sm:text-lg">
+            Sign up free to unlock all 5 worlds and save your progress.
+          </div>
+          {words.length > 0 && (
+            <div className="text-xs text-muted-foreground mt-0.5">
+              {masteredCount} / {words.length} words learned in this preview
+            </div>
+          )}
+        </div>
+        <Button asChild size="sm" className="shrink-0">
+          <Link to="/auth">Sign Up</Link>
+        </Button>
+      </div>
+
+      <div className="mt-6">
+        <h2 className="font-display text-2xl">World 1: Core</h2>
+        <p className="text-sm text-muted-foreground">
+          {GUEST_FREE_STAGES} free stages · sign up to unlock the rest
+        </p>
+      </div>
+
+      {loading ? (
+        <div className="mt-4 space-y-3">
+          {[...Array(3)].map((_, i) => (
+            <Skeleton key={i} className="h-20 rounded-2xl" />
+          ))}
+        </div>
+      ) : (
+        <div className="mt-4 space-y-3">
+          {stages.map((stageWords, idx) => {
+            const stageNum = idx + 1;
+            const allowed = isGuestAllowed(GUEST_FREE_WORLD, stageNum);
+            if (allowed) {
+              return (
+                <Link
+                  key={stageNum}
+                  to="/study/flashcards"
+                  search={{ mission: stageNum, world: GUEST_FREE_WORLD }}
+                  className="block rounded-2xl border bg-card p-4 shadow-card hover:bg-accent/50 transition"
+                >
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <div className="text-xs uppercase tracking-widest text-gold">
+                        Stage {stageNum}
+                      </div>
+                      <div className="font-display text-lg mt-0.5">
+                        {stageWords.length} words
+                      </div>
+                    </div>
+                    <BookOpen className="h-6 w-6 text-gold" />
+                  </div>
+                </Link>
+              );
+            }
+            return (
+              <Link
+                key={stageNum}
+                to="/auth"
+                className="block rounded-2xl border bg-muted/30 p-4 shadow-sm hover:bg-muted/50 transition"
+              >
+                <div className="flex items-center justify-between">
+                  <div>
+                    <div className="text-xs uppercase tracking-widest text-muted-foreground">
+                      Stage {stageNum}
+                    </div>
+                    <div className="font-display text-lg mt-0.5 text-muted-foreground">
+                      Sign up to unlock
+                    </div>
+                  </div>
+                  <Lock className="h-6 w-6 text-muted-foreground" />
+                </div>
+              </Link>
+            );
+          })}
+        </div>
+      )}
+
+      {!loading && totalStages > GUEST_FREE_STAGES && (
+        <div className="mt-6">
+          <SignupGate trigger="locked-stage" lockedStage={GUEST_FREE_STAGES + 1} />
+        </div>
+      )}
+    </main>
+  );
+}
