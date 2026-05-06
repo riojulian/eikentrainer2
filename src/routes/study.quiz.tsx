@@ -152,7 +152,6 @@ function QuizPage() {
         }));
         setActiveWorld(world);
         if (isGuest) {
-          const allWords = await queryClient.ensureQueryData({ queryKey: qk.words(), queryFn: fetchActiveWords });
           const ordered = await getGuestWords(world);
           setStatuses({});
           setLivePct(0); setReadinessBefore(0);
@@ -161,7 +160,7 @@ function QuizPage() {
           setStageIndex(idxToUse);
           if (stages.length === 0) { setQuestions([]); return; }
           const pool = buildStageQuiz(stages, idxToUse);
-          setQuestions(buildQuizQuestions(pool, allWords));
+          setQuestions(buildQuizQuestions(pool, ordered));
           return;
         }
         const [allWords, st, ordered, mst] = await Promise.all([
