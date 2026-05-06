@@ -9,7 +9,7 @@ import { toast } from "sonner";
 import { useAuth } from "@/lib/auth";
 import { BrandMark } from "@/components/BrandMark";
 import { useLang } from "@/lib/i18n";
-import { migrateGuestMasteryToSupabase } from "@/lib/guestMastery";
+import { migrateGuestMasteryToSupabase, getGuestMastery } from "@/lib/guestMastery";
 
 export const Route = createFileRoute("/auth")({
   component: AuthPage,
@@ -37,7 +37,13 @@ function AuthPage() {
     let dest: "/admin" | "/study" = "/study";
     const uid = data.user?.id;
     if (uid) {
-      migrateGuestMasteryToSupabase(uid).catch(() => {});
+      const hasProgress = Object.keys(getGuestMastery()).length > 0;
+      if (hasProgress) {
+        toast("Saving your progress...");
+        migrateGuestMasteryToSupabase(uid)
+          .then(() => toast.success("Progress saved! Welcome!"))
+          .catch(() => {});
+      }
       const { data: roles } = await supabase.from("user_roles").select("role").eq("user_id", uid);
       if (roles?.some((r) => r.role === "admin")) dest = "/admin";
     }
@@ -56,7 +62,15 @@ function AuthPage() {
     });
     setBusy(false);
     if (error) return toast.error(error.message);
-    if (data.user) migrateGuestMasteryToSupabase(data.user.id).catch(() => {});
+    if (data.user) {
+      const hasProgress = Object.keys(getGuestMastery()).length > 0;
+      if (hasProgress) {
+        toast("Saving your progress...");
+        migrateGuestMasteryToSupabase(data.user.id)
+          .then(() => toast.success("Progress saved! Welcome!"))
+          .catch(() => {});
+      }
+    }
     toast.success(t("auth.created"));
     navigate({ to: "/study" });
   };
