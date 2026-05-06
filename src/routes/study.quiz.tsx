@@ -167,13 +167,13 @@ function QuizPage() {
         const [allWords, st, ordered, mst] = await Promise.all([
           queryClient.ensureQueryData({ queryKey: qk.words(), queryFn: fetchActiveWords }),
           queryClient.ensureQueryData({ queryKey: qk.statuses(user.id), queryFn: () => fetchStatuses(user.id) }),
-          queryClient.ensureQueryData({ queryKey: qk.worldOrder(user.id, world), queryFn: () => ensureWorldOrder(user.id, world) }),
-          queryClient.ensureQueryData({ queryKey: qk.mastery(user.id), queryFn: () => getMastery(user.id) }),
+          queryClient.ensureQueryData({ queryKey: qk.worldOrder(user!.id, world), queryFn: () => ensureWorldOrder(user!.id, world) }),
+          queryClient.ensureQueryData({ queryKey: qk.mastery(user!.id), queryFn: () => getMastery(user!.id) }),
         ]);
         setStatuses(st);
         setLivePct(mst.pct); setReadinessBefore(mst.pct);
         const stages = stagize(ordered);
-        const cur = await getWorldStage(user.id, world);
+        const cur = await getWorldStage(user!.id, world);
         const idxToUse = missionParam ?? cur;
         setStageIndex(idxToUse);
         if (stages.length === 0) { setQuestions([]); return; }
@@ -182,9 +182,9 @@ function QuizPage() {
       } else if (mode === "weakness") {
         const [allWords, st, weak, mst] = await Promise.all([
           queryClient.ensureQueryData({ queryKey: qk.words(), queryFn: fetchActiveWords }),
-          queryClient.ensureQueryData({ queryKey: qk.statuses(user.id), queryFn: () => fetchStatuses(user.id) }),
-          getWeakWords(user.id),
-          queryClient.ensureQueryData({ queryKey: qk.mastery(user.id), queryFn: () => getMastery(user.id) }),
+          queryClient.ensureQueryData({ queryKey: qk.statuses(user!.id), queryFn: () => fetchStatuses(user!.id) }),
+          getWeakWords(user!.id),
+          queryClient.ensureQueryData({ queryKey: qk.mastery(user!.id), queryFn: () => getMastery(user!.id) }),
         ]);
         setStatuses(st);
         setLivePct(mst.pct); setReadinessBefore(mst.pct);
@@ -193,13 +193,13 @@ function QuizPage() {
       } else {
         const [allWords, st, mst] = await Promise.all([
           queryClient.ensureQueryData({ queryKey: qk.words(), queryFn: fetchActiveWords }),
-          queryClient.ensureQueryData({ queryKey: qk.statuses(user.id), queryFn: () => fetchStatuses(user.id) }),
-          queryClient.ensureQueryData({ queryKey: qk.mastery(user.id), queryFn: () => getMastery(user.id) }),
+          queryClient.ensureQueryData({ queryKey: qk.statuses(user!.id), queryFn: () => fetchStatuses(user!.id) }),
+          queryClient.ensureQueryData({ queryKey: qk.mastery(user!.id), queryFn: () => getMastery(user!.id) }),
         ]);
         setStatuses(st);
         setLivePct(mst.pct); setReadinessBefore(mst.pct);
         const days = mode === "weekly" ? 7 : 30;
-        const pool = await buildPeriodicQuiz(user.id, days);
+        const pool = await buildPeriodicQuiz(user!.id, days);
         if (pool.length < 4) { setQuestions([]); return; }
         setQuestions(buildQuizQuestions(pool, allWords));
       }
