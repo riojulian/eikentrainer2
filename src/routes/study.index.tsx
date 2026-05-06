@@ -1,5 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { qk } from "@/lib/queryKeys";
 import { useAuth } from "@/lib/auth";
 import { fetchActiveWords, fetchStatuses, MASTERY_LABELS, MASTERY_BG, TIER_LABELS, type Mastery } from "@/lib/words";
 import { BookOpen, ScrollText, Trophy, CalendarDays, CalendarRange, MoreVertical, BarChart3, Languages } from "lucide-react";
@@ -15,7 +17,7 @@ import {
   getStarsByStage,
   getAllStarsByWorld,
 } from "@/lib/stages";
-import { getStats, getEarnedBadges, getMastery, type Stats, type PerWorldMastery, type MasteryBuckets } from "@/lib/gamification";
+import { getStats, getEarnedBadges, getMastery, type PerWorldMastery, type MasteryBuckets } from "@/lib/gamification";
 import { MasteryHeader } from "@/components/MasteryHeader";
 import { AchievementsStrip } from "@/components/AchievementsStrip";
 import { WeakZoneStrip } from "@/components/WeakZoneStrip";
@@ -49,60 +51,79 @@ export const Route = createFileRoute("/study/")({
 function StudyHome() {
   const { user, displayName } = useAuth();
   const { lang, setLang, t } = useLang();
-  const [stats, setStats] = useState<{ total: number; tiers: Record<Mastery, number>; unseen: number }>({
-    total: 0,
-    tiers: { 0: 0, 1: 0, 2: 0, 3: 0 },
-    unseen: 0,
-  });
   const [activeWorld, setActiveWorld] = useState<string>("tier1");
-  const [worldSummaries, setWorldSummaries] = useState<WorldSummary[]>([]);
   const [stages, setStages] = useState<Word[][]>([]);
   const [currentStage, setStageState] = useState(1);
   const [starsByStage, setStarsByStage] = useState<Record<number, 0 | 1 | 2 | 3>>({});
   const [weeklyEligible, setWeeklyEligible] = useState(0);
   const [monthlyEligible, setMonthlyEligible] = useState(0);
-  const [gameStats, setGameStats] = useState<Stats>({ xp: 0, current_streak: 0, longest_streak: 0, last_active_date: null });
-  const [earnedBadges, setEarnedBadges] = useState<Set<string>>(new Set());
-  const [mastery, setMastery] = useState<{ pct: number; total: number; touched: number; buckets: MasteryBuckets; perWorld: Record<string, PerWorldMastery> }>({
-    pct: 0,
-    total: 0,
-    touched: 0,
-    buckets: { untouched: 0, m0: 0, m1: 0, m2: 0, m3: 0 },
-    perWorld: {},
-  });
   const [loading, setLoading] = useState(true);
   const initialWorldRef = useRef<string | null>(null);
 
-  // Initial load: figure out active world + global summaries
+  // Cached fetches
+  const allWordsQ = useQuery({ queryKey: qk.words(), queryFn: fetchActiveWords });
+  const statusesQ = useQuery({
+    queryKey: user ? qk.statuses(user.id) : ["statuses", "anon"],
+    queryFn: () => fetchStatuses(user!.id),
+    enabled: !!user,
+  });
+  const currentWorldQ = useQuery({
+    queryKey: user ? qk.currentWorld(user.id) : ["currentWorld", "anon"],
+    queryFn: () => getCurrentWorld(user!.id),
+    enabled: !!user,
+  });
+  const gameStatsQ = useQuery({
+    queryKey: user ? qk.stats(user.id) : ["stats", "anon"],
+    queryFn: () => getStats(user!.id),
+    enabled: !!user,
+  });
+  const earnedBadgesQ = useQuery({
+    queryKey: user ? qk.badges(user.id) : ["badges", "anon"],
+    queryFn: () => getEarnedBadges(user!.id),
+    enabled: !!user,
+  });
+  const masteryQ = useQuery({
+    queryKey: user ? qk.mastery(user.id) : ["mastery", "anon"],
+    queryFn: () => getMastery(user!.id),
+    enabled: !!user,
+  });
+  const allStarsQ = useQuery({
+    queryKey: user ? qk.allStars(user.id) : ["allStars", "anon"],
+    queryFn: () => getAllStarsByWorld(user!.id),
+    enabled: !!user,
+  });
+
+  const allWords = allWordsQ.data ?? [];
+  const statuses = statusesQ.data ?? {};
+  const gameStats = gameStatsQ.data ?? { xp: 0, current_streak: 0, longest_streak: 0, last_active_date: null };
+  const earnedBadges = earnedBadgesQ.data ?? new Set<string>();
+  const mastery = masteryQ.data ?? {
+    pct: 0,
+    total: 0,
+    touched: 0,
+    buckets: { untouched: 0, m0: 0, m1: 0, m2: 0, m3: 0 } as MasteryBuckets,
+    perWorld: {} as Record<string, PerWorldMastery>,
+  };
+
+  const stats = useMemo(() => {
+    const tiers: Record<Mastery, number> = { 0: 0, 1: 0, 2: 0, 3: 0 };
+    let seen = 0;
+    Object.values(statuses).forEach((s) => {
+      if (s === null || s === undefined) return;
+      tiers[s as Mastery]++;
+      seen++;
+    });
+    return { total: allWords.length, tiers, unseen: allWords.length - seen };
+  }, [allWords, statuses]);
+
+  // Per-world summaries — needs per-world current stage; fetch only when we have base data
+  const [worldSummaries, setWorldSummaries] = useState<WorldSummary[]>([]);
   useEffect(() => {
-    if (!user) return;
+    if (!user || !allWordsQ.data || !allStarsQ.data || !currentWorldQ.data) return;
+    let cancelled = false;
     (async () => {
-      try {
-      const [allWords, statuses, world, gs, badges, mst, allStars] = await Promise.all([
-        fetchActiveWords(),
-        fetchStatuses(user.id),
-        getCurrentWorld(user.id),
-        getStats(user.id),
-        getEarnedBadges(user.id),
-        getMastery(user.id),
-        getAllStarsByWorld(user.id),
-      ]);
-
-      // Mastery tallies (global)
-      const tiers: Record<Mastery, number> = { 0: 0, 1: 0, 2: 0, 3: 0 };
-      let seen = 0;
-      Object.values(statuses).forEach((s) => {
-        if (s === null || s === undefined) return;
-        tiers[s as Mastery]++;
-        seen++;
-      });
-      setStats({ total: allWords.length, tiers, unseen: allWords.length - seen });
-      setGameStats(gs);
-      setEarnedBadges(badges);
-      setMastery(mst);
-
-      // Per-world summaries
-      const grouped = groupByWorld(allWords);
+      const grouped = groupByWorld(allWordsQ.data!);
+      const allStars = allStarsQ.data!;
       const summaries: WorldSummary[] = await Promise.all(
         WORLD_ORDER.map(async (w) => {
           const totalStages = Math.ceil(grouped[w].length / STAGE_SIZE);
@@ -113,29 +134,24 @@ function StudyHome() {
             const stars = allStars[w] ?? {};
             starsEarned = Object.values(stars).reduce((a: number, b) => a + (b as number), 0);
           }
-          return {
-            world: w,
-            totalStages,
-            currentStage: curStage,
-            starsEarned,
-            starsMax: totalStages * 3,
-          };
+          return { world: w, totalStages, currentStage: curStage, starsEarned, starsMax: totalStages * 3 };
         }),
       );
+      if (cancelled) return;
       setWorldSummaries(summaries);
 
-      // Pick active world (fallback to first non-empty if stored one is empty)
-      let chosen = world;
+      let chosen = currentWorldQ.data!;
       const chosenSummary = summaries.find((s) => s.world === chosen);
       if (!chosenSummary || chosenSummary.totalStages === 0) {
         chosen = summaries.find((s) => s.totalStages > 0)?.world ?? "tier1";
-        if (chosen !== world) await setCurrentWorld(user.id, chosen);
+        if (chosen !== currentWorldQ.data) await setCurrentWorld(user.id, chosen);
       }
       const chosenSummaryFinal = summaries.find((s) => s.world === chosen);
       const [orderedInit, starsInit] = await Promise.all([
         ensureWorldOrder(user.id, chosen),
         getStarsByStage(user.id, chosen),
       ]);
+      if (cancelled) return;
       const initStages = stagize(orderedInit);
       setStages(initStages);
       setStarsByStage(starsInit);
@@ -144,20 +160,19 @@ function StudyHome() {
       initialWorldRef.current = chosen;
       setActiveWorld(chosen);
 
-      // Weekly / monthly review counts (global)
       const wkSince = new Date(Date.now() - 7 * 86400000).toISOString();
       const moSince = new Date(Date.now() - 30 * 86400000).toISOString();
       const [wk, mo] = await Promise.all([
         supabase.from("word_status").select("word_id", { count: "exact", head: true }).eq("student_id", user.id).gte("updated_at", wkSince),
         supabase.from("word_status").select("word_id", { count: "exact", head: true }).eq("student_id", user.id).gte("updated_at", moSince),
       ]);
+      if (cancelled) return;
       setWeeklyEligible(wk.count ?? 0);
       setMonthlyEligible(mo.count ?? 0);
-      } finally {
-        setLoading(false);
-      }
+      setLoading(false);
     })();
-  }, [user]);
+    return () => { cancelled = true; };
+  }, [user, allWordsQ.data, allStarsQ.data, currentWorldQ.data]);
 
   // Load stages + stars for the active world
   useEffect(() => {
