@@ -1,6 +1,7 @@
 import { createFileRoute, useNavigate, Navigate } from "@tanstack/react-router";
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { lovable } from "@/integrations/lovable";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -30,14 +31,15 @@ function AuthPage() {
 
   const signInWithProvider = async (provider: "google" | "apple") => {
     setBusy(true);
-    const { error } = await supabase.auth.signInWithOAuth({
-      provider,
-      options: { redirectTo: `${window.location.origin}/` },
+    const result = await lovable.auth.signInWithOAuth(provider, {
+      redirect_uri: window.location.origin,
     });
-    if (error) {
+    if (result.error) {
       setBusy(false);
-      toast.error(error.message);
+      toast.error(result.error.message ?? "Sign-in failed");
+      return;
     }
+    if (result.redirected) return;
   };
 
   const signIn = async () => {
