@@ -185,20 +185,30 @@ function StudyHome() {
     if (!isGuest) return;
     let cancelled = false;
     (async () => {
-      const entries = await Promise.all(
-        WORLD_ORDER.map(async (w) => [w, stagize(await getGuestWords(w))] as const),
-      );
-      if (cancelled) return;
-      const summaries: WorldSummary[] = entries.map(([w, s]) => ({
-        world: w,
-        totalStages: s.length,
-        currentStage: 1,
-        starsEarned: 0,
-        starsMax: s.length * 3,
-      }));
+      const { data: tierRows, error } = await supabase
+        .from("words")
+        .select("tier")
+        .eq("is_active", true);
+      if (error || cancelled) return;
+      const countByTier: Record<string, number> = {};
+      for (const row of tierRows ?? []) {
+        if (row.tier) countByTier[row.tier] = (countByTier[row.tier] ?? 0) + 1;
+      }
+      const summaries: WorldSummary[] = WORLD_ORDER.map((w) => {
+        const count = countByTier[w] ?? 0;
+        const totalStages = Math.ceil(count / STAGE_SIZE);
+        return {
+          world: w,
+          totalStages,
+          currentStage: 1,
+          starsEarned: 0,
+          starsMax: totalStages * 3,
+        };
+      });
       setWorldSummaries(summaries);
       const chosen = summaries.find((s) => s.totalStages > 0)?.world ?? "tier1";
-      const chosenStages = entries.find(([w]) => w === chosen)?.[1] ?? [];
+      const chosenStages = stagize(await getGuestWords(chosen));
+      if (cancelled) return;
       setStages(chosenStages);
       setStageState(1);
       initialWorldRef.current = chosen;
