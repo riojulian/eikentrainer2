@@ -2,6 +2,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { fetchActiveWords, type Word } from "@/lib/words";
 import { GUEST_FREE_STAGES, GUEST_FREE_WORLD } from "@/lib/guestMastery";
 
+const _guestWordsCache: Map<string, Promise<Word[]>> = new Map();
+
 export const STAGE_SIZE = 10;
 export const WORLD_ORDER = ["tier1", "tier2", "tier3", "tier4", "phrases"] as const;
 export type World = (typeof WORLD_ORDER)[number];
@@ -261,12 +263,21 @@ export async function getAllStarsByWorld(studentId: string): Promise<Record<stri
 }
 
 export async function getGuestWords(world: string): Promise<Word[]> {
-  const { data, error } = await supabase
-    .from("words")
-    .select("*")
-    .eq("tier", world)
-    .eq("is_active", true)
-    .order("created_at", { ascending: true });
-  if (error) throw error;
-  return (data ?? []) as Word[];
+  const cached = _guestWordsCache.get(world);
+  if (cached) return cached;
+  const promise = (async () => {
+    const { data, error } = await supabase
+      .from("words")
+      .select("*")
+      .eq("tier", world)
+      .eq("is_active", true)
+      .order("created_at", { ascending: true });
+    if (error) throw error;
+    return (data ?? []) as Word[];
+  })().catch((err) => {
+    _guestWordsCache.delete(world);
+    throw err;
+  });
+  _guestWordsCache.set(world, promise);
+  return promise;
 }
