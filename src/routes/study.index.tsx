@@ -318,8 +318,24 @@ function StudyHome() {
 
   return (
     <main className="mx-auto max-w-3xl px-4 py-6">
+      {isGuest && (
+        <div className="mb-4 rounded-2xl border bg-gradient-to-r from-primary/10 to-gold/10 p-4 shadow-sm flex items-center justify-between gap-3">
+          <div className="min-w-0">
+            <div className="font-display text-base sm:text-lg">
+              Sign up free to unlock all stages and save your progress.
+            </div>
+            <div className="text-xs text-muted-foreground mt-0.5">
+              {GUEST_FREE_STAGES} free stages per world
+            </div>
+          </div>
+          <Button asChild size="sm" className="shrink-0">
+            <Link to="/auth">Sign Up</Link>
+          </Button>
+        </div>
+      )}
       <div className="flex items-center justify-between gap-2">
         <h1 className="font-display text-3xl truncate">{t("home.hello")}, {displayName ?? t("home.friend")} 🌸</h1>
+        {!isGuest && (
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="outline" size="icon" className="shrink-0">
@@ -425,6 +441,7 @@ function StudyHome() {
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
+        )}
       </div>
 
       {worldSummaries.length > 0 && (
