@@ -1,5 +1,6 @@
 import { supabase } from "@/integrations/supabase/client";
 import { fetchActiveWords, type Word } from "@/lib/words";
+import { GUEST_FREE_STAGES, GUEST_FREE_WORLD } from "@/lib/guestMastery";
 
 export const STAGE_SIZE = 10;
 export const WORLD_ORDER = ["tier1", "tier2", "tier3", "tier4", "phrases"] as const;
