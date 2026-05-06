@@ -66,7 +66,7 @@ function StudyHome() {
   const initialWorldRef = useRef<string | null>(null);
 
   // Cached fetches
-  const allWordsQ = useQuery({ queryKey: qk.words(), queryFn: fetchActiveWords });
+  const allWordsQ = useQuery({ queryKey: qk.words(), queryFn: fetchActiveWords, staleTime: Infinity });
   const statusesQ = useQuery({
     queryKey: user ? qk.statuses(user.id) : ["statuses", "anon"],
     queryFn: () => fetchStatuses(user!.id),
