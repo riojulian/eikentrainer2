@@ -475,6 +475,10 @@ function StudyHome() {
         </div>
       )}
 
+      <div className="mt-4">
+        <WeakZoneStrip />
+      </div>
+
       <div className="mt-6">
         <Tabs defaultValue="progress" className="w-full">
           <TabsList className="grid w-full grid-cols-3">
@@ -491,7 +495,6 @@ function StudyHome() {
               perWorld={mastery.perWorld}
               streak={gameStats.current_streak}
             />
-            <WeakZoneStrip />
           </TabsContent>
           <TabsContent value="map" className="mt-3">
             {hasStages ? (
