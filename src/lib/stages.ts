@@ -55,6 +55,14 @@ export async function ensureWorldOrder(studentId: string, world: string): Promis
     if (rows.length > 0) {
       await supabase.from("student_word_order").insert(rows);
     }
+  } else {
+    const result: Word[] = [];
+    (existing ?? []).forEach((r) => {
+      const w = wordById.get(r.word_id);
+      if (w) result.push(w);
+    });
+    for (const w of worldWords) if (!result.find((x) => x.id === w.id)) result.push(w);
+    return result;
   }
 
   const { data: ordered } = await supabase
