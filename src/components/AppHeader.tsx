@@ -216,6 +216,15 @@ export function AppHeader() {
           <span className={lang === "ja" ? "font-semibold" : ""}>日本語</span>
           {lang === "ja" ? <span className="ml-auto text-xs text-muted-foreground">✓</span> : null}
         </DropdownMenuItem>
+        {user ? (
+          <>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem onSelect={async () => { await signOut(); navigate({ to: "/auth" }); }}>
+              <LogOut className="h-4 w-4 mr-2 text-gold" />
+              {t("home.signOut")}
+            </DropdownMenuItem>
+          </>
+        ) : null}
       </DropdownMenuContent>
     </DropdownMenu>
   );
@@ -245,9 +254,6 @@ export function AppHeader() {
                 {displayName ?? user.email}
               </span>
               {overflowMenu}
-              <Button variant="outline" size="sm" onClick={async () => { await signOut(); navigate({ to: "/auth" }); }}>
-                <LogOut className="h-4 w-4" />
-              </Button>
             </>
           ) : (
             <>
