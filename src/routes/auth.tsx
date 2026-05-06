@@ -118,9 +118,6 @@ function AuthPage() {
             </TabsContent>
           </Tabs>
         </div>
-        <p className="mt-4 text-center text-xs text-muted-foreground">
-          {t("auth.studentNote")}
-        </p>
       </div>
     </div>
   );
