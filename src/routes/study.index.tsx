@@ -45,8 +45,7 @@ import type { Word } from "@/lib/words";
 import { supabase } from "@/integrations/supabase/client";
 import { useLang } from "@/lib/i18n";
 import { Skeleton } from "@/components/ui/skeleton";
-import { GUEST_FREE_STAGES, GUEST_FREE_WORLD, getGuestMastery, isGuestAllowed } from "@/lib/guestMastery";
-import { SignupGate } from "@/components/SignupGate";
+import { GUEST_FREE_STAGES, isGuestAllowed } from "@/lib/guestMastery";
 import { Lock } from "lucide-react";
 
 export const Route = createFileRoute("/study/")({
@@ -125,6 +124,7 @@ function StudyHome() {
   // Per-world summaries — needs per-world current stage; fetch only when we have base data
   const [worldSummaries, setWorldSummaries] = useState<WorldSummary[]>([]);
   useEffect(() => {
+    if (isGuest) return;
     if (!user || !allWordsQ.data || !allStarsQ.data || !currentWorldQ.data) return;
     let cancelled = false;
     (async () => {
@@ -178,11 +178,54 @@ function StudyHome() {
       setLoading(false);
     })();
     return () => { cancelled = true; };
-  }, [user, allWordsQ.data, allStarsQ.data, currentWorldQ.data]);
+  }, [user, isGuest, allWordsQ.data, allStarsQ.data, currentWorldQ.data]);
+
+  // Guest variant: load preview words per world without DB writes
+  useEffect(() => {
+    if (!isGuest) return;
+    let cancelled = false;
+    (async () => {
+      const entries = await Promise.all(
+        WORLD_ORDER.map(async (w) => [w, stagize(await getGuestWords(w))] as const),
+      );
+      if (cancelled) return;
+      const summaries: WorldSummary[] = entries.map(([w, s]) => ({
+        world: w,
+        totalStages: s.length,
+        currentStage: 1,
+        starsEarned: 0,
+        starsMax: s.length * 3,
+      }));
+      setWorldSummaries(summaries);
+      const chosen = summaries.find((s) => s.totalStages > 0)?.world ?? "tier1";
+      const chosenStages = entries.find(([w]) => w === chosen)?.[1] ?? [];
+      setStages(chosenStages);
+      setStageState(1);
+      initialWorldRef.current = chosen;
+      setActiveWorld(chosen);
+      setLoading(false);
+    })();
+    return () => { cancelled = true; };
+  }, [isGuest]);
 
   // Load stages + stars for the active world
   useEffect(() => {
-    if (!user || !activeWorld) return;
+    if (!activeWorld) return;
+    if (isGuest) {
+      if (activeWorld === initialWorldRef.current) {
+        initialWorldRef.current = null;
+        return;
+      }
+      (async () => {
+        const ordered = await getGuestWords(activeWorld);
+        const newStages = stagize(ordered);
+        setStages(newStages);
+        setStageState(1);
+        setStarsByStage({});
+      })();
+      return;
+    }
+    if (!user) return;
     if (activeWorld === initialWorldRef.current) {
       initialWorldRef.current = null;
       return;
@@ -198,12 +241,12 @@ function StudyHome() {
       setStageState(Math.min(cs, Math.max(1, newStages.length)));
       setStarsByStage(stars);
     })();
-  }, [user, activeWorld]);
+  }, [user, isGuest, activeWorld]);
 
   const onWorldChange = async (next: string) => {
-    if (!user || next === activeWorld) return;
+    if (next === activeWorld) return;
     setActiveWorld(next);
-    await setCurrentWorld(user.id, next);
+    if (user) await setCurrentWorld(user.id, next);
   };
 
   const masteredish = stats.tiers[2] + stats.tiers[3];
@@ -218,10 +261,6 @@ function StudyHome() {
   const hasStages = totalStages > 0;
   const tierByStage = stages.map((stage) => stage[0]?.tier ?? null);
   const activeWorldLabel = TIER_LABELS[activeWorld] ?? activeWorld;
-
-  if (isGuest) {
-    return <GuestStudyHome />;
-  }
 
   if (loading) {
     return (
@@ -278,8 +317,24 @@ function StudyHome() {
 
   return (
     <main className="mx-auto max-w-3xl px-4 py-6">
+      {isGuest && (
+        <div className="mb-4 rounded-2xl border bg-gradient-to-r from-primary/10 to-gold/10 p-4 shadow-sm flex items-center justify-between gap-3">
+          <div className="min-w-0">
+            <div className="font-display text-base sm:text-lg">
+              Sign up free to unlock all stages and save your progress.
+            </div>
+            <div className="text-xs text-muted-foreground mt-0.5">
+              {GUEST_FREE_STAGES} free stages per world
+            </div>
+          </div>
+          <Button asChild size="sm" className="shrink-0">
+            <Link to="/auth">Sign Up</Link>
+          </Button>
+        </div>
+      )}
       <div className="flex items-center justify-between gap-2">
         <h1 className="font-display text-3xl truncate">{t("home.hello")}, {displayName ?? t("home.friend")} 🌸</h1>
+        {!isGuest && (
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="outline" size="icon" className="shrink-0">
@@ -385,6 +440,7 @@ function StudyHome() {
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
+        )}
       </div>
 
       {worldSummaries.length > 0 && (
@@ -436,6 +492,7 @@ function StudyHome() {
         </div>
       )}
 
+      {!isGuest && (
       <div className="mt-6">
         <Tabs defaultValue="progress" className="w-full">
           <TabsList className="grid w-full grid-cols-3">
@@ -476,90 +533,10 @@ function StudyHome() {
           </TabsContent>
         </Tabs>
       </div>
-    </main>
-  );
-}
-
-
-function GuestStudyHome() {
-  const [activeWorld, setActiveWorld] = useState<string>(GUEST_FREE_WORLD);
-  const [stagesByWorld, setStagesByWorld] = useState<Record<string, Word[][]>>({});
-  const [loading, setLoading] = useState(true);
-  const mastery = getGuestMastery();
-
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        const entries = await Promise.all(
-          WORLD_ORDER.map(async (w) => [w, stagize(await getGuestWords(w))] as const),
-        );
-        if (cancelled) return;
-        const map: Record<string, Word[][]> = {};
-        for (const [w, s] of entries) map[w] = s;
-        setStagesByWorld(map);
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
-  const summaries: WorldSummary[] = WORLD_ORDER.map((w) => {
-    const s = stagesByWorld[w] ?? [];
-    return { world: w, totalStages: s.length, currentStage: 1, starsEarned: 0, starsMax: s.length * 3 };
-  });
-  const stages = stagesByWorld[activeWorld] ?? [];
-  const totalStages = stages.length;
-  const masteredCount = Object.values(mastery).filter((m) => m >= 2).length;
-  const totalWords = Object.values(stagesByWorld).reduce((a, s) => a + s.reduce((x, st) => x + st.length, 0), 0);
-  const activeLabel = TIER_LABELS[activeWorld] ?? activeWorld;
-
-  return (
-    <main className="mx-auto max-w-3xl px-4 py-6">
-      <div className="rounded-2xl border bg-gradient-to-r from-primary/10 to-gold/10 p-4 shadow-sm flex items-center justify-between gap-3">
-        <div className="min-w-0">
-          <div className="font-display text-base sm:text-lg">
-            Sign up free to unlock all 5 worlds and save your progress.
-          </div>
-          {totalWords > 0 && (
-            <div className="text-xs text-muted-foreground mt-0.5">
-              {masteredCount} words learned in this preview
-            </div>
-          )}
-        </div>
-        <Button asChild size="sm" className="shrink-0">
-          <Link to="/auth">Sign Up</Link>
-        </Button>
-      </div>
-
-      {summaries.some((s) => s.totalStages > 0) && (
-        <div className="mt-6">
-          <div className="mb-2 flex items-baseline justify-between">
-            <div className="text-sm font-medium">Pick a world</div>
-            <div className="text-xs text-muted-foreground">{GUEST_FREE_STAGES} free stages each</div>
-          </div>
-          <WorldPicker summaries={summaries} active={activeWorld} onChange={setActiveWorld} />
-        </div>
       )}
 
-      <div className="mt-6">
-        <h2 className="font-display text-2xl">{activeLabel}</h2>
-        <p className="text-sm text-muted-foreground">
-          {GUEST_FREE_STAGES} free stages · sign up to unlock the rest
-        </p>
-      </div>
-
-      {loading ? (
-        <div className="mt-4 space-y-3">
-          {[...Array(3)].map((_, i) => (
-            <Skeleton key={i} className="h-20 rounded-2xl" />
-          ))}
-        </div>
-      ) : (
-        <div className="mt-4 space-y-3">
+      {isGuest && hasStages && (
+        <div className="mt-6 space-y-3">
           {stages.map((stageWords, idx) => {
             const stageNum = idx + 1;
             const allowed = isGuestAllowed(activeWorld, stageNum);
@@ -573,12 +550,8 @@ function GuestStudyHome() {
                 >
                   <div className="flex items-center justify-between">
                     <div>
-                      <div className="text-xs uppercase tracking-widest text-gold">
-                        Stage {stageNum}
-                      </div>
-                      <div className="font-display text-lg mt-0.5">
-                        {stageWords.length} words
-                      </div>
+                      <div className="text-xs uppercase tracking-widest text-gold">Stage {stageNum}</div>
+                      <div className="font-display text-lg mt-0.5">{stageWords.length} words</div>
                     </div>
                     <BookOpen className="h-6 w-6 text-gold" />
                   </div>
@@ -593,12 +566,8 @@ function GuestStudyHome() {
               >
                 <div className="flex items-center justify-between">
                   <div>
-                    <div className="text-xs uppercase tracking-widest text-muted-foreground">
-                      Stage {stageNum}
-                    </div>
-                    <div className="font-display text-lg mt-0.5 text-muted-foreground">
-                      Sign up to unlock
-                    </div>
+                    <div className="text-xs uppercase tracking-widest text-muted-foreground">Stage {stageNum}</div>
+                    <div className="font-display text-lg mt-0.5 text-muted-foreground">Sign up to unlock</div>
                   </div>
                   <Lock className="h-6 w-6 text-muted-foreground" />
                 </div>
@@ -607,12 +576,7 @@ function GuestStudyHome() {
           })}
         </div>
       )}
-
-      {!loading && totalStages > GUEST_FREE_STAGES && (
-        <div className="mt-6">
-          <SignupGate trigger="locked-stage" lockedStage={GUEST_FREE_STAGES + 1} />
-        </div>
-      )}
     </main>
   );
 }
+
