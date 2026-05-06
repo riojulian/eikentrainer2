@@ -22,25 +22,35 @@ type Row = {
 function WordsAdmin() {
   const { t } = useLang();
   const [rows, setRows] = useState<Row[]>([]);
+  const [loading, setLoading] = useState(true);
   const [q, setQ] = useState("");
   const [editing, setEditing] = useState<Row | null>(null);
   const [open, setOpen] = useState(false);
 
   const load = async () => {
+    setLoading(true);
     const all: Row[] = [];
     const pageSize = 1000;
+    const seen = new Set<string>();
     for (let from = 0; ; from += pageSize) {
       const { data, error } = await supabase
         .from("words")
         .select("*")
         .order("created_at", { ascending: false })
+        .order("id", { ascending: true })
         .range(from, from + pageSize - 1);
       if (error) break;
       const batch = (data ?? []) as Row[];
-      all.push(...batch);
+      for (const r of batch) {
+        if (!seen.has(r.id)) {
+          seen.add(r.id);
+          all.push(r);
+        }
+      }
       if (batch.length < pageSize) break;
     }
     setRows(all);
+    setLoading(false);
   };
   useEffect(() => { load(); }, []);
 
@@ -135,7 +145,7 @@ function WordsAdmin() {
             ))}
           </tbody>
         </table>
-        {filtered.length === 0 ? <div className="p-8 text-center text-muted-foreground">No words yet.</div> : null}
+        {loading ? <div className="p-8 text-center text-muted-foreground">Loading…</div> : filtered.length === 0 ? <div className="p-8 text-center text-muted-foreground">No words yet.</div> : null}
       </div>
     </div>
   );
