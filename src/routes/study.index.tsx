@@ -334,7 +334,6 @@ function StudyHome() {
       )}
       <div className="flex items-center justify-between gap-2">
         <h1 className="font-display text-3xl truncate">{t("home.hello")}, {displayName ?? t("home.friend")} 🌸</h1>
-        {!isGuest && (
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="outline" size="icon" className="shrink-0">
@@ -440,7 +439,6 @@ function StudyHome() {
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
-        )}
       </div>
 
       {worldSummaries.length > 0 && (
@@ -492,7 +490,6 @@ function StudyHome() {
         </div>
       )}
 
-      {!isGuest && (
       <div className="mt-6">
         <Tabs defaultValue="progress" className="w-full">
           <TabsList className="grid w-full grid-cols-3">
@@ -533,49 +530,7 @@ function StudyHome() {
           </TabsContent>
         </Tabs>
       </div>
-      )}
 
-      {isGuest && hasStages && (
-        <div className="mt-6 space-y-3">
-          {stages.map((stageWords, idx) => {
-            const stageNum = idx + 1;
-            const allowed = isGuestAllowed(activeWorld, stageNum);
-            if (allowed) {
-              return (
-                <Link
-                  key={stageNum}
-                  to="/study/flashcards"
-                  search={{ mission: stageNum, world: activeWorld }}
-                  className="block rounded-2xl border bg-card p-4 shadow-card hover:bg-accent/50 transition"
-                >
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <div className="text-xs uppercase tracking-widest text-gold">Stage {stageNum}</div>
-                      <div className="font-display text-lg mt-0.5">{stageWords.length} words</div>
-                    </div>
-                    <BookOpen className="h-6 w-6 text-gold" />
-                  </div>
-                </Link>
-              );
-            }
-            return (
-              <Link
-                key={stageNum}
-                to="/auth"
-                className="block rounded-2xl border bg-muted/30 p-4 shadow-sm hover:bg-muted/50 transition"
-              >
-                <div className="flex items-center justify-between">
-                  <div>
-                    <div className="text-xs uppercase tracking-widest text-muted-foreground">Stage {stageNum}</div>
-                    <div className="font-display text-lg mt-0.5 text-muted-foreground">Sign up to unlock</div>
-                  </div>
-                  <Lock className="h-6 w-6 text-muted-foreground" />
-                </div>
-              </Link>
-            );
-          })}
-        </div>
-      )}
     </main>
   );
 }
