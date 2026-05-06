@@ -1,4 +1,4 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { qk } from "@/lib/queryKeys";
@@ -29,7 +29,16 @@ import {
   starsForScore,
   getStarsByStage,
   DEFAULT_WORLD,
+  getGuestWords,
 } from "@/lib/stages";
+import {
+  isGuestAllowed,
+  GUEST_FREE_STAGES,
+  GUEST_FREE_WORLD,
+  getGuestMasteryForWord,
+  setGuestMasteryForWord,
+} from "@/lib/guestMastery";
+import { SignupGate } from "@/components/SignupGate";
 import {
   awardXp,
   bumpStreak,
@@ -103,6 +112,8 @@ type FinishResult = {
 
 function QuizPage() {
   const { user } = useAuth();
+  const isGuest = !user;
+  const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { t, lang } = useLang();
   const search = Route.useSearch();
@@ -125,24 +136,44 @@ function QuizPage() {
   const [revealed, setRevealed] = useState(false);
 
   useEffect(() => {
-    if (!user) return;
+    if (isGuest && !isGuestAllowed(search.world ?? GUEST_FREE_WORLD, missionParam)) {
+      navigate({ to: "/auth" });
+      return;
+    }
+    if (!isGuest && !user) return;
     (async () => {
+      if (!isGuest && !user) return;
       if (mode === "mission") {
-        const world = search.world ?? await queryClient.ensureQueryData({
+        const world = isGuest
+          ? (search.world ?? GUEST_FREE_WORLD)
+          : (search.world ?? await queryClient.ensureQueryData({
           queryKey: qk.currentWorld(user.id),
           queryFn: () => getCurrentWorld(user.id),
-        });
+        }));
         setActiveWorld(world);
+        if (isGuest) {
+          const allWords = await queryClient.ensureQueryData({ queryKey: qk.words(), queryFn: fetchActiveWords });
+          const ordered = await getGuestWords(world);
+          setStatuses({});
+          setLivePct(0); setReadinessBefore(0);
+          const stages = stagize(ordered);
+          const idxToUse = missionParam ?? 1;
+          setStageIndex(idxToUse);
+          if (stages.length === 0) { setQuestions([]); return; }
+          const pool = buildStageQuiz(stages, idxToUse);
+          setQuestions(buildQuizQuestions(pool, allWords));
+          return;
+        }
         const [allWords, st, ordered, mst] = await Promise.all([
           queryClient.ensureQueryData({ queryKey: qk.words(), queryFn: fetchActiveWords }),
           queryClient.ensureQueryData({ queryKey: qk.statuses(user.id), queryFn: () => fetchStatuses(user.id) }),
-          queryClient.ensureQueryData({ queryKey: qk.worldOrder(user.id, world), queryFn: () => ensureWorldOrder(user.id, world) }),
-          queryClient.ensureQueryData({ queryKey: qk.mastery(user.id), queryFn: () => getMastery(user.id) }),
+          queryClient.ensureQueryData({ queryKey: qk.worldOrder(user!.id, world), queryFn: () => ensureWorldOrder(user!.id, world) }),
+          queryClient.ensureQueryData({ queryKey: qk.mastery(user!.id), queryFn: () => getMastery(user!.id) }),
         ]);
         setStatuses(st);
         setLivePct(mst.pct); setReadinessBefore(mst.pct);
         const stages = stagize(ordered);
-        const cur = await getWorldStage(user.id, world);
+        const cur = await getWorldStage(user!.id, world);
         const idxToUse = missionParam ?? cur;
         setStageIndex(idxToUse);
         if (stages.length === 0) { setQuestions([]); return; }
@@ -151,9 +182,9 @@ function QuizPage() {
       } else if (mode === "weakness") {
         const [allWords, st, weak, mst] = await Promise.all([
           queryClient.ensureQueryData({ queryKey: qk.words(), queryFn: fetchActiveWords }),
-          queryClient.ensureQueryData({ queryKey: qk.statuses(user.id), queryFn: () => fetchStatuses(user.id) }),
-          getWeakWords(user.id),
-          queryClient.ensureQueryData({ queryKey: qk.mastery(user.id), queryFn: () => getMastery(user.id) }),
+          queryClient.ensureQueryData({ queryKey: qk.statuses(user!.id), queryFn: () => fetchStatuses(user!.id) }),
+          getWeakWords(user!.id),
+          queryClient.ensureQueryData({ queryKey: qk.mastery(user!.id), queryFn: () => getMastery(user!.id) }),
         ]);
         setStatuses(st);
         setLivePct(mst.pct); setReadinessBefore(mst.pct);
@@ -162,28 +193,29 @@ function QuizPage() {
       } else {
         const [allWords, st, mst] = await Promise.all([
           queryClient.ensureQueryData({ queryKey: qk.words(), queryFn: fetchActiveWords }),
-          queryClient.ensureQueryData({ queryKey: qk.statuses(user.id), queryFn: () => fetchStatuses(user.id) }),
-          queryClient.ensureQueryData({ queryKey: qk.mastery(user.id), queryFn: () => getMastery(user.id) }),
+          queryClient.ensureQueryData({ queryKey: qk.statuses(user!.id), queryFn: () => fetchStatuses(user!.id) }),
+          queryClient.ensureQueryData({ queryKey: qk.mastery(user!.id), queryFn: () => getMastery(user!.id) }),
         ]);
         setStatuses(st);
         setLivePct(mst.pct); setReadinessBefore(mst.pct);
         const days = mode === "weekly" ? 7 : 30;
-        const pool = await buildPeriodicQuiz(user.id, days);
+        const pool = await buildPeriodicQuiz(user!.id, days);
         if (pool.length < 4) { setQuestions([]); return; }
         setQuestions(buildQuizQuestions(pool, allWords));
       }
     })();
-  }, [user, mode, missionParam, search.world, queryClient]);
+  }, [user, isGuest, mode, missionParam, search.world, queryClient, navigate]);
 
   useEffect(() => {
-    if (!done || !user || !questions || finished) return;
+    if (!done || !questions || finished) return;
+    if (!isGuest && !user) return;
     (async () => {
       const total = questions.length;
       const stars = mode === "mission" ? starsForScore(score, total) : 0;
 
-      if (mode !== "weakness") {
+      if (!isGuest && mode !== "weakness") {
         await recordAttempt(
-          user.id,
+          user!.id,
           mode === "mission" ? "stage" : mode,
           score,
           total,
@@ -196,40 +228,43 @@ function QuizPage() {
       if (mode === "mission" && stars === 3) xp += XP_BONUS_3STAR;
       if (mode === "weekly") xp += XP_WEEKLY;
       if (mode === "monthly") xp += XP_MONTHLY;
-      await awardXp(user.id, xp).catch(() => {});
+      let streak = 0;
+      let mstAfterPct = 0;
+      let newBadges: BadgeDef[] = [];
+      if (!isGuest) {
+        await awardXp(user!.id, xp).catch(() => {});
+        const after = await bumpSessionStreak(user!.id).catch(() => null);
+        bumpStreak(user!.id).catch(() => {});
+        streak = after?.current_streak ?? 0;
 
-      // Bump session streak (consecutive completed sessions; never auto-resets).
-      const after = await bumpSessionStreak(user.id).catch(() => null);
-      // Also bump the legacy day-streak so old data keeps moving (Q3=a).
-      bumpStreak(user.id).catch(() => {});
-      const streak = after?.current_streak ?? 0;
-
-      const mstAfter = await getMastery(user.id);
-      const allWords = await fetchActiveWords();
-      const masteryMap = await fetchStatuses(user.id);
-      const touched = Object.keys(masteryMap).length;
-      const masteredCount = Object.values(masteryMap).filter((v) => v !== null && v !== undefined).length;
-      const masteryPct = allWords.length > 0 ? Math.round((masteredCount / allWords.length) * 100) : 0;
-      const newBadges = await checkBadges(user.id, {
-        streak,
-        mcRun: 0,
-        masteryPct,
-        touchedCount: touched,
-      }).catch(() => [] as BadgeDef[]);
-      newBadges.forEach((b) => {
-        const ja = BADGES_JA[b.key];
-        const name = lang === "ja" && ja ? ja.name : b.name;
-        const desc = lang === "ja" && ja ? ja.desc : b.desc;
-        toast.success(`🏅 ${name}`, { description: desc });
-      });
+        const mstAfter = await getMastery(user!.id);
+        mstAfterPct = mstAfter.pct;
+        const allWords = await fetchActiveWords();
+        const masteryMap = await fetchStatuses(user!.id);
+        const touched = Object.keys(masteryMap).length;
+        const masteredCount = Object.values(masteryMap).filter((v) => v !== null && v !== undefined).length;
+        const masteryPct = allWords.length > 0 ? Math.round((masteredCount / allWords.length) * 100) : 0;
+        newBadges = await checkBadges(user!.id, {
+          streak,
+          mcRun: 0,
+          masteryPct,
+          touchedCount: touched,
+        }).catch(() => [] as BadgeDef[]);
+        newBadges.forEach((b) => {
+          const ja = BADGES_JA[b.key];
+          const name = lang === "ja" && ja ? ja.name : b.name;
+          const desc = lang === "ja" && ja ? ja.desc : b.desc;
+          toast.success(`🏅 ${name}`, { description: desc });
+        });
+      }
 
       const weakAdded = outcomes.filter((o) => !o.correct).length;
 
       // Advance per-world current stage if they cleared the suggested one
-      if (mode === "mission" && stageIndex) {
-        const cur = await getWorldStage(user.id, activeWorld);
+      if (!isGuest && mode === "mission" && stageIndex) {
+        const cur = await getWorldStage(user!.id, activeWorld);
         if (stageIndex === cur) {
-          await setWorldStage(user.id, activeWorld, stageIndex + 1).catch(() => {});
+          await setWorldStage(user!.id, activeWorld, stageIndex + 1).catch(() => {});
         }
       }
 
@@ -239,11 +274,11 @@ function QuizPage() {
         newStreak: streak,
         newBadges,
         readinessBefore,
-        readinessAfter: mstAfter.pct,
+        readinessAfter: isGuest ? 0 : mstAfterPct,
         weakAdded,
       });
     })();
-  }, [done, user, questions, finished, mode, score, stageIndex, activeWorld, mcRun, readinessBefore, outcomes]);
+  }, [done, user, isGuest, questions, finished, mode, score, stageIndex, activeWorld, mcRun, readinessBefore, outcomes, lang]);
 
   if (!questions) return <main className="p-10 text-center text-muted-foreground">Loading…</main>;
 
@@ -264,6 +299,13 @@ function QuizPage() {
   }
 
   if (done) {
+    if (isGuest && mode === "mission" && stageIndex === GUEST_FREE_STAGES) {
+      return (
+        <main className="mx-auto max-w-xl px-4 py-6">
+          <SignupGate trigger="stage-complete" />
+        </main>
+      );
+    }
     const before = finished?.readinessBefore ?? readinessBefore;
     const afterPct = finished?.readinessAfter ?? livePct;
     const delta = afterPct - before;
@@ -333,6 +375,11 @@ function QuizPage() {
           )}
           <Button variant="ghost" asChild><Link to="/study">Back</Link></Button>
         </div>
+        {isGuest && (
+          <p className="mt-6 text-sm text-muted-foreground">
+            Sign up free to track your XP and streak across all worlds.
+          </p>
+        )}
       </main>
     );
   }
@@ -340,24 +387,35 @@ function QuizPage() {
   const q = questions[idx];
 
   const pick = async (opt: string) => {
-    if (picked || !user) return;
+    if (picked) return;
+    if (!isGuest && !user) return;
     setPicked(opt);
     const correct = opt === q.answer;
     if (correct) setScore((s) => s + 1);
     setMcRun((r) => (correct ? r + 1 : 0));
     setRevealed(true);
 
-    supabase.from("quiz_results").insert({ student_id: user.id, word_id: q.word.id, correct }).then(() => {});
-
-    const before = statuses[q.word.id];
-    applyQuizResult(user.id, q.word.id, before, correct).then((after) => {
+    if (isGuest) {
+      const before = getGuestMasteryForWord(q.word.id);
+      const base = before ?? 0;
+      let after: Mastery;
+      if (correct) after = Math.min(3, base + 1) as Mastery;
+      else if (base === 3) after = 1;
+      else after = Math.max(0, base - 1) as Mastery;
+      setGuestMasteryForWord(q.word.id, after);
       setStatuses((p) => ({ ...p, [q.word.id]: after }));
       setOutcomes((p) => [...p, { wordId: q.word.id, correct, before, after }]);
-      // Refresh live mastery after persistence
-      getMastery(user.id).then((m) => setLivePct(m.pct)).catch(() => {});
-      queryClient.invalidateQueries({ queryKey: qk.statuses(user.id) });
-      queryClient.invalidateQueries({ queryKey: qk.mastery(user.id) });
-    });
+    } else {
+      supabase.from("quiz_results").insert({ student_id: user!.id, word_id: q.word.id, correct }).then(() => {});
+      const before = statuses[q.word.id];
+      applyQuizResult(user!.id, q.word.id, before, correct).then((after) => {
+        setStatuses((p) => ({ ...p, [q.word.id]: after }));
+        setOutcomes((p) => [...p, { wordId: q.word.id, correct, before, after }]);
+        getMastery(user!.id).then((m) => setLivePct(m.pct)).catch(() => {});
+        queryClient.invalidateQueries({ queryKey: qk.statuses(user!.id) });
+        queryClient.invalidateQueries({ queryKey: qk.mastery(user!.id) });
+      });
+    }
 
     const delay = correct ? 900 : 1800;
     setTimeout(() => {
