@@ -8,14 +8,14 @@ import { useLang } from "@/lib/i18n";
 const WORLD_TOPIC_EN: Record<string, string> = {
   tier1: "Core",
   tier2: "Topic",
-  tier3: "R/L",
+  tier3: "ReadListen",
   tier4: "Niche",
   phrases: "Phrases",
 };
 const WORLD_TOPIC_JA: Record<string, string> = {
   tier1: "基礎",
   tier2: "分野",
-  tier3: "読解/聴解",
+  tier3: "読聴",
   tier4: "上級",
   phrases: "熟語",
 };
