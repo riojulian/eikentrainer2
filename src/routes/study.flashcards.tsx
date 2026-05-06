@@ -1,5 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState, useCallback } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { qk } from "@/lib/queryKeys";
 import { useAuth } from "@/lib/auth";
 import {
   fetchStatuses,
@@ -55,6 +57,7 @@ function nextOnKnown(curr: MasteryOrUnseen): Mastery {
 
 function Flashcards() {
   const { user, loading: authLoading } = useAuth();
+  const queryClient = useQueryClient();
   const { lang, t } = useLang();
   const search = Route.useSearch();
   const missionParam = search.mission;
@@ -93,8 +96,20 @@ function Flashcards() {
     }
     setCardsLoading(true);
     (async () => {
-      const world = search.world ?? (await getCurrentWorld(user.id));
-      const [ordered, s] = await Promise.all([ensureWorldOrder(user.id, world), fetchStatuses(user.id)]);
+      const world = search.world ?? (await queryClient.ensureQueryData({
+        queryKey: qk.currentWorld(user.id),
+        queryFn: () => getCurrentWorld(user.id),
+      }));
+      const [ordered, s] = await Promise.all([
+        queryClient.ensureQueryData({
+          queryKey: qk.worldOrder(user.id, world),
+          queryFn: () => ensureWorldOrder(user.id, world),
+        }),
+        queryClient.ensureQueryData({
+          queryKey: qk.statuses(user.id),
+          queryFn: () => fetchStatuses(user.id),
+        }),
+      ]);
       if (cancelled) return;
       setActiveWorld(world);
       const nextWords = missionParam && !freeMode ? stagize(ordered)[missionParam - 1] ?? [] : ordered;
@@ -168,7 +183,10 @@ function Flashcards() {
         review: s.review + (kind === "review" ? 1 : 0),
       }));
       setLast({ wordId: current.id, prev, after, kind });
-      setMastery(user.id, current.id, after).catch(() => {});
+    setMastery(user.id, current.id, after).then(() => {
+      queryClient.invalidateQueries({ queryKey: qk.statuses(user.id) });
+      queryClient.invalidateQueries({ queryKey: qk.mastery(user.id) });
+    }).catch(() => {});
       if (kind === "known" && (prev === null || prev === undefined || prev < 2)) {
         awardXp(user.id, XP_PER_KNOWN_FIRST).catch(() => {});
       }
@@ -192,7 +210,10 @@ function Flashcards() {
       known: s.known - (kind === "known" ? 1 : 0),
       review: s.review - (kind === "review" ? 1 : 0),
     }));
-    setMastery(user.id, wordId, prev ?? null).catch(() => {});
+    setMastery(user.id, wordId, prev ?? null).then(() => {
+      queryClient.invalidateQueries({ queryKey: qk.statuses(user.id) });
+      queryClient.invalidateQueries({ queryKey: qk.mastery(user.id) });
+    }).catch(() => {});
     const backIdx = order.indexOf(wordId);
     if (backIdx >= 0) {
       setIdx(backIdx);
