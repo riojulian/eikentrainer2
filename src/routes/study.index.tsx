@@ -4,7 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { qk } from "@/lib/queryKeys";
 import { useAuth } from "@/lib/auth";
 import { fetchActiveWords, fetchStatuses, MASTERY_LABELS, MASTERY_BG, TIER_LABELS, type Mastery } from "@/lib/words";
-import { BookOpen, ScrollText, Trophy, CalendarDays, CalendarRange, MoreVertical, BarChart3, Languages } from "lucide-react";
+import { BookOpen, Trophy } from "lucide-react";
 import {
   ensureWorldOrder,
   stagize,
@@ -26,21 +26,6 @@ import { StageMap } from "@/components/StageMap";
 import { WorldPicker, type WorldSummary } from "@/components/WorldPicker";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
 import type { Word } from "@/lib/words";
 import { supabase } from "@/integrations/supabase/client";
 import { useLang } from "@/lib/i18n";
@@ -332,114 +317,7 @@ function StudyHome() {
 
   return (
     <main className="mx-auto max-w-3xl px-4 py-6">
-      <div className="flex items-center justify-between gap-2">
-        <h1 className="font-display text-3xl truncate">{t("home.hello")}, {displayName ?? t("home.friend")} 🌸</h1>
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="outline" size="icon" className="shrink-0">
-              <MoreVertical className="h-4 w-4" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-64">
-            <DropdownMenuLabel>{t("menu.reviewsLib")}</DropdownMenuLabel>
-            <DropdownMenuSeparator />
-            <Dialog>
-              <DialogTrigger asChild>
-                <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
-                  <BarChart3 className="h-4 w-4 mr-2 text-gold" />
-                  <div className="flex flex-col">
-                    <span>{t("menu.wordsKnow")}</span>
-                    <span className="text-xs text-muted-foreground">
-                      {masteredish} / {stats.total} {t("menu.mastered")}
-                    </span>
-                  </div>
-                </DropdownMenuItem>
-              </DialogTrigger>
-              <DialogContent className="max-w-md">
-                <DialogHeader>
-                  <DialogTitle>{t("home.wordsKnowTitle")}</DialogTitle>
-                </DialogHeader>
-                <div className="rounded-2xl border bg-card p-4">
-                  <div className="flex items-baseline justify-between">
-                    <div className="text-sm text-muted-foreground">{t("home.mastered")}</div>
-                    <div className="font-display text-2xl">
-                      {masteredish} <span className="text-muted-foreground text-base">/ {stats.total}</span>
-                    </div>
-                  </div>
-                  {stats.total > 0 && (
-                    <div className="mt-3">
-                      <div className="flex w-full gap-1 overflow-hidden rounded-full">
-                        {tierRows.map((s) => (
-                          <div
-                            key={s.key}
-                            className={`${s.cls} flex h-6 min-w-0 flex-1 items-center justify-center overflow-hidden px-1 text-[8px] sm:text-[10px] font-medium text-white/95 whitespace-nowrap`}
-                            title={`${s.label}: ${s.count}`}
-                          >
-                            <span className="truncate">{s.label}</span>
-                          </div>
-                        ))}
-                      </div>
-                      <div className="mt-1.5 flex w-full gap-1">
-                        {tierRows.map((s) => (
-                          <div key={s.key} className="flex min-w-0 flex-1 justify-center font-display text-lg">
-                            {s.count}
-                          </div>
-                        ))}
-                      </div>
-                      <div className="mt-2 flex items-center justify-between rounded-lg border border-dashed border-muted-foreground/30 bg-muted/30 px-3 py-1.5 text-sm">
-                        <span className="text-muted-foreground">{t("home.unseen")}</span>
-                        <span className="font-display text-base">{stats.unseen}</span>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </DialogContent>
-            </Dialog>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem asChild disabled={weeklyEligible < 4}>
-              <Link to="/study/quiz" search={{ mode: "weekly" as const }}>
-                <CalendarDays className="h-4 w-4 mr-2 text-gold" />
-                <div className="flex flex-col">
-                  <span>{t("menu.weekly")}</span>
-                  <span className="text-xs text-muted-foreground">
-                    {weeklyEligible >= 4 ? `${weeklyEligible} ${t("menu.weeklyHint")}` : t("menu.unlockHint")}
-                  </span>
-                </div>
-              </Link>
-            </DropdownMenuItem>
-            <DropdownMenuItem asChild disabled={monthlyEligible < 4}>
-              <Link to="/study/quiz" search={{ mode: "monthly" as const }}>
-                <CalendarRange className="h-4 w-4 mr-2 text-gold" />
-                <div className="flex flex-col">
-                  <span>{t("menu.monthly")}</span>
-                  <span className="text-xs text-muted-foreground">
-                    {monthlyEligible >= 4 ? `${monthlyEligible} ${t("menu.monthlyHint")}` : t("menu.unlockHint")}
-                  </span>
-                </div>
-              </Link>
-            </DropdownMenuItem>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem asChild>
-              <Link to="/study/list">
-                <ScrollText className="h-4 w-4 mr-2 text-gold" />
-                {t("menu.browse")}
-              </Link>
-            </DropdownMenuItem>
-            <DropdownMenuSeparator />
-            <DropdownMenuLabel className="flex items-center gap-2">
-              <Languages className="h-4 w-4 text-gold" /> {t("menu.language")}
-            </DropdownMenuLabel>
-            <DropdownMenuItem onSelect={() => setLang("en")}>
-              <span className={lang === "en" ? "font-semibold" : ""}>English</span>
-              {lang === "en" ? <span className="ml-auto text-xs text-muted-foreground">✓</span> : null}
-            </DropdownMenuItem>
-            <DropdownMenuItem onSelect={() => setLang("ja")}>
-              <span className={lang === "ja" ? "font-semibold" : ""}>日本語</span>
-              {lang === "ja" ? <span className="ml-auto text-xs text-muted-foreground">✓</span> : null}
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
-      </div>
+      <h1 className="font-display text-3xl truncate">{t("home.hello")}, {displayName ?? t("home.friend")} 🌸</h1>
 
       {worldSummaries.length > 0 && (
         <div className="mt-6">
