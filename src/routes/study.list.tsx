@@ -14,7 +14,10 @@ import {
 } from "@/lib/words";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Button } from "@/components/ui/button";
 
+
+const PAGE_SIZE = 50;
 
 const TIER_META: Record<string, { label: string; cls: string }> = {
   tier1: { label: "World 1", cls: "bg-rose/15 text-rose border-rose/40" },
@@ -36,6 +39,7 @@ function ListPage() {
   const [cat, setCat] = useState("all");
   const [mastery, setMasteryFilter] = useState<string>("all");
   const [tier, setTier] = useState<string>("all");
+  const [page, setPage] = useState(1);
 
   useEffect(() => {
     if (!user) return;
@@ -45,6 +49,8 @@ function ListPage() {
       setStatuses(s);
     })();
   }, [user]);
+
+  useEffect(() => setPage(1), [q, cat, mastery, tier]);
 
   const categories = useMemo(() => Array.from(new Set(words.map((w) => w.category).filter(Boolean))) as string[], [words]);
 
@@ -65,6 +71,8 @@ function ListPage() {
     if (q && !w.word.toLowerCase().includes(q.toLowerCase()) && !w.definition.toLowerCase().includes(q.toLowerCase())) return false;
     return true;
   });
+
+  const visible = filtered.slice(0, page * PAGE_SIZE);
 
   const setTier4 = async (id: string, m: Mastery) => {
     if (!user) return;
@@ -109,7 +117,7 @@ function ListPage() {
         </Select>
       </div>
       <div className="grid gap-4 sm:grid-cols-2">
-        {filtered.map((w) => {
+        {visible.map((w) => {
           const s = statuses[w.id];
           const border = (s === null || s === undefined) ? "border-l-muted" : MASTERY_BORDER[s as Mastery];
           return (
@@ -153,6 +161,13 @@ function ListPage() {
           );
         })}
       </div>
+      {visible.length < filtered.length ? (
+        <div className="mt-6 flex justify-center">
+          <Button variant="outline" onClick={() => setPage((p) => p + 1)}>
+            Show more ({filtered.length - visible.length} remaining)
+          </Button>
+        </div>
+      ) : null}
       {filtered.length === 0 ? <p className="text-muted-foreground text-center mt-12">No words match your filters.</p> : null}
     </main>
   );
