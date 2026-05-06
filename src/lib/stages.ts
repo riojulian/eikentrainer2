@@ -234,3 +234,19 @@ export async function getStarsByStage(studentId: string, world?: string): Promis
   });
   return out;
 }
+
+export async function getAllStarsByWorld(studentId: string): Promise<Record<string, Record<number, 0 | 1 | 2 | 3>>> {
+  const { data } = await supabase
+    .from("stage_attempts")
+    .select("stage_index,score,total,world")
+    .eq("student_id", studentId)
+    .eq("kind", "stage");
+  const out: Record<string, Record<number, 0 | 1 | 2 | 3>> = {};
+  (data ?? []).forEach((r) => {
+    if (r.stage_index == null || !r.world) return;
+    if (!out[r.world]) out[r.world] = {};
+    const s = starsForScore(r.score, r.total);
+    if (s > (out[r.world][r.stage_index] ?? 0)) out[r.world][r.stage_index] = s;
+  });
+  return out;
+}
