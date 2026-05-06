@@ -45,8 +45,7 @@ import type { Word } from "@/lib/words";
 import { supabase } from "@/integrations/supabase/client";
 import { useLang } from "@/lib/i18n";
 import { Skeleton } from "@/components/ui/skeleton";
-import { GUEST_FREE_STAGES, GUEST_FREE_WORLD, getGuestMastery, isGuestAllowed } from "@/lib/guestMastery";
-import { SignupGate } from "@/components/SignupGate";
+import { GUEST_FREE_STAGES, isGuestAllowed } from "@/lib/guestMastery";
 import { Lock } from "lucide-react";
 
 export const Route = createFileRoute("/study/")({
