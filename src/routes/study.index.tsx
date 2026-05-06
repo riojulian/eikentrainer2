@@ -125,6 +125,7 @@ function StudyHome() {
   // Per-world summaries — needs per-world current stage; fetch only when we have base data
   const [worldSummaries, setWorldSummaries] = useState<WorldSummary[]>([]);
   useEffect(() => {
+    if (isGuest) return;
     if (!user || !allWordsQ.data || !allStarsQ.data || !currentWorldQ.data) return;
     let cancelled = false;
     (async () => {
@@ -178,11 +179,54 @@ function StudyHome() {
       setLoading(false);
     })();
     return () => { cancelled = true; };
-  }, [user, allWordsQ.data, allStarsQ.data, currentWorldQ.data]);
+  }, [user, isGuest, allWordsQ.data, allStarsQ.data, currentWorldQ.data]);
+
+  // Guest variant: load preview words per world without DB writes
+  useEffect(() => {
+    if (!isGuest) return;
+    let cancelled = false;
+    (async () => {
+      const entries = await Promise.all(
+        WORLD_ORDER.map(async (w) => [w, stagize(await getGuestWords(w))] as const),
+      );
+      if (cancelled) return;
+      const summaries: WorldSummary[] = entries.map(([w, s]) => ({
+        world: w,
+        totalStages: s.length,
+        currentStage: 1,
+        starsEarned: 0,
+        starsMax: s.length * 3,
+      }));
+      setWorldSummaries(summaries);
+      const chosen = summaries.find((s) => s.totalStages > 0)?.world ?? "tier1";
+      const chosenStages = entries.find(([w]) => w === chosen)?.[1] ?? [];
+      setStages(chosenStages);
+      setStageState(1);
+      initialWorldRef.current = chosen;
+      setActiveWorld(chosen);
+      setLoading(false);
+    })();
+    return () => { cancelled = true; };
+  }, [isGuest]);
 
   // Load stages + stars for the active world
   useEffect(() => {
-    if (!user || !activeWorld) return;
+    if (!activeWorld) return;
+    if (isGuest) {
+      if (activeWorld === initialWorldRef.current) {
+        initialWorldRef.current = null;
+        return;
+      }
+      (async () => {
+        const ordered = await getGuestWords(activeWorld);
+        const newStages = stagize(ordered);
+        setStages(newStages);
+        setStageState(1);
+        setStarsByStage({});
+      })();
+      return;
+    }
+    if (!user) return;
     if (activeWorld === initialWorldRef.current) {
       initialWorldRef.current = null;
       return;
@@ -198,12 +242,12 @@ function StudyHome() {
       setStageState(Math.min(cs, Math.max(1, newStages.length)));
       setStarsByStage(stars);
     })();
-  }, [user, activeWorld]);
+  }, [user, isGuest, activeWorld]);
 
   const onWorldChange = async (next: string) => {
-    if (!user || next === activeWorld) return;
+    if (next === activeWorld) return;
     setActiveWorld(next);
-    await setCurrentWorld(user.id, next);
+    if (user) await setCurrentWorld(user.id, next);
   };
 
   const masteredish = stats.tiers[2] + stats.tiers[3];
