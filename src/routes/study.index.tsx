@@ -16,6 +16,7 @@ import {
   getWorldStage,
   getStarsByStage,
   getAllStarsByWorld,
+  getGuestWords,
 } from "@/lib/stages";
 import { getStats, getEarnedBadges, getMastery, type PerWorldMastery, type MasteryBuckets } from "@/lib/gamification";
 import { MasteryHeader } from "@/components/MasteryHeader";
@@ -44,6 +45,9 @@ import type { Word } from "@/lib/words";
 import { supabase } from "@/integrations/supabase/client";
 import { useLang } from "@/lib/i18n";
 import { Skeleton } from "@/components/ui/skeleton";
+import { GUEST_FREE_STAGES, GUEST_FREE_WORLD, getGuestMastery, isGuestAllowed } from "@/lib/guestMastery";
+import { SignupGate } from "@/components/SignupGate";
+import { Lock } from "lucide-react";
 
 export const Route = createFileRoute("/study/")({
   component: StudyHome,
@@ -51,6 +55,7 @@ export const Route = createFileRoute("/study/")({
 
 function StudyHome() {
   const { user, displayName } = useAuth();
+  const isGuest = !user;
   const { lang, setLang, t } = useLang();
   const [activeWorld, setActiveWorld] = useState<string>("tier1");
   const [stages, setStages] = useState<Word[][]>([]);
@@ -213,6 +218,10 @@ function StudyHome() {
   const hasStages = totalStages > 0;
   const tierByStage = stages.map((stage) => stage[0]?.tier ?? null);
   const activeWorldLabel = TIER_LABELS[activeWorld] ?? activeWorld;
+
+  if (isGuest) {
+    return <GuestStudyHome />;
+  }
 
   if (loading) {
     return (
