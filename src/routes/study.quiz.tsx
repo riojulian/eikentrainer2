@@ -1,5 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
+import { qk } from "@/lib/queryKeys";
 import { useAuth } from "@/lib/auth";
 import { supabase } from "@/integrations/supabase/client";
 import {
@@ -101,6 +103,7 @@ type FinishResult = {
 
 function QuizPage() {
   const { user } = useAuth();
+  const queryClient = useQueryClient();
   const { t, lang } = useLang();
   const search = Route.useSearch();
   const mode: Mode = search.mode ?? "mission";
@@ -125,13 +128,16 @@ function QuizPage() {
     if (!user) return;
     (async () => {
       if (mode === "mission") {
-        const world = search.world ?? await getCurrentWorld(user.id);
+        const world = search.world ?? await queryClient.ensureQueryData({
+          queryKey: qk.currentWorld(user.id),
+          queryFn: () => getCurrentWorld(user.id),
+        });
         setActiveWorld(world);
         const [allWords, st, ordered, mst] = await Promise.all([
-          fetchActiveWords(),
-          fetchStatuses(user.id),
-          ensureWorldOrder(user.id, world),
-          getMastery(user.id),
+          queryClient.ensureQueryData({ queryKey: qk.words(), queryFn: fetchActiveWords }),
+          queryClient.ensureQueryData({ queryKey: qk.statuses(user.id), queryFn: () => fetchStatuses(user.id) }),
+          queryClient.ensureQueryData({ queryKey: qk.worldOrder(user.id, world), queryFn: () => ensureWorldOrder(user.id, world) }),
+          queryClient.ensureQueryData({ queryKey: qk.mastery(user.id), queryFn: () => getMastery(user.id) }),
         ]);
         setStatuses(st);
         setLivePct(mst.pct); setReadinessBefore(mst.pct);
@@ -144,10 +150,10 @@ function QuizPage() {
         setQuestions(buildQuizQuestions(pool, allWords));
       } else if (mode === "weakness") {
         const [allWords, st, weak, mst] = await Promise.all([
-          fetchActiveWords(),
-          fetchStatuses(user.id),
+          queryClient.ensureQueryData({ queryKey: qk.words(), queryFn: fetchActiveWords }),
+          queryClient.ensureQueryData({ queryKey: qk.statuses(user.id), queryFn: () => fetchStatuses(user.id) }),
           getWeakWords(user.id),
-          getMastery(user.id),
+          queryClient.ensureQueryData({ queryKey: qk.mastery(user.id), queryFn: () => getMastery(user.id) }),
         ]);
         setStatuses(st);
         setLivePct(mst.pct); setReadinessBefore(mst.pct);
@@ -155,9 +161,9 @@ function QuizPage() {
         setQuestions(buildQuizQuestions(weak, allWords));
       } else {
         const [allWords, st, mst] = await Promise.all([
-          fetchActiveWords(),
-          fetchStatuses(user.id),
-          getMastery(user.id),
+          queryClient.ensureQueryData({ queryKey: qk.words(), queryFn: fetchActiveWords }),
+          queryClient.ensureQueryData({ queryKey: qk.statuses(user.id), queryFn: () => fetchStatuses(user.id) }),
+          queryClient.ensureQueryData({ queryKey: qk.mastery(user.id), queryFn: () => getMastery(user.id) }),
         ]);
         setStatuses(st);
         setLivePct(mst.pct); setReadinessBefore(mst.pct);
@@ -167,7 +173,7 @@ function QuizPage() {
         setQuestions(buildQuizQuestions(pool, allWords));
       }
     })();
-  }, [user, mode, missionParam, search.world]);
+  }, [user, mode, missionParam, search.world, queryClient]);
 
   useEffect(() => {
     if (!done || !user || !questions || finished) return;
@@ -344,6 +350,8 @@ function QuizPage() {
       setOutcomes((p) => [...p, { wordId: q.word.id, correct, before, after }]);
       // Refresh live mastery after persistence
       getMastery(user.id).then((m) => setLivePct(m.pct)).catch(() => {});
+      queryClient.invalidateQueries({ queryKey: qk.statuses(user.id) });
+      queryClient.invalidateQueries({ queryKey: qk.mastery(user.id) });
     });
 
     const delay = correct ? 900 : 1800;
