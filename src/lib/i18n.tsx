@@ -97,6 +97,9 @@ const DICT: Dict = {
   "auth.welcomeBack": { en: "Welcome back", ja: "おかえりなさい" },
   "auth.created": { en: "Account created!", ja: "アカウントを作成しました！" },
   "auth.studentNote": { en: "New accounts are created as students. An admin can promote you in the database.", ja: "新規アカウントは生徒として作成されます。管理者が権限を変更できます。" },
+  "auth.continueWithGoogle": { en: "Continue with Google", ja: "Googleで続ける" },
+  "auth.continueWithApple": { en: "Continue with Apple", ja: "Appleで続ける" },
+  "auth.or": { en: "or", ja: "または" },
   "results.newBadges": { en: "Badges unlocked!", ja: "バッジ解放！" },
   // Toasts
   "toast.upload.extracting": { en: "Extracting vocabulary…", ja: "単語を抽出中…" },
