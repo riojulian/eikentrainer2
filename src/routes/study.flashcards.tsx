@@ -27,6 +27,7 @@ import {
   setGuestMasteryForWord,
 } from "@/lib/guestMastery";
 import { SignupGate } from "@/components/SignupGate";
+import { Skeleton } from "@/components/ui/skeleton";
 
 export const Route = createFileRoute("/study/flashcards")({
   validateSearch: (s: Record<string, unknown>) => {
@@ -302,7 +303,13 @@ function Flashcards() {
     return (
       <main className="mx-auto max-w-2xl px-4 py-6 text-center">
         <div className="rounded-2xl border bg-card p-6 shadow-card">
-          <p className="mt-1 text-sm text-muted-foreground">{t("fc.loading")}</p>
+          <Skeleton className="mx-auto h-3 w-20" />
+          <Skeleton className="mx-auto mt-4 h-8 w-48" />
+          <Skeleton className="mx-auto mt-3 h-5 w-32" />
+          <div className="mt-6 flex justify-center gap-3">
+            <Skeleton className="h-10 w-28 rounded-md" />
+            <Skeleton className="h-10 w-28 rounded-md" />
+          </div>
         </div>
       </main>
     );
