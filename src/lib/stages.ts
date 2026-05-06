@@ -1,5 +1,6 @@
 import { supabase } from "@/integrations/supabase/client";
 import { fetchActiveWords, type Word } from "@/lib/words";
+import { GUEST_FREE_STAGES, GUEST_FREE_WORLD } from "@/lib/guestMastery";
 
 export const STAGE_SIZE = 10;
 export const WORLD_ORDER = ["tier1", "tier2", "tier3", "tier4", "phrases"] as const;
@@ -257,4 +258,16 @@ export async function getAllStarsByWorld(studentId: string): Promise<Record<stri
     if (s > (out[r.world][r.stage_index] ?? 0)) out[r.world][r.stage_index] = s;
   });
   return out;
+}
+
+export async function getGuestWords(world: string): Promise<Word[]> {
+  const { data, error } = await supabase
+    .from("words")
+    .select("*")
+    .eq("tier", world)
+    .eq("is_active", true)
+    .order("created_at", { ascending: true })
+    .limit(GUEST_FREE_STAGES * STAGE_SIZE);
+  if (error) throw error;
+  return (data ?? []) as Word[];
 }
