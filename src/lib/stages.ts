@@ -266,8 +266,7 @@ export async function getGuestWords(world: string): Promise<Word[]> {
     .select("*")
     .eq("tier", world)
     .eq("is_active", true)
-    .order("created_at", { ascending: true })
-    .limit(GUEST_FREE_STAGES * STAGE_SIZE);
+    .order("created_at", { ascending: true });
   if (error) throw error;
   return (data ?? []) as Word[];
 }
