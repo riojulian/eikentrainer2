@@ -114,29 +114,10 @@ function AuthPage() {
           </div>
         </div>
         <div className="rounded-2xl border bg-card p-6 shadow-card">
-          <div className="space-y-2 mb-4">
-            <Button variant="outline" className="w-full" disabled={busy} onClick={() => signInWithProvider("google")}>
-              <svg className="size-4" viewBox="0 0 24 24" aria-hidden="true">
-                <path fill="#EA4335" d="M12 10.2v3.9h5.5c-.2 1.4-1.7 4.1-5.5 4.1-3.3 0-6-2.7-6-6.1s2.7-6.1 6-6.1c1.9 0 3.1.8 3.8 1.5l2.6-2.5C16.8 3.5 14.6 2.5 12 2.5 6.8 2.5 2.6 6.7 2.6 12s4.2 9.5 9.4 9.5c5.4 0 9-3.8 9-9.2 0-.6-.1-1.1-.2-1.6H12z"/>
-              </svg>
-              {t("auth.continueWithGoogle") || "Continue with Google"}
-            </Button>
-            <Button variant="outline" className="w-full" disabled={busy} onClick={() => signInWithProvider("apple")}>
-              <svg className="size-4" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-                <path d="M16.4 12.6c0-2.3 1.9-3.4 2-3.4-1.1-1.6-2.8-1.8-3.4-1.9-1.5-.1-2.8.9-3.6.9-.7 0-1.9-.8-3.1-.8-1.6 0-3.1.9-3.9 2.4-1.7 2.9-.4 7.2 1.2 9.5.8 1.1 1.7 2.4 3 2.4 1.2 0 1.7-.8 3.1-.8s1.9.8 3.1.8c1.3 0 2.1-1.2 2.9-2.3.9-1.3 1.3-2.6 1.3-2.7-.1 0-2.6-1-2.6-3.9zM14 5.4c.7-.8 1.1-1.9 1-3-1 0-2.1.6-2.8 1.4-.6.7-1.2 1.8-1 2.9 1.1.1 2.2-.5 2.8-1.3z"/>
-              </svg>
-              {t("auth.continueWithApple") || "Continue with Apple"}
-            </Button>
-            <div className="flex items-center gap-2 pt-2">
-              <div className="h-px flex-1 bg-border" />
-              <span className="text-xs text-muted-foreground">{t("auth.or") || "or"}</span>
-              <div className="h-px flex-1 bg-border" />
-            </div>
-          </div>
-          <Tabs defaultValue="signin">
+          <Tabs defaultValue="signup">
             <TabsList className="grid grid-cols-2 w-full">
-              <TabsTrigger value="signin">{t("auth.signin")}</TabsTrigger>
               <TabsTrigger value="signup">{t("auth.signup")}</TabsTrigger>
+              <TabsTrigger value="signin">{t("auth.signin")}</TabsTrigger>
             </TabsList>
             <TabsContent value="signin" className="space-y-4 mt-4">
               <div className="space-y-2"><Label>{t("auth.email")}</Label><Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} /></div>
@@ -150,6 +131,39 @@ function AuthPage() {
               <Button className="w-full" disabled={busy} onClick={signUp}>{t("auth.signupBtn")}</Button>
             </TabsContent>
           </Tabs>
+          <div className="mt-6">
+            <div className="flex items-center gap-2 mb-3">
+              <div className="h-px flex-1 bg-border" />
+              <span className="text-xs text-muted-foreground">{t("auth.or") || "or"}</span>
+              <div className="h-px flex-1 bg-border" />
+            </div>
+            <div className="flex items-center justify-center gap-3">
+              <button
+                type="button"
+                aria-label={t("auth.continueWithGoogle") || "Continue with Google"}
+                title={t("auth.continueWithGoogle") || "Continue with Google"}
+                disabled={busy}
+                onClick={() => signInWithProvider("google")}
+                className="size-11 rounded-full border bg-background hover:bg-accent transition flex items-center justify-center disabled:opacity-50"
+              >
+                <svg className="size-5" viewBox="0 0 24 24" aria-hidden="true">
+                  <path fill="#EA4335" d="M12 10.2v3.9h5.5c-.2 1.4-1.7 4.1-5.5 4.1-3.3 0-6-2.7-6-6.1s2.7-6.1 6-6.1c1.9 0 3.1.8 3.8 1.5l2.6-2.5C16.8 3.5 14.6 2.5 12 2.5 6.8 2.5 2.6 6.7 2.6 12s4.2 9.5 9.4 9.5c5.4 0 9-3.8 9-9.2 0-.6-.1-1.1-.2-1.6H12z"/>
+                </svg>
+              </button>
+              <button
+                type="button"
+                aria-label={t("auth.continueWithApple") || "Continue with Apple"}
+                title={t("auth.continueWithApple") || "Continue with Apple"}
+                disabled={busy}
+                onClick={() => signInWithProvider("apple")}
+                className="size-11 rounded-full border bg-background hover:bg-accent transition flex items-center justify-center disabled:opacity-50"
+              >
+                <svg className="size-5" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                  <path d="M16.4 12.6c0-2.3 1.9-3.4 2-3.4-1.1-1.6-2.8-1.8-3.4-1.9-1.5-.1-2.8.9-3.6.9-.7 0-1.9-.8-3.1-.8-1.6 0-3.1.9-3.9 2.4-1.7 2.9-.4 7.2 1.2 9.5.8 1.1 1.7 2.4 3 2.4 1.2 0 1.7-.8 3.1-.8s1.9.8 3.1.8c1.3 0 2.1-1.2 2.9-2.3.9-1.3 1.3-2.6 1.3-2.7-.1 0-2.6-1-2.6-3.9zM14 5.4c.7-.8 1.1-1.9 1-3-1 0-2.1.6-2.8 1.4-.6.7-1.2 1.8-1 2.9 1.1.1 2.2-.5 2.8-1.3z"/>
+                </svg>
+              </button>
+            </div>
+          </div>
         </div>
       </div>
     </div>
