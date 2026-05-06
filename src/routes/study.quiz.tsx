@@ -205,11 +205,16 @@ function QuizPage() {
       const streak = after?.current_streak ?? 0;
 
       const mstAfter = await getMastery(user.id);
+      const allWords = await fetchActiveWords();
+      const masteryMap = await fetchStatuses(user.id);
+      const touched = Object.keys(masteryMap).length;
+      const masteredCount = Object.values(masteryMap).filter((v) => v !== null && v !== undefined).length;
+      const masteryPct = allWords.length > 0 ? Math.round((masteredCount / allWords.length) * 100) : 0;
       const newBadges = await checkBadges(user.id, {
         streak,
-        mcRun,
-        masteryPct: mstAfter.pct,
-        touchedCount: mstAfter.touched,
+        mcRun: 0,
+        masteryPct,
+        touchedCount: touched,
       }).catch(() => [] as BadgeDef[]);
       newBadges.forEach((b) => {
         const ja = BADGES_JA[b.key];
