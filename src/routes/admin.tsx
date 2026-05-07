@@ -1,7 +1,7 @@
 import { createFileRoute, Outlet, Link, useRouterState } from "@tanstack/react-router";
 import { RequireAuth } from "@/components/RequireAuth";
 import { AppHeader } from "@/components/AppHeader";
-import { Upload, Library, BarChart3 } from "lucide-react";
+import { Upload, Library, BarChart3, LineChart } from "lucide-react";
 
 export const Route = createFileRoute("/admin")({
   component: AdminLayout,
@@ -13,6 +13,7 @@ function AdminLayout() {
     { to: "/admin/upload", label: "Upload", icon: Upload },
     { to: "/admin/words", label: "Word Bank", icon: Library },
     { to: "/admin/progress", label: "Progress", icon: BarChart3 },
+    { to: "/admin/analytics", label: "Analytics", icon: LineChart },
   ];
   return (
     <RequireAuth admin>
