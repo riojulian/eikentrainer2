@@ -29,7 +29,7 @@ function AuthPage() {
     return <Navigate to={role === "admin" ? "/admin" : "/study"} />;
   }
 
-  const signInWithProvider = async (provider: "google" | "apple") => {
+  const signInWithProvider = async (provider: "google") => {
     setBusy(true);
     const result = await lovable.auth.signInWithOAuth(provider, {
       redirect_uri: window.location.origin,
@@ -151,17 +151,6 @@ function AuthPage() {
                   <path fill="#4285F4" d="M21.2 12.1c0-.5 0-.9-.1-1.3H12v3.9h5.5c-.3 1.3-1.1 2.4-2.3 3.1l2.6 2.1c1.6-1.4 3.4-3.7 3.4-7.8z"/>
                 </svg>
                 <span>{t("auth.continueWithGoogle") || "Continue with Google"}</span>
-              </button>
-              <button
-                type="button"
-                disabled={busy}
-                onClick={() => signInWithProvider("apple")}
-                className="w-full h-11 rounded-md border bg-background hover:bg-accent transition flex items-center justify-center gap-3 text-sm font-medium disabled:opacity-50"
-              >
-                <svg className="size-5" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-                  <path d="M16.4 12.6c0-2.3 1.9-3.4 2-3.4-1.1-1.6-2.8-1.8-3.4-1.9-1.5-.1-2.8.9-3.6.9-.7 0-1.9-.8-3.1-.8-1.6 0-3.1.9-3.9 2.4-1.7 2.9-.4 7.2 1.2 9.5.8 1.1 1.7 2.4 3 2.4 1.2 0 1.7-.8 3.1-.8s1.9.8 3.1.8c1.3 0 2.1-1.2 2.9-2.3.9-1.3 1.3-2.6 1.3-2.7-.1 0-2.6-1-2.6-3.9zM14 5.4c.7-.8 1.1-1.9 1-3-1 0-2.1.6-2.8 1.4-.6.7-1.2 1.8-1 2.9 1.1.1 2.2-.5 2.8-1.3z"/>
-                </svg>
-                <span>{t("auth.continueWithApple") || "Continue with Apple"}</span>
               </button>
             </div>
           </div>
