@@ -1,29 +1,34 @@
-## Goal
+## Add Analytics page to Admin
 
-Make it clear to users that EikenTango currently covers only **英検準1級 (Eiken Pre-1)**, with more levels coming soon. Show this on the hero (landing) page and on the Study page.
+Add a new "Analytics" tab in the admin area showing site traffic + signup metrics.
 
-## Changes
+### 1. New nav tab — `src/routes/admin.tsx`
+Add a 4th link `{ to: "/admin/analytics", label: "Analytics", icon: LineChart }` to the existing tab bar.
 
-### 1. `src/lib/i18n.tsx` — add translation keys
-- `level.badge`: EN "Pre-1 only · more levels coming soon" / JA "準1級のみ対応 ・ 他の級は近日対応"
-- `level.short`: EN "準1級 (Pre-1)" / JA "英検準1級"
-- `level.comingSoon`: EN "More levels coming soon" / JA "他の級は近日対応予定"
+### 2. New route — `src/routes/admin.analytics.tsx`
+Page with a date-range selector (Last 24h / 7 days / 30 days, default 7d) and these cards:
 
-### 2. `src/routes/index.tsx` — hero
-- Replace the existing pill `英検 Pre-1 ・ Vocabulary` with a clearer two-line treatment:
-  - Pill: `{t("level.short")}` with a small `Sparkles` icon
-  - Sub-line under the pill (small muted text): `{t("level.comingSoon")}`
+**Traffic (from Lovable production analytics)**
+- Page views (total in range)
+- Unique visitors (total in range)
+- Daily line chart of page views + unique visitors
 
-### 3. `src/routes/study.index.tsx` — study page header
-- Add a small badge near the top of the page (above the world picker / greeting area) showing `{t("level.badge")}`
-- Style: rounded-full, `bg-accent/30 text-accent-foreground`, small text, with a `Sparkles` icon — matching the hero pill style for visual consistency
-- Visible to both guests and logged-in users
+Data source: `analytics--read_project_analytics` (production-only). On the preview/dev domain we'll show a small note: "Traffic analytics show data from the published site (eikentango.com)."
 
-## Visual
+**Users (from our database)**
+- New signups in range — `count(profiles where created_at in range)`
+- Total users — `count(profiles)`
+- Daily bar chart of new signups
+- (Per your answer, "new trial" = new signup, so a single metric.)
 
-```
-[ ✦ 英検準1級 ]
-   他の級は近日対応予定
-```
+### 3. Server function — `src/lib/analytics.functions.ts`
+`getSignupStats({ startDate, endDate })` using `requireSupabaseAuth` + admin role check. Returns `{ totalUsers, newSignups, daily: [{date, count}] }` from the `profiles` table.
 
-No backend / data changes. Pure UI + i18n.
+For the traffic numbers, since Lovable analytics isn't queryable from app code, the analytics page will instead render fetched values that I include at build time via a small server function calling our internal analytics endpoint — if not exposable, we'll fall back to displaying a "View full traffic analytics" link/button that opens the Lovable analytics panel, while the in-app cards focus on signup data we own. I'll attempt the API integration first and degrade gracefully.
+
+### 4. Access control
+Route wrapped by existing `RequireAuth admin` (inherited from `/admin` layout).
+
+### Out of scope
+- "New trial" as a separate metric (same as signups for now — revisit when paid plans land).
+- Per-page breakdowns / referrers (can add later).
