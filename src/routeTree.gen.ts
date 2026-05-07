@@ -21,6 +21,7 @@ import { Route as StudyFlashcardsRouteImport } from './routes/study.flashcards'
 import { Route as AdminWordsRouteImport } from './routes/admin.words'
 import { Route as AdminUploadRouteImport } from './routes/admin.upload'
 import { Route as AdminProgressRouteImport } from './routes/admin.progress'
+import { Route as AdminAnalyticsRouteImport } from './routes/admin.analytics'
 
 const StudyRoute = StudyRouteImport.update({
   id: '/study',
@@ -82,12 +83,18 @@ const AdminProgressRoute = AdminProgressRouteImport.update({
   path: '/progress',
   getParentRoute: () => AdminRoute,
 } as any)
+const AdminAnalyticsRoute = AdminAnalyticsRouteImport.update({
+  id: '/analytics',
+  path: '/analytics',
+  getParentRoute: () => AdminRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/admin': typeof AdminRouteWithChildren
   '/auth': typeof AuthRoute
   '/study': typeof StudyRouteWithChildren
+  '/admin/analytics': typeof AdminAnalyticsRoute
   '/admin/progress': typeof AdminProgressRoute
   '/admin/upload': typeof AdminUploadRoute
   '/admin/words': typeof AdminWordsRoute
@@ -100,6 +107,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
+  '/admin/analytics': typeof AdminAnalyticsRoute
   '/admin/progress': typeof AdminProgressRoute
   '/admin/upload': typeof AdminUploadRoute
   '/admin/words': typeof AdminWordsRoute
@@ -115,6 +123,7 @@ export interface FileRoutesById {
   '/admin': typeof AdminRouteWithChildren
   '/auth': typeof AuthRoute
   '/study': typeof StudyRouteWithChildren
+  '/admin/analytics': typeof AdminAnalyticsRoute
   '/admin/progress': typeof AdminProgressRoute
   '/admin/upload': typeof AdminUploadRoute
   '/admin/words': typeof AdminWordsRoute
@@ -131,6 +140,7 @@ export interface FileRouteTypes {
     | '/admin'
     | '/auth'
     | '/study'
+    | '/admin/analytics'
     | '/admin/progress'
     | '/admin/upload'
     | '/admin/words'
@@ -143,6 +153,7 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/auth'
+    | '/admin/analytics'
     | '/admin/progress'
     | '/admin/upload'
     | '/admin/words'
@@ -157,6 +168,7 @@ export interface FileRouteTypes {
     | '/admin'
     | '/auth'
     | '/study'
+    | '/admin/analytics'
     | '/admin/progress'
     | '/admin/upload'
     | '/admin/words'
@@ -260,10 +272,18 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminProgressRouteImport
       parentRoute: typeof AdminRoute
     }
+    '/admin/analytics': {
+      id: '/admin/analytics'
+      path: '/analytics'
+      fullPath: '/admin/analytics'
+      preLoaderRoute: typeof AdminAnalyticsRouteImport
+      parentRoute: typeof AdminRoute
+    }
   }
 }
 
 interface AdminRouteChildren {
+  AdminAnalyticsRoute: typeof AdminAnalyticsRoute
   AdminProgressRoute: typeof AdminProgressRoute
   AdminUploadRoute: typeof AdminUploadRoute
   AdminWordsRoute: typeof AdminWordsRoute
@@ -271,6 +291,7 @@ interface AdminRouteChildren {
 }
 
 const AdminRouteChildren: AdminRouteChildren = {
+  AdminAnalyticsRoute: AdminAnalyticsRoute,
   AdminProgressRoute: AdminProgressRoute,
   AdminUploadRoute: AdminUploadRoute,
   AdminWordsRoute: AdminWordsRoute,
