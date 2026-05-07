@@ -100,6 +100,9 @@ const DICT: Dict = {
   "auth.continueWithGoogle": { en: "Continue with Google", ja: "Googleで続ける" },
   "auth.continueWithApple": { en: "Continue with Apple", ja: "Appleで続ける" },
   "auth.or": { en: "or", ja: "または" },
+  "level.short": { en: "英検準1級 (Pre-1)", ja: "英検準1級" },
+  "level.comingSoon": { en: "More levels coming soon", ja: "他の級は近日対応予定" },
+  "level.badge": { en: "Pre-1 only · more levels coming soon", ja: "準1級のみ対応 ・ 他の級は近日対応" },
   "results.newBadges": { en: "Badges unlocked!", ja: "バッジ解放！" },
   // Toasts
   "toast.upload.extracting": { en: "Extracting vocabulary…", ja: "単語を抽出中…" },
