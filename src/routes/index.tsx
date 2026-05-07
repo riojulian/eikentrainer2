@@ -23,8 +23,11 @@ function Index() {
             <BrandMark size={80} />
           </div>
           <span className="inline-flex items-center gap-2 rounded-full bg-accent/30 px-3 py-1 text-xs font-semibold tracking-wide text-accent-foreground">
-            <Sparkles className="h-3 w-3" /> 英検 Pre-1 ・ Vocabulary
+            <Sparkles className="h-3 w-3" /> 英検準1級 (Pre-1) ・ Vocabulary
           </span>
+          <p className="mt-2 text-xs text-muted-foreground">
+            More levels coming soon ・ 他の級は近日対応予定
+          </p>
           <h1 className="mt-6 font-display text-5xl sm:text-7xl font-bold leading-[1.05] tracking-tight">
             EikenTango <br />
             <span className="text-primary">単語を、もっと<em className="not-italic">楽しく</em>。</span>
