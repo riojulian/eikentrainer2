@@ -4,7 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { qk } from "@/lib/queryKeys";
 import { useAuth } from "@/lib/auth";
 import { fetchActiveWords, fetchStatuses, MASTERY_LABELS, MASTERY_BG, TIER_LABELS, type Mastery } from "@/lib/words";
-import { BookOpen, Trophy } from "lucide-react";
+import { BookOpen, Trophy, Sparkles } from "lucide-react";
 import {
   ensureWorldOrder,
   stagize,
@@ -317,6 +317,12 @@ function StudyHome() {
 
   return (
     <main className="mx-auto max-w-3xl px-4 py-6">
+      <div className="mb-3 flex flex-wrap items-center gap-2">
+        <span className="inline-flex items-center gap-1.5 rounded-full bg-accent/30 px-3 py-1 text-xs font-semibold tracking-wide text-accent-foreground">
+          <Sparkles className="h-3 w-3" /> {t("level.short")}
+        </span>
+        <span className="text-xs text-muted-foreground">{t("level.comingSoon")}</span>
+      </div>
       <h1 className="font-display text-3xl truncate">{t("home.hello")}, {displayName ?? t("home.friend")} 🌸</h1>
 
       {worldSummaries.length > 0 && (
