@@ -41,6 +41,45 @@ export type Database = {
         }
         Relationships: []
       }
+      page_views: {
+        Row: {
+          country: string | null
+          created_at: string
+          device: string | null
+          duration_ms: number | null
+          id: string
+          path: string
+          referrer: string | null
+          user_agent: string | null
+          user_id: string | null
+          visitor_id: string
+        }
+        Insert: {
+          country?: string | null
+          created_at?: string
+          device?: string | null
+          duration_ms?: number | null
+          id?: string
+          path: string
+          referrer?: string | null
+          user_agent?: string | null
+          user_id?: string | null
+          visitor_id: string
+        }
+        Update: {
+          country?: string | null
+          created_at?: string
+          device?: string | null
+          duration_ms?: number | null
+          id?: string
+          path?: string
+          referrer?: string | null
+          user_agent?: string | null
+          user_id?: string | null
+          visitor_id?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           created_at: string

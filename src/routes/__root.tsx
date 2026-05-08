@@ -4,6 +4,7 @@ import { AuthProvider } from "@/lib/auth";
 import { Toaster } from "@/components/ui/sonner";
 import { LangProvider } from "@/lib/i18n";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { usePageTracking } from "@/lib/usePageTracking";
 
 const queryClient = new QueryClient({
   defaultOptions: { queries: { staleTime: 1000 * 60 * 30 } },
@@ -81,10 +82,15 @@ function RootComponent() {
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
         <LangProvider>
-          <Outlet />
+          <TrackingShell />
           <Toaster richColors position="top-center" />
         </LangProvider>
       </AuthProvider>
     </QueryClientProvider>
   );
+}
+
+function TrackingShell() {
+  usePageTracking();
+  return <Outlet />;
 }

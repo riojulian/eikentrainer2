@@ -22,6 +22,7 @@ import { Route as AdminWordsRouteImport } from './routes/admin.words'
 import { Route as AdminUploadRouteImport } from './routes/admin.upload'
 import { Route as AdminProgressRouteImport } from './routes/admin.progress'
 import { Route as AdminAnalyticsRouteImport } from './routes/admin.analytics'
+import { Route as ApiPublicTrackRouteImport } from './routes/api/public/track'
 
 const StudyRoute = StudyRouteImport.update({
   id: '/study',
@@ -88,6 +89,11 @@ const AdminAnalyticsRoute = AdminAnalyticsRouteImport.update({
   path: '/analytics',
   getParentRoute: () => AdminRoute,
 } as any)
+const ApiPublicTrackRoute = ApiPublicTrackRouteImport.update({
+  id: '/api/public/track',
+  path: '/api/public/track',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -103,6 +109,7 @@ export interface FileRoutesByFullPath {
   '/study/quiz': typeof StudyQuizRoute
   '/admin/': typeof AdminIndexRoute
   '/study/': typeof StudyIndexRoute
+  '/api/public/track': typeof ApiPublicTrackRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -116,6 +123,7 @@ export interface FileRoutesByTo {
   '/study/quiz': typeof StudyQuizRoute
   '/admin': typeof AdminIndexRoute
   '/study': typeof StudyIndexRoute
+  '/api/public/track': typeof ApiPublicTrackRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -132,6 +140,7 @@ export interface FileRoutesById {
   '/study/quiz': typeof StudyQuizRoute
   '/admin/': typeof AdminIndexRoute
   '/study/': typeof StudyIndexRoute
+  '/api/public/track': typeof ApiPublicTrackRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -149,6 +158,7 @@ export interface FileRouteTypes {
     | '/study/quiz'
     | '/admin/'
     | '/study/'
+    | '/api/public/track'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -162,6 +172,7 @@ export interface FileRouteTypes {
     | '/study/quiz'
     | '/admin'
     | '/study'
+    | '/api/public/track'
   id:
     | '__root__'
     | '/'
@@ -177,6 +188,7 @@ export interface FileRouteTypes {
     | '/study/quiz'
     | '/admin/'
     | '/study/'
+    | '/api/public/track'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -184,6 +196,7 @@ export interface RootRouteChildren {
   AdminRoute: typeof AdminRouteWithChildren
   AuthRoute: typeof AuthRoute
   StudyRoute: typeof StudyRouteWithChildren
+  ApiPublicTrackRoute: typeof ApiPublicTrackRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -279,6 +292,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminAnalyticsRouteImport
       parentRoute: typeof AdminRoute
     }
+    '/api/public/track': {
+      id: '/api/public/track'
+      path: '/api/public/track'
+      fullPath: '/api/public/track'
+      preLoaderRoute: typeof ApiPublicTrackRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -321,6 +341,7 @@ const rootRouteChildren: RootRouteChildren = {
   AdminRoute: AdminRouteWithChildren,
   AuthRoute: AuthRoute,
   StudyRoute: StudyRouteWithChildren,
+  ApiPublicTrackRoute: ApiPublicTrackRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
