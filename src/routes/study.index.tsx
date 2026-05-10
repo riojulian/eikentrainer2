@@ -4,7 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { qk } from "@/lib/queryKeys";
 import { useAuth } from "@/lib/auth";
 import { fetchActiveWords, fetchStatuses, MASTERY_LABELS, MASTERY_BG, TIER_LABELS, type Mastery } from "@/lib/words";
-import { BookOpen, Trophy, Sparkles } from "lucide-react";
+import { BookOpen } from "lucide-react";
 import {
   ensureWorldOrder,
   stagize,
@@ -317,12 +317,6 @@ function StudyHome() {
 
   return (
     <main className="mx-auto max-w-3xl px-4 py-6">
-      <div className="mb-3 flex flex-wrap items-center gap-2">
-        <span className="inline-flex items-center gap-1.5 rounded-full bg-accent/30 px-3 py-1 text-xs font-semibold tracking-wide text-accent-foreground">
-          <Sparkles className="h-3 w-3" /> {t("level.short")}
-        </span>
-        <span className="text-xs text-muted-foreground">{t("level.comingSoon")}</span>
-      </div>
       <h1 className="font-display text-3xl truncate">{t("home.hello")}, {displayName ?? t("home.friend")} 🌸</h1>
 
       {worldSummaries.length > 0 && (
@@ -338,27 +332,24 @@ function StudyHome() {
       {hasStages ? (
         <>
           <div className="mt-4 rounded-2xl border bg-card p-5 shadow-card">
-            <div className="flex items-center justify-between">
-              <div className="min-w-0">
-                <div className="text-xs uppercase tracking-widest text-gold truncate">{activeWorldLabel}</div>
-                <div className="font-display text-2xl mt-0.5">{t("home.stage")} {currentStage}</div>
-                <div className="text-sm text-muted-foreground">
-                  {stages[currentStage - 1]?.length ?? 0} {t("home.words")} · {t("home.stage")} {currentStage} {t("home.of")} {totalStages}
-                </div>
-              </div>
-              <BookOpen className="h-8 w-8 text-gold shrink-0" />
+            <div className="text-[11px] uppercase tracking-widest text-gold">{activeWorldLabel}</div>
+            <div className="font-display text-3xl mt-1">{t("home.stage")} {currentStage}</div>
+            <div className="text-sm text-muted-foreground mt-0.5">
+              {stages[currentStage - 1]?.length ?? 0} {t("home.words")} · {currentStage}/{totalStages}
             </div>
-            <div className="mt-4 grid gap-2 sm:grid-cols-2">
-              <Button asChild size="lg" className="h-12">
-                <Link to="/study/flashcards" search={{ mission: currentStage, world: activeWorld }}>
-                  <BookOpen className="h-4 w-4 mr-1" /> {t("home.studyStage")}
-                </Link>
-              </Button>
-              <Button asChild size="lg" variant="outline" className="h-12">
-                <Link to="/study/quiz" search={{ mode: "mission" as const, mission: currentStage, world: activeWorld }}>
-                  <Trophy className="h-4 w-4 mr-1" /> {t("home.takeQuiz")}
-                </Link>
-              </Button>
+            <Button asChild size="lg" className="mt-4 h-14 w-full text-base shadow-glow">
+              <Link to="/study/flashcards" search={{ mission: currentStage, world: activeWorld }}>
+                <BookOpen className="h-5 w-5 mr-2" /> {t("home.studyStage")}
+              </Link>
+            </Button>
+            <div className="mt-2 text-center">
+              <Link
+                to="/study/quiz"
+                search={{ mode: "mission" as const, mission: currentStage, world: activeWorld }}
+                className="text-xs text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
+              >
+                {t("home.takeQuiz")} →
+              </Link>
             </div>
           </div>
         </>

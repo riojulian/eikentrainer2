@@ -1,34 +1,67 @@
-## Add Analytics page to Admin
+## Goal
 
-Add a new "Analytics" tab in the admin area showing site traffic + signup metrics.
+The /study page feels busy and the "World" concept confuses users. Make it obvious that the main action is **studying flashcards**, and reframe Worlds as **Categories** with friendlier names.
 
-### 1. New nav tab — `src/routes/admin.tsx`
-Add a 4th link `{ to: "/admin/analytics", label: "Analytics", icon: LineChart }` to the existing tab bar.
+## Changes
 
-### 2. New route — `src/routes/admin.analytics.tsx`
-Page with a date-range selector (Last 24h / 7 days / 30 days, default 7d) and these cards:
+### 1. Hero stage card — single primary CTA
+File: `src/routes/study.index.tsx`
 
-**Traffic (from Lovable production analytics)**
-- Page views (total in range)
-- Unique visitors (total in range)
-- Daily line chart of page views + unique visitors
+- Replace the two side-by-side buttons (Study Stage + Take Quiz) with **one large "Study Flashcards" button** spanning full width, gold-filled, taller (h-14), with the BookOpen icon.
+- Move "Take Quiz" to a small secondary text link beneath the main button (e.g. "Or take the quiz →"), styled as a muted ghost link.
+- Tighten card copy: bigger "Stage N" headline, shorter subline ("10 words to learn").
 
-Data source: `analytics--read_project_analytics` (production-only). On the preview/dev domain we'll show a small note: "Traffic analytics show data from the published site (eikentango.com)."
+### 2. Rename "World" → "Category" everywhere user-facing
+- New short labels (replace `WORLD_TOPIC_EN` / `WORLD_TOPIC_JA` and the picker heading):
+  - tier1 → **Core**
+  - tier2 → **Topics**
+  - tier3 → **Reading**
+  - tier4 → **Niche**
+  - phrases → **Phrases**
+- Files to touch:
+  - `src/components/WorldPicker.tsx` — update topic maps; remove the small "WORLD N" eyebrow chip above each tile (this is a big source of visual noise on a 411px viewport). Show only the category name + progress.
+  - `src/lib/i18n.tsx` — change `home.pickWorld` to "Pick a category" / 「カテゴリーを選ぶ」 and `home.worldHint` to a one-liner like "Vocabulary sets by topic" / 「テーマ別の語彙セット」.
+  - Any other `t("home.pickWorld")` / "World" strings in `study.index.tsx`.
+- Keep the internal code identifiers (`world`, `WORLD_ORDER`, `tier1`…) unchanged — purely a copy/UI change.
 
-**Users (from our database)**
-- New signups in range — `count(profiles where created_at in range)`
-- Total users — `count(profiles)`
-- Daily bar chart of new signups
-- (Per your answer, "new trial" = new signup, so a single metric.)
+### 3. Reduce header noise
+- Remove the "Level · coming soon" Sparkles chip block at the top of `study.index.tsx` (lines ~320–325).
+- Greeting stays but trimmed to one line.
 
-### 3. Server function — `src/lib/analytics.functions.ts`
-`getSignupStats({ startDate, endDate })` using `requireSupabaseAuth` + admin role check. Returns `{ totalUsers, newSignups, daily: [{date, count}] }` from the `profiles` table.
+### 4. Category picker visual polish
+File: `src/components/WorldPicker.tsx`
+- Drop the tiny uppercase "WORLD 1/2/…" eyebrow text — it's the main thing the user calls "confusing".
+- Make the active tile more obvious (slightly larger gold ring already there; add subtle bg highlight).
+- Keep the 5-column grid, progress bar, and lock state.
 
-For the traffic numbers, since Lovable analytics isn't queryable from app code, the analytics page will instead render fetched values that I include at build time via a small server function calling our internal analytics endpoint — if not exposable, we'll fall back to displaying a "View full traffic analytics" link/button that opens the Lovable analytics panel, while the in-app cards focus on signup data we own. I'll attempt the API integration first and degrade gracefully.
+### 5. Tabs section unchanged
+Progress / Map / Badges tabs stay where they are (user didn't ask to move them). The added breathing room from #1 + #3 already lifts the hero.
 
-### 4. Access control
-Route wrapped by existing `RequireAuth admin` (inherited from `/admin` layout).
+## Out of scope
+- No DB / backend changes.
+- No changes to flashcards or quiz routes themselves.
+- No changes to admin analytics work.
 
-### Out of scope
-- "New trial" as a separate metric (same as signups for now — revisit when paid plans land).
-- Per-page breakdowns / referrers (can add later).
+## Visual sketch (mobile, 411px)
+
+```text
+Hi, Alex 🌸
+
+Pick a category          Vocabulary sets by topic
+[ Core ][ Topics ][Reading][ Niche ][Phrases]
+
+┌──────────────────────────────────┐
+│ CORE                             │
+│ Stage 3                          │
+│ 10 words to learn                │
+│                                  │
+│ ┌──────────────────────────────┐ │
+│ │  📖  Study Flashcards        │ │  ← big gold
+│ └──────────────────────────────┘ │
+│        Or take the quiz →        │  ← small link
+└──────────────────────────────────┘
+
+(WeakZone strip if any)
+
+[ Progress | Map | Badges ]
+```
