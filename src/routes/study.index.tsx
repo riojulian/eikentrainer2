@@ -1,4 +1,4 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { qk } from "@/lib/queryKeys";
@@ -23,7 +23,7 @@ import { MasteryHeader } from "@/components/MasteryHeader";
 import { AchievementsStrip } from "@/components/AchievementsStrip";
 import { WeakZoneStrip } from "@/components/WeakZoneStrip";
 import { StageMap } from "@/components/StageMap";
-import { WorldPicker, type WorldSummary } from "@/components/WorldPicker";
+import type { WorldSummary } from "@/components/WorldPicker";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import type { Word } from "@/lib/words";
@@ -33,7 +33,12 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { GUEST_FREE_STAGES, isGuestAllowed } from "@/lib/guestMastery";
 import { Lock } from "lucide-react";
 
+type StudySearch = { world?: string };
+
 export const Route = createFileRoute("/study/")({
+  validateSearch: (s: Record<string, unknown>): StudySearch => ({
+    world: typeof s.world === "string" ? s.world : undefined,
+  }),
   component: StudyHome,
 });
 
@@ -41,6 +46,8 @@ function StudyHome() {
   const { user, displayName } = useAuth();
   const isGuest = !user;
   const { lang, setLang, t } = useLang();
+  const search = Route.useSearch();
+  const navigate = useNavigate();
   const [activeWorld, setActiveWorld] = useState<string>("tier1");
   const [stages, setStages] = useState<Word[][]>([]);
   const [currentStage, setStageState] = useState(1);
