@@ -1,6 +1,6 @@
 import { cn } from "@/lib/utils";
 import { Lock } from "lucide-react";
-import { TIER_LABELS, TIER_SHORT } from "@/lib/words";
+import { TIER_LABELS } from "@/lib/words";
 import { WORLD_ORDER } from "@/lib/stages";
 import { useLang } from "@/lib/i18n";
 
