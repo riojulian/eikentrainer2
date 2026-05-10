@@ -250,11 +250,14 @@ function StudyHome() {
     })();
   }, [user, isGuest, activeWorld]);
 
-  const onWorldChange = async (next: string) => {
-    if (next === activeWorld) return;
+  // React to ?world= changes from header dropdown
+  useEffect(() => {
+    const next = search.world;
+    if (!next || next === activeWorld) return;
+    if (!WORLD_ORDER.includes(next)) return;
     setActiveWorld(next);
-    if (user) await setCurrentWorld(user.id, next);
-  };
+    if (user) void setCurrentWorld(user.id, next);
+  }, [search.world, activeWorld, user]);
 
   const masteredish = stats.tiers[2] + stats.tiers[3];
   const tierRows: { key: Mastery; count: number; cls: string; label: string }[] = [
