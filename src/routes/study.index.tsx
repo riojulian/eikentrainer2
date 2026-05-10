@@ -326,20 +326,13 @@ function StudyHome() {
     <main className="mx-auto max-w-3xl px-4 py-6">
       <h1 className="font-display text-3xl truncate">{t("home.hello")}, {displayName ?? t("home.friend")} 🌸</h1>
 
-      {worldSummaries.length > 0 && (
-        <div className="mt-6">
-          <div className="mb-2 flex items-baseline justify-between">
-            <div className="text-sm font-medium">{t("home.pickWorld")}</div>
-            <div className="text-xs text-muted-foreground">{t("home.worldHint")}</div>
-          </div>
-          <WorldPicker summaries={worldSummaries} active={activeWorld} onChange={onWorldChange} />
-        </div>
-      )}
-
       {hasStages ? (
         <>
           <div className="mt-4 rounded-2xl border bg-card p-5 shadow-card">
-            <div className="text-[11px] uppercase tracking-widest text-gold">{activeWorldLabel}</div>
+            <div className="flex items-center justify-between gap-2">
+              <div className="text-[11px] uppercase tracking-widest text-gold truncate">{activeWorldLabel}</div>
+              <div className="text-[11px] text-muted-foreground">{t("home.changeHint")}</div>
+            </div>
             <div className="font-display text-3xl mt-1">{t("home.stage")} {currentStage}</div>
             <div className="text-sm text-muted-foreground mt-0.5">
               {stages[currentStage - 1]?.length ?? 0} {t("home.words")} · {currentStage}/{totalStages}
