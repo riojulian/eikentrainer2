@@ -1,4 +1,4 @@
-import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { qk } from "@/lib/queryKeys";
@@ -47,7 +47,6 @@ function StudyHome() {
   const isGuest = !user;
   const { lang, setLang, t } = useLang();
   const search = Route.useSearch();
-  const navigate = useNavigate();
   const [activeWorld, setActiveWorld] = useState<string>("tier1");
   const [stages, setStages] = useState<Word[][]>([]);
   const [currentStage, setStageState] = useState(1);
