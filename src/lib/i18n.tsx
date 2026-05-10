@@ -15,6 +15,7 @@ const DICT: Dict = {
   "home.friend": { en: "friend", ja: "友達" },
  "home.pickWorld": { en: "Pick a category", ja: "カテゴリーを選ぶ" },
  "home.worldHint": { en: "Vocabulary sets by topic", ja: "テーマ別の語彙セット" },
+  "home.changeHint": { en: "Change in ⋮ menu", ja: "⋮メニューで変更" },
   "home.stage": { en: "Stage", ja: "ステージ" },
   "home.of": { en: "of", ja: "/" },
   "home.words": { en: "words", ja: "単語" },
