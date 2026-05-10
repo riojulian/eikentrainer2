@@ -15,6 +15,7 @@ const DICT: Dict = {
   "home.friend": { en: "friend", ja: "友達" },
  "home.pickWorld": { en: "Pick a category", ja: "カテゴリーを選ぶ" },
  "home.worldHint": { en: "Vocabulary sets by topic", ja: "テーマ別の語彙セット" },
+  "home.changeHint": { en: "Change in ⋮ menu", ja: "⋮メニューで変更" },
   "home.stage": { en: "Stage", ja: "ステージ" },
   "home.of": { en: "of", ja: "/" },
   "home.words": { en: "words", ja: "単語" },
@@ -47,6 +48,7 @@ const DICT: Dict = {
   "menu.unlockHint": { en: "Study 4+ words to unlock", ja: "4単語以上学習で解放" },
   "menu.browse": { en: "Browse all words", ja: "全単語を見る" },
   "menu.language": { en: "Language", ja: "言語" },
+  "menu.category": { en: "Category", ja: "カテゴリー" },
   "menu.langEn": { en: "English", ja: "English" },
   "menu.langJa": { en: "日本語", ja: "日本語" },
   // Flashcards

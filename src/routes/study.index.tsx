@@ -23,7 +23,7 @@ import { MasteryHeader } from "@/components/MasteryHeader";
 import { AchievementsStrip } from "@/components/AchievementsStrip";
 import { WeakZoneStrip } from "@/components/WeakZoneStrip";
 import { StageMap } from "@/components/StageMap";
-import { WorldPicker, type WorldSummary } from "@/components/WorldPicker";
+import type { WorldSummary } from "@/components/WorldPicker";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import type { Word } from "@/lib/words";
@@ -33,7 +33,12 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { GUEST_FREE_STAGES, isGuestAllowed } from "@/lib/guestMastery";
 import { Lock } from "lucide-react";
 
+type StudySearch = { world?: string };
+
 export const Route = createFileRoute("/study/")({
+  validateSearch: (s: Record<string, unknown>): StudySearch => ({
+    world: typeof s.world === "string" ? s.world : undefined,
+  }),
   component: StudyHome,
 });
 
@@ -41,6 +46,7 @@ function StudyHome() {
   const { user, displayName } = useAuth();
   const isGuest = !user;
   const { lang, setLang, t } = useLang();
+  const search = Route.useSearch();
   const [activeWorld, setActiveWorld] = useState<string>("tier1");
   const [stages, setStages] = useState<Word[][]>([]);
   const [currentStage, setStageState] = useState(1);
@@ -243,11 +249,14 @@ function StudyHome() {
     })();
   }, [user, isGuest, activeWorld]);
 
-  const onWorldChange = async (next: string) => {
-    if (next === activeWorld) return;
+  // React to ?world= changes from header dropdown
+  useEffect(() => {
+    const next = search.world;
+    if (!next || next === activeWorld) return;
+    if (!WORLD_ORDER.includes(next)) return;
     setActiveWorld(next);
-    if (user) await setCurrentWorld(user.id, next);
-  };
+    if (user) void setCurrentWorld(user.id, next);
+  }, [search.world, activeWorld, user]);
 
   const masteredish = stats.tiers[2] + stats.tiers[3];
   const tierRows: { key: Mastery; count: number; cls: string; label: string }[] = [
@@ -319,20 +328,13 @@ function StudyHome() {
     <main className="mx-auto max-w-3xl px-4 py-6">
       <h1 className="font-display text-3xl truncate">{t("home.hello")}, {displayName ?? t("home.friend")} 🌸</h1>
 
-      {worldSummaries.length > 0 && (
-        <div className="mt-6">
-          <div className="mb-2 flex items-baseline justify-between">
-            <div className="text-sm font-medium">{t("home.pickWorld")}</div>
-            <div className="text-xs text-muted-foreground">{t("home.worldHint")}</div>
-          </div>
-          <WorldPicker summaries={worldSummaries} active={activeWorld} onChange={onWorldChange} />
-        </div>
-      )}
-
       {hasStages ? (
         <>
           <div className="mt-4 rounded-2xl border bg-card p-5 shadow-card">
-            <div className="text-[11px] uppercase tracking-widest text-gold">{activeWorldLabel}</div>
+            <div className="flex items-center justify-between gap-2">
+              <div className="text-[11px] uppercase tracking-widest text-gold truncate">{activeWorldLabel}</div>
+              <div className="text-[11px] text-muted-foreground">{t("home.changeHint")}</div>
+            </div>
             <div className="font-display text-3xl mt-1">{t("home.stage")} {currentStage}</div>
             <div className="text-sm text-muted-foreground mt-0.5">
               {stages[currentStage - 1]?.length ?? 0} {t("home.words")} · {currentStage}/{totalStages}
