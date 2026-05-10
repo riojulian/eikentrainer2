@@ -47,6 +47,7 @@ const DICT: Dict = {
   "menu.unlockHint": { en: "Study 4+ words to unlock", ja: "4単語以上学習で解放" },
   "menu.browse": { en: "Browse all words", ja: "全単語を見る" },
   "menu.language": { en: "Language", ja: "言語" },
+  "menu.category": { en: "Category", ja: "カテゴリー" },
   "menu.langEn": { en: "English", ja: "English" },
   "menu.langJa": { en: "日本語", ja: "日本語" },
   // Flashcards
