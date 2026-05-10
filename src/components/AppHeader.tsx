@@ -1,4 +1,4 @@
-import { Link, useNavigate } from "@tanstack/react-router";
+import { Link, useNavigate, useSearch } from "@tanstack/react-router";
 import { useAuth } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
 import {
@@ -10,6 +10,7 @@ import {
   CalendarDays,
   CalendarRange,
   Languages,
+  Layers,
 } from "lucide-react";
 import { BrandMark } from "@/components/BrandMark";
 import { useLang } from "@/lib/i18n";
@@ -39,11 +40,30 @@ import {
 } from "@/lib/words";
 import { supabase } from "@/integrations/supabase/client";
 import { useMemo } from "react";
+import { WORLD_ORDER } from "@/lib/stages";
+
+const CATEGORY_LABELS_EN: Record<string, string> = {
+  tier1: "Core",
+  tier2: "Topics",
+  tier3: "Reading",
+  tier4: "Niche",
+  phrases: "Phrases",
+};
+const CATEGORY_LABELS_JA: Record<string, string> = {
+  tier1: "基礎",
+  tier2: "分野",
+  tier3: "読解",
+  tier4: "上級",
+  phrases: "熟語",
+};
 
 export function AppHeader() {
   const { user, role, displayName, signOut } = useAuth();
   const navigate = useNavigate();
   const { lang, setLang, t } = useLang();
+  const studySearch = useSearch({ strict: false }) as { world?: string };
+  const activeWorld = studySearch?.world;
+  const catLabels = lang === "ja" ? CATEGORY_LABELS_JA : CATEGORY_LABELS_EN;
 
   const allWordsQ = useQuery({
     queryKey: qk.words(),
@@ -116,6 +136,18 @@ export function AppHeader() {
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-64">
+        <DropdownMenuLabel className="flex items-center gap-2">
+          <Layers className="h-4 w-4 text-gold" /> {t("menu.category")}
+        </DropdownMenuLabel>
+        {WORLD_ORDER.map((w) => (
+          <DropdownMenuItem key={w} asChild>
+            <Link to="/study" search={{ world: w }}>
+              <span className={activeWorld === w ? "font-semibold" : ""}>{catLabels[w] ?? w}</span>
+              {activeWorld === w ? <span className="ml-auto text-xs text-muted-foreground">✓</span> : null}
+            </Link>
+          </DropdownMenuItem>
+        ))}
+        <DropdownMenuSeparator />
         {user ? (
           <>
             <DropdownMenuLabel>{t("menu.reviewsLib")}</DropdownMenuLabel>
