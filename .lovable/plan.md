@@ -1,65 +1,95 @@
 ## Goal
 
-Move the Category picker out of the main study page body and into the floating three-dots overflow menu in the header, so the hero (Study Flashcards card) becomes the first thing users see.
+Make quiz answer choices less obvious by drawing distractors from words the student has actually encountered, and matching the answer's "shape" (phrase vs. single word, part of speech).
 
-## Approach
+No DB changes. No effect on already-studied word mastery — only the distractor selection in quizzes going forward changes.
 
-The active category currently lives in `study.index.tsx` local state (`activeWorld`). To control it from the header dropdown, lift it into the URL as a search param (`?world=tier1`). The header reads/writes the param, the study page reads it as the source of truth.
+## Where the change lives
 
-## Changes
+All logic stays in `src/routes/study.quiz.tsx` inside `buildQuizQuestions(pool, allWords)`. Signature gains a `statuses` arg so it can prefer "seen" words:
 
-### 1. `src/routes/study.index.tsx`
-- Add `validateSearch` to the route: `{ world?: string }`.
-- Replace `useState<string>("tier1")` with `Route.useSearch()` + `useNavigate()`. `onWorldChange` becomes `navigate({ search: { world: next } })`.
-- Remove the `WorldPicker` block (the "Pick a category" section, ~lines 322–329) entirely from the page.
-- Keep the small gold `activeWorldLabel` eyebrow on the hero card so users still see which category is active. Add a tiny "Change ▾" hint next to it that opens the header menu (just a visual cue — no wiring needed; users tap the ⋮ button).
-
-### 2. `src/components/AppHeader.tsx`
-- Add a new "Category" section in the dropdown (above "Words I know" when on `/study`, or always — simpler).
-- Fetch the same per-world summaries the study page builds. To avoid duplicating the fetch logic, extract the summary builder into `src/lib/worldSummaries.ts` (`fetchWorldSummaries(userId | null)`) and call it via `useQuery` from both the header and `study.index.tsx`.
-- Render 5 `DropdownMenuItem`s, one per world: friendly name (Core/Topics/Reading/Niche/Phrases) + small "stage X / Y" subline + lock icon when empty. Selecting one calls `navigate({ to: "/study", search: { world: w } })`.
-- Mark the active world with a check.
-
-### 3. `src/components/WorldPicker.tsx`
-- No longer used on the study page. Either delete the file or leave it for now (unused). Recommend deleting to keep the tree clean.
-
-### 4. Translation strings (`src/lib/i18n.tsx`)
-- Add `menu.category` ("Category" / 「カテゴリー」).
-- Remove (or keep unused) `home.pickWorld` / `home.worldHint`.
-
-## Out of scope
-- No backend changes.
-- No changes to flashcards/quiz routes.
-- Hero card layout, WeakZone, and Tabs stay as they are.
-
-## Visual sketch (mobile, 411px)
-
-```text
-┌─ Header ──────────────── [Study] [⋮] ─┐
-                                   │
-                                   ▼
-                          ┌──────────────────┐
-                          │ CATEGORY         │
-                          │ • Core   3/8   ✓ │
-                          │ • Topics 1/6     │
-                          │ • Reading  —  🔒 │
-                          │ • Niche    —  🔒 │
-                          │ • Phrases 0/4    │
-                          │ ─────────────    │
-                          │ Words I know …   │
-                          │ Weekly quiz …    │
-                          └──────────────────┘
-
-Hi, Alex 🌸
-
-┌──────────────────────────────────┐
-│ CORE  ·  Change ▾                │
-│ Stage 3                          │
-│ 10 words to learn                │
-│ [  📖  Study Flashcards       ]  │
-│        Or take the quiz →        │
-└──────────────────────────────────┘
-
-(WeakZone if any)
-[ Progress | Map | Badges ]
+```ts
+buildQuizQuestions(pool, allWords, statuses, world)
 ```
+
+Call sites already have `statuses` and `activeWorld` in scope.
+
+## Distractor selection rules (in priority order)
+
+For each answer word `w`, pick 3 distractors from a candidate pool filtered like this:
+
+1. **Same shape as the answer**
+   - If `w.tier === "phrases"` (or `w.word` contains a space): only consider other phrases.
+   - Else: only consider single-word entries.
+   - This guarantees a phrase question shows 4 phrases, a word question shows 4 words.
+
+2. **Same part of speech when available**
+   - Prefer candidates with `part_of_speech === w.part_of_speech`.
+   - Fall back to any POS if too few matches (<3).
+
+3. **Same world / category preferred**
+   - Prefer candidates with `tier === w.tier` (e.g. tier1 distractors for a tier1 answer).
+   - Fall back to other tiers if needed.
+
+4. **Prefer words the student has seen**
+   - Build tiers of candidates:
+     - **Tier A:** words present in `statuses` (any mastery 0–3) — "learned in this stage or in the past".
+     - **Tier B:** other active words in the same category.
+     - **Tier C:** anything else active (last resort).
+   - Fill the 3 distractor slots from Tier A first, then B, then C.
+
+5. **De-noise**
+   - Exclude `w.id` itself.
+   - Exclude any candidate whose `word` equals `w.word` (case-insensitive) — guards against duplicate entries.
+   - Optional: prefer candidates with similar word length (within ±40% of answer length) to avoid the "obviously the longest one" tell. Apply only inside Tier A/B; skip if it leaves <3 candidates.
+
+6. **Shuffle and slice 3**, then shuffle the final 4 options.
+
+## Pseudocode
+
+```ts
+function pickDistractors(w, allWords, statuses) {
+  const isPhrase = w.tier === "phrases" || /\s/.test(w.word);
+  const shapeOk = (x) => (/\s/.test(x.word) || x.tier === "phrases") === isPhrase;
+
+  const base = allWords.filter(x =>
+    x.id !== w.id &&
+    x.word.toLowerCase() !== w.word.toLowerCase() &&
+    shapeOk(x)
+  );
+
+  const samePos = base.filter(x => w.part_of_speech && x.part_of_speech === w.part_of_speech);
+  const sameTier = (pool) => pool.filter(x => x.tier === w.tier);
+
+  const seenIds = new Set(Object.keys(statuses));
+  const tierA = sameTier(samePos).filter(x => seenIds.has(x.id));
+  const tierB = sameTier(samePos).filter(x => !seenIds.has(x.id));
+  const tierC = sameTier(base);
+  const tierD = base;
+
+  const picked = [];
+  for (const tier of [tierA, tierB, tierC, tierD]) {
+    if (picked.length >= 3) break;
+    for (const cand of shuffle(tier)) {
+      if (picked.length >= 3) break;
+      if (!picked.some(p => p.id === cand.id)) picked.push(cand);
+    }
+  }
+  return picked.slice(0, 3).map(x => x.word);
+}
+```
+
+## What does NOT change
+
+- `word_status`, `world_progress`, `student_word_order` — untouched. Existing studied words keep their mastery.
+- Stage building (`buildStageQuiz`) and which words appear as questions — unchanged.
+- Weekly / monthly / weakness modes get the same improved distractors automatically since they share `buildQuizQuestions`.
+
+## Other ideas worth considering (not in this plan unless you want them)
+
+- **Confusable-pair list**: maintain a small admin-curated list of "easily confused" words (e.g. *affect/effect*, *adapt/adopt*) and inject one when applicable.
+- **POS-fit distractors for cloze**: since the question is a fill-in-the-blank sentence, requiring same POS makes all options grammatically plausible, which is the single biggest difficulty boost.
+- **Mastery-weighted distractors**: prefer Tier A candidates the student already mastered (mastery ≥ 2), so the wrong options are familiar-but-wrong rather than unknown.
+- **Anti-repeat**: avoid showing the same distractor twice in one quiz session.
+
+Tell me which extras (if any) to fold in and I'll add them to the implementation step.
