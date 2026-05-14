@@ -252,7 +252,7 @@ function QuizPage() {
         setStageIndex(idxToUse);
         if (stages.length === 0) { setQuestions([]); return; }
         const pool = buildStageQuiz(stages, idxToUse);
-        setQuestions(buildQuizQuestions(pool, allWords));
+        setQuestions(buildQuizQuestions(pool, allWords, st));
       } else if (mode === "weakness") {
         const [allWords, st, weak, mst] = await Promise.all([
           queryClient.ensureQueryData({ queryKey: qk.words(), queryFn: fetchActiveWords, staleTime: Infinity }),
@@ -263,7 +263,7 @@ function QuizPage() {
         setStatuses(st);
         setLivePct(mst.pct); setReadinessBefore(mst.pct);
         if (weak.length < 1) { setQuestions([]); return; }
-        setQuestions(buildQuizQuestions(weak, allWords));
+        setQuestions(buildQuizQuestions(weak, allWords, st));
       } else {
         const [allWords, st, mst] = await Promise.all([
           queryClient.ensureQueryData({ queryKey: qk.words(), queryFn: fetchActiveWords, staleTime: Infinity }),
@@ -275,7 +275,7 @@ function QuizPage() {
         const days = mode === "weekly" ? 7 : 30;
         const pool = await buildPeriodicQuiz(user!.id, days);
         if (pool.length < 4) { setQuestions([]); return; }
-        setQuestions(buildQuizQuestions(pool, allWords));
+        setQuestions(buildQuizQuestions(pool, allWords, st));
       }
     })();
   }, [user, isGuest, mode, missionParam, search.world, queryClient, navigate]);
