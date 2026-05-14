@@ -7,7 +7,6 @@ import {
   fetchStatuses,
   setMastery,
   MASTERY_LABELS,
-  TIER_SHORT,
   type Word,
   type Mastery,
   type MasteryOrUnseen,
@@ -18,7 +17,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { cn } from "@/lib/utils";
 import { ensureWorldOrder, stagize, getCurrentWorld, DEFAULT_WORLD, getGuestWords } from "@/lib/stages";
 import { bumpStreak, awardXp, XP_PER_KNOWN_FIRST } from "@/lib/gamification";
-import { useLang } from "@/lib/i18n";
+import { useLang, useCategoryLabel } from "@/lib/i18n";
 import {
   isGuestAllowed,
   GUEST_FREE_STAGES,
