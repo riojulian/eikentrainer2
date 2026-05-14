@@ -69,6 +69,7 @@ function Flashcards() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { lang, t } = useLang();
+  const categoryLabel = useCategoryLabel();
   const search = Route.useSearch();
   const missionParam = search.mission;
   const freeMode = search.free || missionParam === undefined;
@@ -372,7 +373,7 @@ function Flashcards() {
 
   const pct = order.length ? Math.round(((idx + 1) / order.length) * 100) : 0;
   const currentMastery: MasteryOrUnseen = current ? statuses[current.id] ?? null : null;
-  const worldShort = TIER_SHORT[activeWorld] ?? activeWorld;
+  const worldShort = categoryLabel(activeWorld);
 
   return (
     <main className="mx-auto max-w-2xl px-4 py-2">
