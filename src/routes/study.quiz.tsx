@@ -9,7 +9,6 @@ import {
   fetchStatuses,
   applyQuizResult,
   MASTERY_LABELS,
-  TIER_SHORT,
   type Word,
   type Mastery,
   type MasteryOrUnseen,
@@ -54,7 +53,7 @@ import {
 } from "@/lib/gamification";
 import { cn } from "@/lib/utils";
 import { getWeakWords } from "@/lib/weakZone";
-import { useLang } from "@/lib/i18n";
+import { useLang, useCategoryLabel } from "@/lib/i18n";
 import { BADGES_JA } from "@/lib/gamification";
 import { toast } from "sonner";
 
@@ -117,6 +116,7 @@ function QuizPage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { t, lang } = useLang();
+  const categoryLabel = useCategoryLabel();
   const search = Route.useSearch();
   const mode: Mode = search.mode ?? "mission";
   const missionParam = search.mission;
@@ -453,7 +453,7 @@ function QuizPage() {
     }, delay);
   };
 
-  const worldShort = TIER_SHORT[activeWorld] ?? activeWorld;
+  const worldShort = categoryLabel(activeWorld);
   const headerLabel =
     mode === "mission" && stageIndex
       ? `${worldShort} · Stage ${stageIndex} quiz`
