@@ -3,7 +3,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { qk } from "@/lib/queryKeys";
 import { useAuth } from "@/lib/auth";
-import { fetchActiveWords, fetchStatuses, MASTERY_LABELS, MASTERY_BG, TIER_LABELS, type Mastery } from "@/lib/words";
+import { fetchActiveWords, fetchStatuses, MASTERY_LABELS, MASTERY_BG, type Mastery } from "@/lib/words";
 import { BookOpen } from "lucide-react";
 import {
   ensureWorldOrder,
@@ -28,7 +28,7 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import type { Word } from "@/lib/words";
 import { supabase } from "@/integrations/supabase/client";
-import { useLang } from "@/lib/i18n";
+import { useLang, useCategoryLabel } from "@/lib/i18n";
 import { Skeleton } from "@/components/ui/skeleton";
 import { GUEST_FREE_STAGES, isGuestAllowed } from "@/lib/guestMastery";
 import { Lock } from "lucide-react";
@@ -46,6 +46,7 @@ function StudyHome() {
   const { user, displayName } = useAuth();
   const isGuest = !user;
   const { lang, setLang, t } = useLang();
+  const categoryLabel = useCategoryLabel();
   const search = Route.useSearch();
   const [activeWorld, setActiveWorld] = useState<string>("tier1");
   const [stages, setStages] = useState<Word[][]>([]);
@@ -269,7 +270,7 @@ function StudyHome() {
   const totalStages = stages.length;
   const hasStages = totalStages > 0;
   const tierByStage = stages.map((stage) => stage[0]?.tier ?? null);
-  const activeWorldLabel = TIER_LABELS[activeWorld] ?? activeWorld;
+  const activeWorldLabel = categoryLabel(activeWorld);
 
   if (loading) {
     return (

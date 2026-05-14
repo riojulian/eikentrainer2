@@ -153,3 +153,21 @@ export function useLang() {
   if (!ctx) throw new Error("useLang must be used within LangProvider");
   return ctx;
 }
+
+// Friendly category names per world key (replaces "World N" framing)
+const CATEGORY_NAMES: Record<string, { en: string; ja: string }> = {
+  tier1: { en: "Core", ja: "基礎" },
+  tier2: { en: "Topics", ja: "分野" },
+  tier3: { en: "Reading", ja: "読解" },
+  tier4: { en: "Niche", ja: "上級" },
+  phrases: { en: "Phrases", ja: "熟語" },
+};
+
+export function useCategoryLabel() {
+  const { lang } = useLang();
+  const prefix = lang === "ja" ? "カテゴリー" : "Category";
+  return (world: string) => {
+    const name = CATEGORY_NAMES[world]?.[lang] ?? world;
+    return `${prefix}: ${name}`;
+  };
+}

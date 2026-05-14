@@ -7,7 +7,6 @@ import {
   fetchStatuses,
   setMastery,
   MASTERY_LABELS,
-  TIER_SHORT,
   type Word,
   type Mastery,
   type MasteryOrUnseen,
@@ -18,7 +17,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { cn } from "@/lib/utils";
 import { ensureWorldOrder, stagize, getCurrentWorld, DEFAULT_WORLD, getGuestWords } from "@/lib/stages";
 import { bumpStreak, awardXp, XP_PER_KNOWN_FIRST } from "@/lib/gamification";
-import { useLang } from "@/lib/i18n";
+import { useLang, useCategoryLabel } from "@/lib/i18n";
 import {
   isGuestAllowed,
   GUEST_FREE_STAGES,
@@ -70,6 +69,7 @@ function Flashcards() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { lang, t } = useLang();
+  const categoryLabel = useCategoryLabel();
   const search = Route.useSearch();
   const missionParam = search.mission;
   const freeMode = search.free || missionParam === undefined;
@@ -373,7 +373,7 @@ function Flashcards() {
 
   const pct = order.length ? Math.round(((idx + 1) / order.length) * 100) : 0;
   const currentMastery: MasteryOrUnseen = current ? statuses[current.id] ?? null : null;
-  const worldShort = TIER_SHORT[activeWorld] ?? activeWorld;
+  const worldShort = categoryLabel(activeWorld);
 
   return (
     <main className="mx-auto max-w-2xl px-4 py-2">
