@@ -90,10 +90,84 @@ function shuffle<T>(arr: T[]) {
   return a;
 }
 
-function buildQuizQuestions(pool: Word[], allWords: Word[]): Q[] {
+const isPhraseWord = (w: Word) => w.tier === "phrases" || /\s/.test(w.word.trim());
+
+function pickDistractors(
+  w: Word,
+  allWords: Word[],
+  statuses: Record<string, MasteryOrUnseen>,
+): string[] {
+  const answerIsPhrase = isPhraseWord(w);
+  const answerLen = w.word.length;
+  const ansLower = w.word.toLowerCase();
+
+  // Same-shape candidates (phrase vs single word) and not the answer itself.
+  const base = allWords.filter(
+    (x) =>
+      x.id !== w.id &&
+      x.word.toLowerCase() !== ansLower &&
+      isPhraseWord(x) === answerIsPhrase,
+  );
+
+  const sameTier = (xs: Word[]) => xs.filter((x) => x.tier === w.tier);
+  const samePos = (xs: Word[]) =>
+    w.part_of_speech ? xs.filter((x) => x.part_of_speech === w.part_of_speech) : xs;
+  const seenIds = new Set(Object.keys(statuses));
+  const seen = (xs: Word[]) => xs.filter((x) => seenIds.has(x.id));
+  const unseen = (xs: Word[]) => xs.filter((x) => !seenIds.has(x.id));
+
+  // Priority tiers: same category + same POS + already seen, then relax.
+  const tiers: Word[][] = [
+    seen(samePos(sameTier(base))),
+    unseen(samePos(sameTier(base))),
+    seen(sameTier(base)),
+    sameTier(base),
+    seen(samePos(base)),
+    samePos(base),
+    seen(base),
+    base,
+  ];
+
+  // Soft length filter to defeat "obviously the longest/shortest" tells.
+  // Apply only inside higher-priority tiers, and only if it leaves enough.
+  const lengthOk = (x: Word) => {
+    const r = x.word.length / Math.max(1, answerLen);
+    return r >= 0.6 && r <= 1.6;
+  };
+
+  const picked: Word[] = [];
+  const pushFrom = (pool: Word[]) => {
+    for (const cand of shuffle(pool)) {
+      if (picked.length >= 3) return;
+      if (picked.some((p) => p.id === cand.id)) continue;
+      if (picked.some((p) => p.word.toLowerCase() === cand.word.toLowerCase())) continue;
+      picked.push(cand);
+    }
+  };
+
+  for (let i = 0; i < tiers.length && picked.length < 3; i++) {
+    const tier = tiers[i];
+    if (i < 4) {
+      const filtered = tier.filter(lengthOk);
+      if (filtered.length >= 3 - picked.length) {
+        pushFrom(filtered);
+        continue;
+      }
+    }
+    pushFrom(tier);
+  }
+
+  return picked.slice(0, 3).map((x) => x.word);
+}
+
+function buildQuizQuestions(
+  pool: Word[],
+  allWords: Word[],
+  statuses: Record<string, MasteryOrUnseen> = {},
+): Q[] {
   const usable = pool.filter((w) => w.example_sentence);
   return usable.slice(0, STAGE_SIZE).map((w) => {
-    const distractors = shuffle(allWords.filter((x) => x.id !== w.id)).slice(0, 3).map((x) => x.word);
+    const distractors = pickDistractors(w, allWords, statuses);
     const options = shuffle([w.word, ...distractors]);
     const sentenceHtml = (w.example_sentence ?? "").replace(/<strong>.*?<\/strong>/i, "<strong>______</strong>");
     return { word: w, options, answer: w.word, sentenceHtml };
@@ -178,7 +252,7 @@ function QuizPage() {
         setStageIndex(idxToUse);
         if (stages.length === 0) { setQuestions([]); return; }
         const pool = buildStageQuiz(stages, idxToUse);
-        setQuestions(buildQuizQuestions(pool, allWords));
+        setQuestions(buildQuizQuestions(pool, allWords, st));
       } else if (mode === "weakness") {
         const [allWords, st, weak, mst] = await Promise.all([
           queryClient.ensureQueryData({ queryKey: qk.words(), queryFn: fetchActiveWords, staleTime: Infinity }),
@@ -189,7 +263,7 @@ function QuizPage() {
         setStatuses(st);
         setLivePct(mst.pct); setReadinessBefore(mst.pct);
         if (weak.length < 1) { setQuestions([]); return; }
-        setQuestions(buildQuizQuestions(weak, allWords));
+        setQuestions(buildQuizQuestions(weak, allWords, st));
       } else {
         const [allWords, st, mst] = await Promise.all([
           queryClient.ensureQueryData({ queryKey: qk.words(), queryFn: fetchActiveWords, staleTime: Infinity }),
@@ -201,7 +275,7 @@ function QuizPage() {
         const days = mode === "weekly" ? 7 : 30;
         const pool = await buildPeriodicQuiz(user!.id, days);
         if (pool.length < 4) { setQuestions([]); return; }
-        setQuestions(buildQuizQuestions(pool, allWords));
+        setQuestions(buildQuizQuestions(pool, allWords, st));
       }
     })();
   }, [user, isGuest, mode, missionParam, search.world, queryClient, navigate]);
