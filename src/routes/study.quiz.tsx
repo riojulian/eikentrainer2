@@ -54,6 +54,7 @@ import {
 import { cn } from "@/lib/utils";
 import { getWeakWords } from "@/lib/weakZone";
 import { useLang, useCategoryLabel } from "@/lib/i18n";
+import { ensureAltSentences } from "@/lib/words.functions";
 import { BADGES_JA } from "@/lib/gamification";
 import { toast } from "sonner";
 
@@ -164,12 +165,14 @@ function buildQuizQuestions(
   pool: Word[],
   allWords: Word[],
   statuses: Record<string, MasteryOrUnseen> = {},
+  altSentences: Record<string, string> = {},
 ): Q[] {
   const usable = pool.filter((w) => w.example_sentence);
   return usable.slice(0, STAGE_SIZE).map((w) => {
     const distractors = pickDistractors(w, allWords, statuses);
     const options = shuffle([w.word, ...distractors]);
-    const sentenceHtml = (w.example_sentence ?? "").replace(/<strong>.*?<\/strong>/i, "<strong>______</strong>");
+    const source = altSentences[w.id] ?? w.example_sentence ?? "";
+    const sentenceHtml = source.replace(/<strong>.*?<\/strong>/i, "<strong>______</strong>");
     return { word: w, options, answer: w.word, sentenceHtml };
   });
 }
