@@ -7,6 +7,7 @@ export type Word = {
   definition: string;
   definition_ja: string | null;
   example_sentence: string | null;
+  alt_example_sentence?: string | null;
   category: string | null;
   is_active: boolean;
   tier?: string | null;

@@ -54,6 +54,7 @@ import {
 import { cn } from "@/lib/utils";
 import { getWeakWords } from "@/lib/weakZone";
 import { useLang, useCategoryLabel } from "@/lib/i18n";
+import { ensureAltSentences } from "@/lib/words.functions";
 import { BADGES_JA } from "@/lib/gamification";
 import { toast } from "sonner";
 
@@ -164,12 +165,14 @@ function buildQuizQuestions(
   pool: Word[],
   allWords: Word[],
   statuses: Record<string, MasteryOrUnseen> = {},
+  altSentences: Record<string, string> = {},
 ): Q[] {
   const usable = pool.filter((w) => w.example_sentence);
   return usable.slice(0, STAGE_SIZE).map((w) => {
     const distractors = pickDistractors(w, allWords, statuses);
     const options = shuffle([w.word, ...distractors]);
-    const sentenceHtml = (w.example_sentence ?? "").replace(/<strong>.*?<\/strong>/i, "<strong>______</strong>");
+    const source = altSentences[w.id] ?? w.example_sentence ?? "";
+    const sentenceHtml = source.replace(/<strong>.*?<\/strong>/i, "<strong>______</strong>");
     return { word: w, options, answer: w.word, sentenceHtml };
   });
 }
@@ -263,7 +266,14 @@ function QuizPage() {
         setStatuses(st);
         setLivePct(mst.pct); setReadinessBefore(mst.pct);
         if (weak.length < 1) { setQuestions([]); return; }
-        setQuestions(buildQuizQuestions(weak, allWords, st));
+        const usable = weak.filter((w) => w.example_sentence).slice(0, STAGE_SIZE);
+        let altMap: Record<string, string> = {};
+        try {
+          altMap = await ensureAltSentences({ data: { wordIds: usable.map((w) => w.id) } });
+        } catch (err) {
+          console.error("ensureAltSentences failed", err);
+        }
+        setQuestions(buildQuizQuestions(weak, allWords, st, altMap));
       } else {
         const [allWords, st, mst] = await Promise.all([
           queryClient.ensureQueryData({ queryKey: qk.words(), queryFn: fetchActiveWords, staleTime: Infinity }),

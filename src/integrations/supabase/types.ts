@@ -311,6 +311,7 @@ export type Database = {
       }
       words: {
         Row: {
+          alt_example_sentence: string | null
           category: string | null
           created_at: string
           definition: string
@@ -324,6 +325,7 @@ export type Database = {
           word: string
         }
         Insert: {
+          alt_example_sentence?: string | null
           category?: string | null
           created_at?: string
           definition: string
@@ -337,6 +339,7 @@ export type Database = {
           word: string
         }
         Update: {
+          alt_example_sentence?: string | null
           category?: string | null
           created_at?: string
           definition?: string
