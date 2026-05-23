@@ -1,95 +1,66 @@
 ## Goal
 
-Make quiz answer choices less obvious by drawing distractors from words the student has actually encountered, and matching the answer's "shape" (phrase vs. single word, part of speech).
+In weakness-mode quizzes, show a **different cloze sentence** than the one used in normal stage flashcards/quizzes — so the student is tested on the word in a fresh context, not by recognizing the sentence shape.
 
-No DB changes. No effect on already-studied word mastery — only the distractor selection in quizzes going forward changes.
+No change to mastery, stage flow, or existing studied words.
 
-## Where the change lives
+## Approach
 
-All logic stays in `src/routes/study.quiz.tsx` inside `buildQuizQuestions(pool, allWords)`. Signature gains a `statuses` arg so it can prefer "seen" words:
+Add a second example sentence per word (`alt_example_sentence`), generated on-demand by Lovable AI the first time a word appears in weakness mode, then cached in DB forever. Weakness quizzes use `alt_example_sentence`; stages keep using `example_sentence`.
 
-```ts
-buildQuizQuestions(pool, allWords, statuses, world)
+## Changes
+
+### 1. DB migration
+
+Add column to `words`:
+- `alt_example_sentence text` (nullable)
+
+No RLS changes needed — inherits existing `words` policies. Generation will be done by an authenticated server function using `supabaseAdmin` to update the row.
+
+### 2. Server function: `ensureAltSentence`
+
+New file `src/lib/words.functions.ts`:
+- `createServerFn({ method: "POST" })` protected by `requireSupabaseAuth`.
+- Input: `{ wordIds: string[] }`.
+- For each word missing `alt_example_sentence`:
+  - Call Lovable AI Gateway (`google/gemini-3-flash-preview`) with a prompt that asks for a NEW example sentence different from the existing one, wrapping the target word in `<strong>...</strong>`.
+  - Update the row via `supabaseAdmin`.
+- Returns `Record<wordId, alt_example_sentence>` for the batch.
+- Wrap in try/catch per word; if AI fails, fall back to the original sentence (don't block the quiz).
+
+Wire `attachSupabaseAuth` in `src/start.ts` if not already wired.
+
+### 3. Quiz wiring (`src/routes/study.quiz.tsx`)
+
+- In the `mode === "weakness"` branch, after `getWeakWords`, call `ensureAltSentence({ data: { wordIds: weak.map(w => w.id) }})`.
+- Pass the returned map to a new `buildQuizQuestions(pool, allWords, statuses, altMap)` signature.
+- Inside `buildQuizQuestions`, when `altMap[w.id]` exists, use it for `sentenceHtml` instead of `w.example_sentence`. The cloze replacement (`<strong>...</strong>` → `<strong>______</strong>`) stays the same.
+- Stage / weekly / monthly modes: pass empty `altMap` → unchanged behavior.
+
+### 4. Prompt
+
 ```
+You are generating an English example sentence for an EIKEN study app.
 
-Call sites already have `statuses` and `activeWorld` in scope.
+Target word: {word} ({part_of_speech})
+Definition: {definition}
+Original sentence (do NOT reuse or paraphrase): {example_sentence}
 
-## Distractor selection rules (in priority order)
+Write ONE new natural English sentence (12–22 words) that:
+- uses the target word in a clearly different context from the original
+- wraps the target word in <strong>...</strong> exactly once
+- is appropriate for an EIKEN Grade {tier} learner
+- does not translate or define the word
 
-For each answer word `w`, pick 3 distractors from a candidate pool filtered like this:
-
-1. **Same shape as the answer**
-   - If `w.tier === "phrases"` (or `w.word` contains a space): only consider other phrases.
-   - Else: only consider single-word entries.
-   - This guarantees a phrase question shows 4 phrases, a word question shows 4 words.
-
-2. **Same part of speech when available**
-   - Prefer candidates with `part_of_speech === w.part_of_speech`.
-   - Fall back to any POS if too few matches (<3).
-
-3. **Same world / category preferred**
-   - Prefer candidates with `tier === w.tier` (e.g. tier1 distractors for a tier1 answer).
-   - Fall back to other tiers if needed.
-
-4. **Prefer words the student has seen**
-   - Build tiers of candidates:
-     - **Tier A:** words present in `statuses` (any mastery 0–3) — "learned in this stage or in the past".
-     - **Tier B:** other active words in the same category.
-     - **Tier C:** anything else active (last resort).
-   - Fill the 3 distractor slots from Tier A first, then B, then C.
-
-5. **De-noise**
-   - Exclude `w.id` itself.
-   - Exclude any candidate whose `word` equals `w.word` (case-insensitive) — guards against duplicate entries.
-   - Optional: prefer candidates with similar word length (within ±40% of answer length) to avoid the "obviously the longest one" tell. Apply only inside Tier A/B; skip if it leaves <3 candidates.
-
-6. **Shuffle and slice 3**, then shuffle the final 4 options.
-
-## Pseudocode
-
-```ts
-function pickDistractors(w, allWords, statuses) {
-  const isPhrase = w.tier === "phrases" || /\s/.test(w.word);
-  const shapeOk = (x) => (/\s/.test(x.word) || x.tier === "phrases") === isPhrase;
-
-  const base = allWords.filter(x =>
-    x.id !== w.id &&
-    x.word.toLowerCase() !== w.word.toLowerCase() &&
-    shapeOk(x)
-  );
-
-  const samePos = base.filter(x => w.part_of_speech && x.part_of_speech === w.part_of_speech);
-  const sameTier = (pool) => pool.filter(x => x.tier === w.tier);
-
-  const seenIds = new Set(Object.keys(statuses));
-  const tierA = sameTier(samePos).filter(x => seenIds.has(x.id));
-  const tierB = sameTier(samePos).filter(x => !seenIds.has(x.id));
-  const tierC = sameTier(base);
-  const tierD = base;
-
-  const picked = [];
-  for (const tier of [tierA, tierB, tierC, tierD]) {
-    if (picked.length >= 3) break;
-    for (const cand of shuffle(tier)) {
-      if (picked.length >= 3) break;
-      if (!picked.some(p => p.id === cand.id)) picked.push(cand);
-    }
-  }
-  return picked.slice(0, 3).map(x => x.word);
-}
+Return only the sentence, no quotes, no commentary.
 ```
 
 ## What does NOT change
 
-- `word_status`, `world_progress`, `student_word_order` — untouched. Existing studied words keep their mastery.
-- Stage building (`buildStageQuiz`) and which words appear as questions — unchanged.
-- Weekly / monthly / weakness modes get the same improved distractors automatically since they share `buildQuizQuestions`.
+- `example_sentence` column, stage cloze sentences, mastery, `word_status`, `student_word_order`, `world_progress`.
+- Existing studied words keep all progress.
+- Weekly / monthly review modes still use the original sentence (only weakness mode swaps).
 
-## Other ideas worth considering (not in this plan unless you want them)
+## Open question (will assume default if not flagged)
 
-- **Confusable-pair list**: maintain a small admin-curated list of "easily confused" words (e.g. *affect/effect*, *adapt/adopt*) and inject one when applicable.
-- **POS-fit distractors for cloze**: since the question is a fill-in-the-blank sentence, requiring same POS makes all options grammatically plausible, which is the single biggest difficulty boost.
-- **Mastery-weighted distractors**: prefer Tier A candidates the student already mastered (mastery ≥ 2), so the wrong options are familiar-but-wrong rather than unknown.
-- **Anti-repeat**: avoid showing the same distractor twice in one quiz session.
-
-Tell me which extras (if any) to fold in and I'll add them to the implementation step.
+- I'll generate **lazily** (first weakness encounter) to avoid a big upfront AI batch. If you'd rather pre-generate for all active words in one admin job, say so.
