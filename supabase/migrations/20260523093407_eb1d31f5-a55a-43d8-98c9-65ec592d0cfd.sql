@@ -1,0 +1,1 @@
+ALTER TABLE public.words ADD COLUMN IF NOT EXISTS alt_example_sentence text;
