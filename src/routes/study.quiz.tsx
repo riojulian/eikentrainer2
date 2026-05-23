@@ -266,7 +266,14 @@ function QuizPage() {
         setStatuses(st);
         setLivePct(mst.pct); setReadinessBefore(mst.pct);
         if (weak.length < 1) { setQuestions([]); return; }
-        setQuestions(buildQuizQuestions(weak, allWords, st));
+        const usable = weak.filter((w) => w.example_sentence).slice(0, STAGE_SIZE);
+        let altMap: Record<string, string> = {};
+        try {
+          altMap = await ensureAltSentences({ data: { wordIds: usable.map((w) => w.id) } });
+        } catch (err) {
+          console.error("ensureAltSentences failed", err);
+        }
+        setQuestions(buildQuizQuestions(weak, allWords, st, altMap));
       } else {
         const [allWords, st, mst] = await Promise.all([
           queryClient.ensureQueryData({ queryKey: qk.words(), queryFn: fetchActiveWords, staleTime: Infinity }),
