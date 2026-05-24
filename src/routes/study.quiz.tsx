@@ -563,6 +563,7 @@ function QuizPage() {
 
   return (
     <main className="mx-auto max-w-xl px-4 py-4">
+      <h1 className="sr-only">{headerLabel}</h1>
       <div className="flex items-center justify-between text-sm text-muted-foreground mb-2">
         <span className="rounded-full bg-gold/15 text-gold px-2 py-0.5 text-xs font-medium">{headerLabel}</span>
         <div className="flex items-center gap-2">
