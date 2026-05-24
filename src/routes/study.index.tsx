@@ -40,6 +40,16 @@ export const Route = createFileRoute("/study/")({
     world: typeof s.world === "string" ? s.world : undefined,
   }),
   component: StudyHome,
+  head: () => ({
+    meta: [
+      { title: "Study dashboard — EikenTango" },
+      { name: "description", content: "Your Eiken vocabulary study dashboard: stages, worlds, weak zone, mastery progress, and achievements. 英検単語のステージ・ワールド・進捗管理。" },
+      { property: "og:title", content: "Study dashboard — EikenTango" },
+      { property: "og:description", content: "Stages, worlds, weak zone, mastery progress, and achievements for Eiken vocab." },
+      { property: "og:url", content: "https://eikentango.com/study" },
+    ],
+    links: [{ rel: "canonical", href: "https://eikentango.com/study" }],
+  }),
 });
 
 function StudyHome() {

@@ -7,6 +7,17 @@ import { BrandMark } from "@/components/BrandMark";
 
 export const Route = createFileRoute("/")({
   component: Index,
+  head: () => ({
+    meta: [
+      { title: "EikenTango — 英検準1級の単語を楽しくトレーニング" },
+      { name: "description", content: "英検準1級の単語を、もっと楽しく効率的に。フラッシュカード・クイズ・ステージで毎日5分のトレーニング。" },
+      { property: "og:title", content: "EikenTango — 英検準1級の単語を楽しくトレーニング" },
+      { property: "og:description", content: "フラッシュカード・クイズ・ステージで、英検準1級の単語を毎日コツコツ攻略。" },
+      { property: "og:url", content: "https://eikentango.com/" },
+      { property: "og:type", content: "website" },
+    ],
+    links: [{ rel: "canonical", href: "https://eikentango.com/" }],
+  }),
 });
 
 function Index() {

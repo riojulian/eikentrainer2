@@ -29,6 +29,16 @@ const TIER_META: Record<string, { label: string; cls: string }> = {
 
 export const Route = createFileRoute("/study/list")({
   component: ListPage,
+  head: () => ({
+    meta: [
+      { title: "Word list — EikenTango" },
+      { name: "description", content: "Browse and filter every Eiken Pre-1 vocabulary word by world, category, part of speech, and mastery level. 英検準1級の単語リストを検索・フィルター。" },
+      { property: "og:title", content: "Word list — EikenTango" },
+      { property: "og:description", content: "Search and filter all Eiken Pre-1 vocabulary by world, category, and mastery." },
+      { property: "og:url", content: "https://eikentango.com/study/list" },
+    ],
+    links: [{ rel: "canonical", href: "https://eikentango.com/study/list" }],
+  }),
 });
 
 function ListPage() {

@@ -14,6 +14,17 @@ import { migrateGuestMasteryToSupabase, getGuestMastery } from "@/lib/guestMaste
 
 export const Route = createFileRoute("/auth")({
   component: AuthPage,
+  head: () => ({
+    meta: [
+      { title: "Sign in — EikenTango" },
+      { name: "description", content: "Sign in or create an account to track your Eiken vocabulary progress on EikenTango. 英検単語アプリにログイン・新規登録。" },
+      { property: "og:title", content: "Sign in — EikenTango" },
+      { property: "og:description", content: "Track your Eiken vocabulary progress, streaks, and mastery on EikenTango." },
+      { property: "og:url", content: "https://eikentango.com/auth" },
+      { name: "robots", content: "noindex" },
+    ],
+    links: [{ rel: "canonical", href: "https://eikentango.com/auth" }],
+  }),
 });
 
 function AuthPage() {

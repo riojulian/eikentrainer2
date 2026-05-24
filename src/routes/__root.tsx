@@ -57,6 +57,25 @@ export const Route = createRootRoute({
       { rel: "preconnect", href: "https://fonts.gstatic.com", crossOrigin: "anonymous" },
       { rel: "stylesheet", href: "https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700&family=M+PLUS+Rounded+1c:wght@500;700&display=swap" },
     ],
+    scripts: [
+      {
+        type: "application/ld+json",
+        children: JSON.stringify({
+          "@context": "https://schema.org",
+          "@type": "WebSite",
+          name: "EikenTango",
+          url: "https://eikentango.com",
+          description:
+            "英検準1級の単語を、もっと楽しく効率的に。フラッシュカードやクイズで毎日5分のトレーニング。",
+          inLanguage: ["ja", "en"],
+          publisher: {
+            "@type": "Organization",
+            name: "EikenTango",
+            url: "https://eikentango.com",
+          },
+        }),
+      },
+    ],
   }),
   shellComponent: RootShell,
   component: RootComponent,

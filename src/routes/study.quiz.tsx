@@ -77,6 +77,16 @@ export const Route = createFileRoute("/study/quiz")({
     } as { mode?: Mode; mission?: number; world?: string };
   },
   component: QuizPage,
+  head: () => ({
+    meta: [
+      { title: "Quiz — EikenTango" },
+      { name: "description", content: "Cloze-style multiple-choice quizzes for Eiken vocabulary: stage, weekly, monthly, and weakness review. 英検単語の穴埋めクイズ。" },
+      { property: "og:title", content: "Quiz — EikenTango" },
+      { property: "og:description", content: "Cloze-style multiple-choice quizzes for Eiken vocab: stage, weekly, monthly, and weakness review." },
+      { property: "og:url", content: "https://eikentango.com/study/quiz" },
+    ],
+    links: [{ rel: "canonical", href: "https://eikentango.com/study/quiz" }],
+  }),
 });
 
 type Q = { word: Word; options: string[]; answer: string; sentenceHtml: string };
