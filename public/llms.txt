@@ -1,0 +1,13 @@
+# EikenTango
+
+> Playful, daily-5-minute vocabulary training for Japan's Eiken exam (currently Pre-1 / 準1級).
+
+EikenTango helps learners master Eiken vocabulary through flashcards, cloze quizzes, and stage-based progression with mastery tracking and streaks.
+
+## Pages
+- [Home](/): Landing page introducing flashcards, word list, and quizzes.
+- [Study](/study): Stage-based study dashboard with worlds, progress, and weak zone.
+- [Word list](/study/list): Browse and filter all vocabulary by world, category, and mastery.
+- [Flashcards](/study/flashcards): Tap-to-flip flashcard practice for the current stage.
+- [Quiz](/study/quiz): Cloze-style multiple-choice quizzes (mission, weekly, monthly, weakness).
+- [Sign in](/auth): Email or Google sign-in / sign-up.

@@ -77,6 +77,16 @@ export const Route = createFileRoute("/study/quiz")({
     } as { mode?: Mode; mission?: number; world?: string };
   },
   component: QuizPage,
+  head: () => ({
+    meta: [
+      { title: "Quiz — EikenTango" },
+      { name: "description", content: "Cloze-style multiple-choice quizzes for Eiken vocabulary: stage, weekly, monthly, and weakness review. 英検単語の穴埋めクイズ。" },
+      { property: "og:title", content: "Quiz — EikenTango" },
+      { property: "og:description", content: "Cloze-style multiple-choice quizzes for Eiken vocab: stage, weekly, monthly, and weakness review." },
+      { property: "og:url", content: "https://eikentango.com/study/quiz" },
+    ],
+    links: [{ rel: "canonical", href: "https://eikentango.com/study/quiz" }],
+  }),
 });
 
 type Q = { word: Word; options: string[]; answer: string; sentenceHtml: string };
@@ -553,6 +563,7 @@ function QuizPage() {
 
   return (
     <main className="mx-auto max-w-xl px-4 py-4">
+      <h1 className="sr-only">{headerLabel}</h1>
       <div className="flex items-center justify-between text-sm text-muted-foreground mb-2">
         <span className="rounded-full bg-gold/15 text-gold px-2 py-0.5 text-xs font-medium">{headerLabel}</span>
         <div className="flex items-center gap-2">

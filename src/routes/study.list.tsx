@@ -29,6 +29,16 @@ const TIER_META: Record<string, { label: string; cls: string }> = {
 
 export const Route = createFileRoute("/study/list")({
   component: ListPage,
+  head: () => ({
+    meta: [
+      { title: "Word list — EikenTango" },
+      { name: "description", content: "Browse and filter every Eiken Pre-1 vocabulary word by world, category, part of speech, and mastery level. 英検準1級の単語リストを検索・フィルター。" },
+      { property: "og:title", content: "Word list — EikenTango" },
+      { property: "og:description", content: "Search and filter all Eiken Pre-1 vocabulary by world, category, and mastery." },
+      { property: "og:url", content: "https://eikentango.com/study/list" },
+    ],
+    links: [{ rel: "canonical", href: "https://eikentango.com/study/list" }],
+  }),
 });
 
 function ListPage() {
@@ -86,8 +96,15 @@ function ListPage() {
       <p className="text-sm text-muted-foreground mb-4">
         Showing {filtered.length} of {words.length} words
       </p>
+      <h2 className="sr-only">Filters</h2>
       <div className="flex flex-wrap gap-3 mb-6">
-        <Input placeholder="Search words…" value={q} onChange={(e) => setQ(e.target.value)} className="max-w-sm" />
+        <Input
+          placeholder="Search words…"
+          aria-label="Search words"
+          value={q}
+          onChange={(e) => setQ(e.target.value)}
+          className="max-w-sm"
+        />
         <Select value={cat} onValueChange={setCat}>
           <SelectTrigger className="w-48"><SelectValue placeholder="Category" /></SelectTrigger>
           <SelectContent>
@@ -119,6 +136,7 @@ function ListPage() {
           </SelectContent>
         </Select>
       </div>
+      <h2 className="sr-only">Words</h2>
       <div className="grid gap-4 sm:grid-cols-2">
         {visible.map((w) => {
           const s = statuses[w.id];

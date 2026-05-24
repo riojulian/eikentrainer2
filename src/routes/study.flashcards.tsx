@@ -41,6 +41,16 @@ export const Route = createFileRoute("/study/flashcards")({
     } as { mission?: number; free?: boolean; world?: string };
   },
   component: Flashcards,
+  head: () => ({
+    meta: [
+      { title: "Flashcards — EikenTango" },
+      { name: "description", content: "Tap-to-flip flashcard practice for Eiken vocabulary. Mark each word as known or to review and build mastery. 英検単語のフラッシュカード練習。" },
+      { property: "og:title", content: "Flashcards — EikenTango" },
+      { property: "og:description", content: "Tap-to-flip flashcard practice for Eiken vocabulary with mastery tracking." },
+      { property: "og:url", content: "https://eikentango.com/study/flashcards" },
+    ],
+    links: [{ rel: "canonical", href: "https://eikentango.com/study/flashcards" }],
+  }),
 });
 
 function shuffle<T>(arr: T[]) {
@@ -377,6 +387,7 @@ function Flashcards() {
 
   return (
     <main className="mx-auto max-w-2xl px-4 py-2">
+      <h1 className="sr-only">Flashcard practice</h1>
       <div className="flex items-center gap-2 mb-3 whitespace-nowrap">
         <Button variant="ghost" size="sm" onClick={prev} disabled={idx === 0} aria-label="Previous card" className="shrink-0 h-7 w-7 p-0">
           <ChevronLeft className="h-4 w-4" />
