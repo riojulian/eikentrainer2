@@ -30,24 +30,49 @@ function Progress() {
 
   useEffect(() => {
     (async () => {
-      const [{ count: wordsCount }, { data: profiles }, { data: statuses }, { data: results }] = await Promise.all([
+      async function fetchAll<T>(
+        build: (from: number, to: number) => PromiseLike<{ data: T[] | null }>,
+      ): Promise<T[]> {
+        const PAGE = 1000;
+        let from = 0;
+        const out: T[] = [];
+        while (true) {
+          const { data } = await build(from, from + PAGE - 1);
+          const rows = data ?? [];
+          out.push(...rows);
+          if (rows.length < PAGE) break;
+          from += PAGE;
+        }
+        return out;
+      }
+
+      const [{ count: wordsCount }, { data: profiles }, statuses, results] = await Promise.all([
         supabase.from("words").select("*", { count: "exact", head: true }).eq("is_active", true),
         supabase.from("profiles").select("id,display_name").range(0, 9999),
-        supabase.from("word_status").select("student_id,mastery,word_id").range(0, 99999),
-        supabase.from("quiz_results").select("student_id,word_id,correct,taken_at").order("taken_at", { ascending: true }).range(0, 99999),
+        fetchAll<RawData["statuses"][number]>((f, t) =>
+          supabase.from("word_status").select("student_id,mastery,word_id").range(f, t),
+        ),
+        fetchAll<RawData["results"][number]>((f, t) =>
+          supabase
+            .from("quiz_results")
+            .select("student_id,word_id,correct,taken_at")
+            .order("taken_at", { ascending: true })
+            .range(f, t),
+        ),
       ]);
-      const rawResults = (results ?? []) as RawData["results"];
+      const rawResults = results as RawData["results"];
       const wordIds = [...new Set(rawResults.map((r) => r.word_id))];
       let wordTexts: { id: string; word: string }[] = [];
       if (wordIds.length) {
-        const { data: w } = await supabase.from("words").select("id,word").in("id", wordIds);
-        wordTexts = w ?? [];
+        wordTexts = await fetchAll<{ id: string; word: string }>((f, t) =>
+          supabase.from("words").select("id,word").in("id", wordIds).range(f, t),
+        );
       }
       (window as any).__wordTexts = wordTexts;
       setRaw({
         totalWords: wordsCount ?? 0,
         profiles: profiles ?? [],
-        statuses: (statuses ?? []) as RawData["statuses"],
+        statuses: statuses as RawData["statuses"],
         results: rawResults,
       });
     })();
