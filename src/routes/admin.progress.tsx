@@ -14,13 +14,13 @@ type Stats = {
   tiers: Record<Mastery, number>;
   unseen: number;
   daily: { date: string; correct: number; total: number; accuracy: number }[];
-  weakest: { word: string; correct: number; total: number; accuracy: number }[];
+  weakest: { word: string; mastery: Mastery; updatedAt: string }[];
 };
 
 type RawData = {
   totalWords: number;
   profiles: { id: string; display_name: string | null }[];
-  statuses: { student_id: string; word_id: string; mastery: number }[];
+  statuses: { student_id: string; word_id: string; mastery: number; updated_at: string }[];
   results: { student_id: string; word_id: string; correct: boolean; taken_at: string }[];
 };
 
@@ -50,7 +50,7 @@ function Progress() {
         supabase.from("words").select("*", { count: "exact", head: true }).eq("is_active", true),
         supabase.from("profiles").select("id,display_name").range(0, 9999),
         fetchAll<RawData["statuses"][number]>((f, t) =>
-          supabase.from("word_status").select("student_id,mastery,word_id").range(f, t),
+          supabase.from("word_status").select("student_id,mastery,word_id,updated_at").range(f, t),
         ),
         fetchAll<RawData["results"][number]>((f, t) =>
           supabase
@@ -61,18 +61,27 @@ function Progress() {
         ),
       ]);
       const rawResults = results as RawData["results"];
-      const wordIds = [...new Set(rawResults.map((r) => r.word_id))];
+      const rawStatuses = statuses as RawData["statuses"];
+      const wordIds = [
+        ...new Set([
+          ...rawResults.map((r) => r.word_id),
+          ...rawStatuses.map((r) => r.word_id),
+        ]),
+      ];
       let wordTexts: { id: string; word: string }[] = [];
       if (wordIds.length) {
-        wordTexts = await fetchAll<{ id: string; word: string }>((f, t) =>
-          supabase.from("words").select("id,word").in("id", wordIds).range(f, t),
-        );
+        const CHUNK = 200;
+        for (let i = 0; i < wordIds.length; i += CHUNK) {
+          const slice = wordIds.slice(i, i + CHUNK);
+          const { data } = await supabase.from("words").select("id,word").in("id", slice);
+          if (data) wordTexts.push(...data);
+        }
       }
       (window as any).__wordTexts = wordTexts;
       setRaw({
         totalWords: wordsCount ?? 0,
         profiles: profiles ?? [],
-        statuses: statuses as RawData["statuses"],
+        statuses: rawStatuses,
         results: rawResults,
       });
     })();
@@ -109,17 +118,28 @@ function Progress() {
 
       const wordTexts = ((typeof window !== "undefined" ? (window as any).__wordTexts : []) ?? []) as { id: string; word: string }[];
       const wordIdToText = new Map(wordTexts.map((w) => [w.id, w.word]));
-      const byWord = new Map<string, { c: number; t: number }>();
-      results.forEach((r) => {
-        const v = byWord.get(r.word_id) ?? { c: 0, t: 0 };
-        v.t++; if (r.correct) v.c++;
-        byWord.set(r.word_id, v);
-      });
-      const weakest = [...byWord.entries()]
-        .filter(([, v]) => v.t >= 1)
-        .map(([id, v]) => ({ word: wordIdToText.get(id) ?? "—", correct: v.c, total: v.t, accuracy: Math.round((v.c / v.t) * 100) }))
-        .sort((a, b) => a.accuracy - b.accuracy)
-        .slice(0, 8);
+      // Align with student-facing Weak Zone: mastery 0 or 1, newest first.
+      const weakest = studentId === "all"
+        ? (() => {
+            // Aggregate: pick lowest mastery per word across students, newest update.
+            const byWord = new Map<string, { m: Mastery; u: string }>();
+            statuses.forEach((r) => {
+              if (r.mastery > 1) return;
+              const cur = byWord.get(r.word_id);
+              if (!cur || r.mastery < cur.m || (r.mastery === cur.m && r.updated_at > cur.u)) {
+                byWord.set(r.word_id, { m: r.mastery as Mastery, u: r.updated_at });
+              }
+            });
+            return [...byWord.entries()]
+              .map(([id, v]) => ({ word: wordIdToText.get(id) ?? "—", mastery: v.m, updatedAt: v.u }))
+              .sort((a, b) => (a.mastery - b.mastery) || (b.updatedAt.localeCompare(a.updatedAt)))
+              .slice(0, 8);
+          })()
+        : statuses
+            .filter((r) => r.mastery <= 1)
+            .sort((a, b) => (a.mastery - b.mastery) || b.updated_at.localeCompare(a.updated_at))
+            .slice(0, 8)
+            .map((r) => ({ word: wordIdToText.get(r.word_id) ?? "—", mastery: r.mastery as Mastery, updatedAt: r.updated_at }));
 
     return { totalWords, tiers, unseen, daily, weakest };
   }, [raw, studentId]);
@@ -194,12 +214,12 @@ function Progress() {
 
       <div className="rounded-xl border bg-card p-5 shadow-card">
         <div className="font-display text-xl mb-3">Words to revisit</div>
-        {s.weakest.length === 0 ? <p className="text-muted-foreground text-sm">Take a quiz to see weak spots.</p> : (
+        {s.weakest.length === 0 ? <p className="text-muted-foreground text-sm">No struggling words yet.</p> : (
           <ul className="divide-y">
             {s.weakest.map((w) => (
               <li key={w.word} className="flex items-center justify-between py-2">
                 <span className="font-medium">{w.word}</span>
-                <span className="text-sm text-muted-foreground">{w.correct}/{w.total} · {w.accuracy}%</span>
+                <span className="text-sm text-muted-foreground">{MASTERY_LABELS[w.mastery]}</span>
               </li>
             ))}
           </ul>
