@@ -31,7 +31,7 @@ function Progress() {
   useEffect(() => {
     (async () => {
       async function fetchAll<T>(
-        build: (from: number, to: number) => Promise<{ data: T[] | null }>,
+        build: (from: number, to: number) => PromiseLike<{ data: T[] | null }>,
       ): Promise<T[]> {
         const PAGE = 1000;
         let from = 0;
