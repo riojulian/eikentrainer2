@@ -96,8 +96,15 @@ function ListPage() {
       <p className="text-sm text-muted-foreground mb-4">
         Showing {filtered.length} of {words.length} words
       </p>
+      <h2 className="sr-only">Filters</h2>
       <div className="flex flex-wrap gap-3 mb-6">
-        <Input placeholder="Search words…" value={q} onChange={(e) => setQ(e.target.value)} className="max-w-sm" />
+        <Input
+          placeholder="Search words…"
+          aria-label="Search words"
+          value={q}
+          onChange={(e) => setQ(e.target.value)}
+          className="max-w-sm"
+        />
         <Select value={cat} onValueChange={setCat}>
           <SelectTrigger className="w-48"><SelectValue placeholder="Category" /></SelectTrigger>
           <SelectContent>
@@ -129,6 +136,7 @@ function ListPage() {
           </SelectContent>
         </Select>
       </div>
+      <h2 className="sr-only">Words</h2>
       <div className="grid gap-4 sm:grid-cols-2">
         {visible.map((w) => {
           const s = statuses[w.id];
