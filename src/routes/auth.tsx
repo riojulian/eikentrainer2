@@ -131,14 +131,14 @@ function AuthPage() {
               <TabsTrigger value="signin">{t("auth.signin")}</TabsTrigger>
             </TabsList>
             <TabsContent value="signin" className="space-y-4 mt-4">
-              <div className="space-y-2"><Label>{t("auth.email")}</Label><Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} /></div>
-              <div className="space-y-2"><Label>{t("auth.password")}</Label><Input type="password" value={password} onChange={(e) => setPassword(e.target.value)} /></div>
+              <div className="space-y-2"><Label htmlFor="signin-email">{t("auth.email")}</Label><Input id="signin-email" type="email" autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} /></div>
+              <div className="space-y-2"><Label htmlFor="signin-password">{t("auth.password")}</Label><Input id="signin-password" type="password" autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} /></div>
               <Button className="w-full" disabled={busy} onClick={signIn}>{t("auth.signinBtn")}</Button>
             </TabsContent>
             <TabsContent value="signup" className="space-y-4 mt-4">
-              <div className="space-y-2"><Label>{t("auth.displayName")}</Label><Input value={name} onChange={(e) => setName(e.target.value)} /></div>
-              <div className="space-y-2"><Label>{t("auth.email")}</Label><Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} /></div>
-              <div className="space-y-2"><Label>{t("auth.password")}</Label><Input type="password" value={password} onChange={(e) => setPassword(e.target.value)} /></div>
+              <div className="space-y-2"><Label htmlFor="signup-name">{t("auth.displayName")}</Label><Input id="signup-name" autoComplete="name" value={name} onChange={(e) => setName(e.target.value)} /></div>
+              <div className="space-y-2"><Label htmlFor="signup-email">{t("auth.email")}</Label><Input id="signup-email" type="email" autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} /></div>
+              <div className="space-y-2"><Label htmlFor="signup-password">{t("auth.password")}</Label><Input id="signup-password" type="password" autoComplete="new-password" value={password} onChange={(e) => setPassword(e.target.value)} /></div>
               <Button className="w-full" disabled={busy} onClick={signUp}>{t("auth.signupBtn")}</Button>
             </TabsContent>
           </Tabs>

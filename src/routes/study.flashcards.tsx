@@ -387,6 +387,7 @@ function Flashcards() {
 
   return (
     <main className="mx-auto max-w-2xl px-4 py-2">
+      <h1 className="sr-only">Flashcard practice</h1>
       <div className="flex items-center gap-2 mb-3 whitespace-nowrap">
         <Button variant="ghost" size="sm" onClick={prev} disabled={idx === 0} aria-label="Previous card" className="shrink-0 h-7 w-7 p-0">
           <ChevronLeft className="h-4 w-4" />

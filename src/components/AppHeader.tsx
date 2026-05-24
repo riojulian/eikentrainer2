@@ -131,7 +131,7 @@ export function AppHeader() {
   const overflowMenu = (
     <DropdownMenu modal={false}>
       <DropdownMenuTrigger asChild>
-        <Button variant="outline" size="icon" className="shrink-0 h-9 w-9">
+        <Button variant="outline" size="icon" className="shrink-0 h-9 w-9" aria-label="Menu">
           <MoreVertical className="h-4 w-4" />
         </Button>
       </DropdownMenuTrigger>

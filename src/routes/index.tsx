@@ -64,7 +64,7 @@ function Index() {
               <span className={`inline-flex h-12 w-12 items-center justify-center rounded-2xl ${f.tint}`}>
                 <f.icon className="h-6 w-6" />
               </span>
-              <h3 className="mt-4 font-display text-xl font-bold">{f.title}</h3>
+              <h2 className="mt-4 font-display text-xl font-bold">{f.title}</h2>
               <p className="mt-2 text-sm text-muted-foreground">{f.body}</p>
             </div>
           ))}
