@@ -66,6 +66,7 @@ const DICT: Dict = {
   "fc.freeStudy": { en: "Free study", ja: "自由学習" },
   "fc.btnLearning": { en: "Still learning", ja: "勉強中" },
   "fc.btnKnown": { en: "Got it", ja: "分かった" },
+  "fc.tapToFlip": { en: "Tap to reveal meaning", ja: "タップして意味を見る" },
   // Mastery progress
   "mastery.title": { en: "Mastery progress", ja: "習得進捗" },
   "mastery.caption": { en: "words seen", ja: "語接触済" },

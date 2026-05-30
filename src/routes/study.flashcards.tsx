@@ -446,6 +446,14 @@ function Flashcards() {
           ) : null}
         </div>
         <div className="font-display text-4xl sm:text-6xl">{current?.word}</div>
+        {phase === "front" && (
+          <div className="mt-6 flex justify-center">
+            <span className="inline-flex items-center gap-1.5 rounded-full border border-border bg-muted/40 px-3 py-1 text-xs text-muted-foreground animate-pulse">
+              <RotateCcw className="h-3.5 w-3.5" />
+              {t("fc.tapToFlip")}
+            </span>
+          </div>
+        )}
         {phase === "back" && current && (
           <div className="mt-6 space-y-4 animate-in fade-in slide-in-from-bottom-2 duration-200">
             <div className="rounded-xl bg-muted/50 p-4">
