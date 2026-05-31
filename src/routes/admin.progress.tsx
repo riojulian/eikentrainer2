@@ -228,6 +228,30 @@ function Progress() {
       </div>
 
       <div className="rounded-xl border bg-card p-5 shadow-card">
+        <div className="font-display text-xl mb-3">Progress by category</div>
+        {s.categories.length === 0 ? (
+          <p className="text-muted-foreground text-sm">No categories yet.</p>
+        ) : (
+          <ul className="space-y-3">
+            {s.categories.map((c) => (
+              <li key={c.name}>
+                <div className="flex items-baseline justify-between gap-2 mb-1">
+                  <span className="font-medium text-sm">{c.name}</span>
+                  <span className="text-xs text-muted-foreground">
+                    {c.known} / {c.total} known · {c.touched} touched
+                  </span>
+                  <span className="font-display text-sm tabular-nums w-12 text-right">{c.pct}%</span>
+                </div>
+                <div className="h-2 w-full overflow-hidden rounded-full bg-muted">
+                  <div className="h-full bg-sage transition-all duration-500" style={{ width: `${c.pct}%` }} />
+                </div>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+
+      <div className="rounded-xl border bg-card p-5 shadow-card">
         <div className="font-display text-xl mb-3">Quiz accuracy over time</div>
         {s.daily.length === 0 ? <p className="text-muted-foreground text-sm">No quiz attempts yet.</p> : (
           <div className="h-64">
