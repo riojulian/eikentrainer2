@@ -15,6 +15,7 @@ type Stats = {
   unseen: number;
   daily: { date: string; correct: number; total: number; accuracy: number }[];
   weakest: { word: string; mastery: Mastery; updatedAt: string }[];
+  categories: { name: string; total: number; touched: number; known: number; pct: number }[];
 };
 
 type RawData = {
@@ -147,6 +148,7 @@ function Progress() {
             .map((r) => ({ word: wordIdToText.get(r.word_id) ?? "—", mastery: r.mastery as Mastery, updatedAt: r.updated_at }));
 
     return { totalWords, tiers, unseen, daily, weakest };
+    // unreachable
   }, [raw, studentId]);
 
   if (!s) return <div className="text-muted-foreground">Loading…</div>;
