@@ -22,6 +22,7 @@ type RawData = {
   profiles: { id: string; display_name: string | null }[];
   statuses: { student_id: string; word_id: string; mastery: number; updated_at: string }[];
   results: { student_id: string; word_id: string; correct: boolean; taken_at: string }[];
+  wordsMeta: { id: string; category: string | null }[];
 };
 
 function Progress() {
@@ -60,6 +61,9 @@ function Progress() {
             .range(f, t),
         ),
       ]);
+      const wordsMeta = await fetchAll<RawData["wordsMeta"][number]>((f, t) =>
+        supabase.from("words").select("id,category").eq("is_active", true).range(f, t),
+      );
       const rawResults = results as RawData["results"];
       const rawStatuses = statuses as RawData["statuses"];
       const wordIds = [
@@ -83,6 +87,7 @@ function Progress() {
         profiles: profiles ?? [],
         statuses: rawStatuses,
         results: rawResults,
+        wordsMeta,
       });
     })();
   }, []);
