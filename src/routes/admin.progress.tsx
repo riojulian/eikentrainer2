@@ -15,6 +15,7 @@ type Stats = {
   unseen: number;
   daily: { date: string; correct: number; total: number; accuracy: number }[];
   weakest: { word: string; mastery: Mastery; updatedAt: string }[];
+  categories: { name: string; total: number; touched: number; known: number; pct: number }[];
 };
 
 type RawData = {
@@ -22,6 +23,7 @@ type RawData = {
   profiles: { id: string; display_name: string | null }[];
   statuses: { student_id: string; word_id: string; mastery: number; updated_at: string }[];
   results: { student_id: string; word_id: string; correct: boolean; taken_at: string }[];
+  wordsMeta: { id: string; category: string | null }[];
 };
 
 function Progress() {
@@ -60,6 +62,9 @@ function Progress() {
             .range(f, t),
         ),
       ]);
+      const wordsMeta = await fetchAll<RawData["wordsMeta"][number]>((f, t) =>
+        supabase.from("words").select("id,category").eq("is_active", true).range(f, t),
+      );
       const rawResults = results as RawData["results"];
       const rawStatuses = statuses as RawData["statuses"];
       const wordIds = [
@@ -83,6 +88,7 @@ function Progress() {
         profiles: profiles ?? [],
         statuses: rawStatuses,
         results: rawResults,
+        wordsMeta,
       });
     })();
   }, []);
@@ -141,7 +147,33 @@ function Progress() {
             .slice(0, 8)
             .map((r) => ({ word: wordIdToText.get(r.word_id) ?? "—", mastery: r.mastery as Mastery, updatedAt: r.updated_at }));
 
-    return { totalWords, tiers, unseen, daily, weakest };
+      // Per-category progress: known = distinct words with mastery >= 2 in this category.
+      const catTotals = new Map<string, string[]>();
+      raw.wordsMeta.forEach((w) => {
+        const c = w.category ?? "Uncategorized";
+        const arr = catTotals.get(c) ?? [];
+        arr.push(w.id);
+        catTotals.set(c, arr);
+      });
+      const bestPerWord = new Map<string, number>();
+      statuses.forEach((r) => {
+        const cur = bestPerWord.get(r.word_id) ?? -1;
+        if (r.mastery > cur) bestPerWord.set(r.word_id, r.mastery);
+      });
+      const categories = [...catTotals.entries()]
+        .map(([name, ids]) => {
+          let touched = 0, known = 0;
+          ids.forEach((id) => {
+            const m = bestPerWord.get(id);
+            if (m === undefined) return;
+            touched++;
+            if (m >= 2) known++;
+          });
+          return { name, total: ids.length, touched, known, pct: ids.length ? Math.round((known / ids.length) * 100) : 0 };
+        })
+        .sort((a, b) => b.pct - a.pct || b.total - a.total);
+
+    return { totalWords, tiers, unseen, daily, weakest, categories };
   }, [raw, studentId]);
 
   if (!s) return <div className="text-muted-foreground">Loading…</div>;
@@ -193,6 +225,30 @@ function Progress() {
             </div>
           </>
         ) : <p className="text-muted-foreground text-sm">No words yet.</p>}
+      </div>
+
+      <div className="rounded-xl border bg-card p-5 shadow-card">
+        <div className="font-display text-xl mb-3">Progress by category</div>
+        {s.categories.length === 0 ? (
+          <p className="text-muted-foreground text-sm">No categories yet.</p>
+        ) : (
+          <ul className="space-y-3">
+            {s.categories.map((c) => (
+              <li key={c.name}>
+                <div className="flex items-baseline justify-between gap-2 mb-1">
+                  <span className="font-medium text-sm">{c.name}</span>
+                  <span className="text-xs text-muted-foreground">
+                    {c.known} / {c.total} known · {c.touched} touched
+                  </span>
+                  <span className="font-display text-sm tabular-nums w-12 text-right">{c.pct}%</span>
+                </div>
+                <div className="h-2 w-full overflow-hidden rounded-full bg-muted">
+                  <div className="h-full bg-sage transition-all duration-500" style={{ width: `${c.pct}%` }} />
+                </div>
+              </li>
+            ))}
+          </ul>
+        )}
       </div>
 
       <div className="rounded-xl border bg-card p-5 shadow-card">
