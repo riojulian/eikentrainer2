@@ -23,7 +23,7 @@ type RawData = {
   profiles: { id: string; display_name: string | null }[];
   statuses: { student_id: string; word_id: string; mastery: number; updated_at: string }[];
   results: { student_id: string; word_id: string; correct: boolean; taken_at: string }[];
-  wordsMeta: { id: string; category: string | null }[];
+  wordsMeta: { id: string; tier: string | null }[];
 };
 
 function Progress() {
@@ -63,7 +63,7 @@ function Progress() {
         ),
       ]);
       const wordsMeta = await fetchAll<RawData["wordsMeta"][number]>((f, t) =>
-        supabase.from("words").select("id,category").eq("is_active", true).range(f, t),
+        supabase.from("words").select("id,tier").eq("is_active", true).range(f, t),
       );
       const rawResults = results as RawData["results"];
       const rawStatuses = statuses as RawData["statuses"];
@@ -147,21 +147,27 @@ function Progress() {
             .slice(0, 8)
             .map((r) => ({ word: wordIdToText.get(r.word_id) ?? "—", mastery: r.mastery as Mastery, updatedAt: r.updated_at }));
 
-      // Per-category progress: known = distinct words with mastery >= 2 in this category.
-      const catTotals = new Map<string, string[]>();
+      // Per-tier progress (Core / Topics / Reading / Niche / Phrase).
+      const TIER_ORDER = ["tier1", "tier2", "tier3", "tier4", "phrases"] as const;
+      const TIER_NAME: Record<string, string> = {
+        tier1: "Core", tier2: "Topics", tier3: "Reading", tier4: "Niche", phrases: "Phrase",
+      };
+      const tierTotals = new Map<string, string[]>();
       raw.wordsMeta.forEach((w) => {
-        const c = w.category ?? "Uncategorized";
-        const arr = catTotals.get(c) ?? [];
+        const k = w.tier ?? "other";
+        const arr = tierTotals.get(k) ?? [];
         arr.push(w.id);
-        catTotals.set(c, arr);
+        tierTotals.set(k, arr);
       });
       const bestPerWord = new Map<string, number>();
       statuses.forEach((r) => {
         const cur = bestPerWord.get(r.word_id) ?? -1;
         if (r.mastery > cur) bestPerWord.set(r.word_id, r.mastery);
       });
-      const categories = [...catTotals.entries()]
-        .map(([name, ids]) => {
+      const categories = TIER_ORDER
+        .filter((k) => tierTotals.has(k))
+        .map((k) => {
+          const ids = tierTotals.get(k)!;
           let touched = 0, known = 0;
           ids.forEach((id) => {
             const m = bestPerWord.get(id);
@@ -169,9 +175,8 @@ function Progress() {
             touched++;
             if (m >= 2) known++;
           });
-          return { name, total: ids.length, touched, known, pct: ids.length ? Math.round((known / ids.length) * 100) : 0 };
-        })
-        .sort((a, b) => b.pct - a.pct || b.total - a.total);
+          return { name: TIER_NAME[k], total: ids.length, touched, known, pct: ids.length ? Math.round((known / ids.length) * 100) : 0 };
+        });
 
     return { totalWords, tiers, unseen, daily, weakest, categories };
   }, [raw, studentId]);
