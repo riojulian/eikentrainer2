@@ -147,8 +147,33 @@ function Progress() {
             .slice(0, 8)
             .map((r) => ({ word: wordIdToText.get(r.word_id) ?? "—", mastery: r.mastery as Mastery, updatedAt: r.updated_at }));
 
-    return { totalWords, tiers, unseen, daily, weakest };
-    // unreachable
+      // Per-category progress: known = distinct words with mastery >= 2 in this category.
+      const catTotals = new Map<string, string[]>();
+      raw.wordsMeta.forEach((w) => {
+        const c = w.category ?? "Uncategorized";
+        const arr = catTotals.get(c) ?? [];
+        arr.push(w.id);
+        catTotals.set(c, arr);
+      });
+      const bestPerWord = new Map<string, number>();
+      statuses.forEach((r) => {
+        const cur = bestPerWord.get(r.word_id) ?? -1;
+        if (r.mastery > cur) bestPerWord.set(r.word_id, r.mastery);
+      });
+      const categories = [...catTotals.entries()]
+        .map(([name, ids]) => {
+          let touched = 0, known = 0;
+          ids.forEach((id) => {
+            const m = bestPerWord.get(id);
+            if (m === undefined) return;
+            touched++;
+            if (m >= 2) known++;
+          });
+          return { name, total: ids.length, touched, known, pct: ids.length ? Math.round((known / ids.length) * 100) : 0 };
+        })
+        .sort((a, b) => b.pct - a.pct || b.total - a.total);
+
+    return { totalWords, tiers, unseen, daily, weakest, categories };
   }, [raw, studentId]);
 
   if (!s) return <div className="text-muted-foreground">Loading…</div>;
