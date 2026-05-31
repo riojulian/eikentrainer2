@@ -35,6 +35,8 @@ function AuthPage() {
   const [password, setPassword] = useState("");
   const [name, setName] = useState("");
   const [busy, setBusy] = useState(false);
+  const [forgotOpen, setForgotOpen] = useState(false);
+  const [resetEmail, setResetEmail] = useState("");
 
   if (!loading && user) {
     return <Navigate to={role === "admin" ? "/admin" : "/study"} />;
@@ -100,6 +102,18 @@ function AuthPage() {
     navigate({ to: "/study" });
   };
 
+  const sendReset = async () => {
+    if (!resetEmail) return toast.error(t("auth.email"));
+    setBusy(true);
+    const { error } = await supabase.auth.resetPasswordForEmail(resetEmail, {
+      redirectTo: `${window.location.origin}/reset-password`,
+    });
+    setBusy(false);
+    if (error) return toast.error(error.message);
+    toast.success(t("auth.resetSent"));
+    setForgotOpen(false);
+  };
+
   return (
     <div className="min-h-screen grid place-items-center px-4">
       <div className="w-full max-w-md">
@@ -134,6 +148,28 @@ function AuthPage() {
               <div className="space-y-2"><Label htmlFor="signin-email">{t("auth.email")}</Label><Input id="signin-email" type="email" autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} /></div>
               <div className="space-y-2"><Label htmlFor="signin-password">{t("auth.password")}</Label><Input id="signin-password" type="password" autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} /></div>
               <Button className="w-full" disabled={busy} onClick={signIn}>{t("auth.signinBtn")}</Button>
+              <button
+                type="button"
+                onClick={() => { setResetEmail(email); setForgotOpen((v) => !v); }}
+                className="w-full text-xs text-muted-foreground hover:text-foreground transition underline-offset-4 hover:underline"
+              >
+                {t("auth.forgot")}
+              </button>
+              {forgotOpen && (
+                <div className="space-y-2 rounded-md border bg-muted/30 p-3">
+                  <p className="text-xs text-muted-foreground">{t("auth.resetHint")}</p>
+                  <Input
+                    type="email"
+                    autoComplete="email"
+                    placeholder={t("auth.email")}
+                    value={resetEmail}
+                    onChange={(e) => setResetEmail(e.target.value)}
+                  />
+                  <Button variant="secondary" className="w-full" disabled={busy} onClick={sendReset}>
+                    {t("auth.sendReset")}
+                  </Button>
+                </div>
+              )}
             </TabsContent>
             <TabsContent value="signup" className="space-y-4 mt-4">
               <div className="space-y-2"><Label htmlFor="signup-name">{t("auth.displayName")}</Label><Input id="signup-name" autoComplete="name" value={name} onChange={(e) => setName(e.target.value)} /></div>
