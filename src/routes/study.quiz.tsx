@@ -232,12 +232,13 @@ function QuizPage() {
     (async () => {
       if (!isGuest && !user) return;
       if (mode === "mission") {
-        const world = isGuest
+        const resolvedWorld = isGuest
           ? (search.world ?? GUEST_FREE_WORLD)
           : (search.world ?? await queryClient.ensureQueryData({
           queryKey: qk.currentWorld(user.id),
           queryFn: () => getCurrentWorld(user.id),
         }));
+        const world: string = resolvedWorld ?? DEFAULT_WORLD;
         setActiveWorld(world);
         if (isGuest) {
           const ordered = await getGuestWords(world);

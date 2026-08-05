@@ -113,12 +113,13 @@ function Flashcards() {
     }
     setCardsLoading(true);
     (async () => {
-      const world = isGuest
+      const resolvedWorld = isGuest
         ? (search.world ?? GUEST_FREE_WORLD)
         : (search.world ?? (await queryClient.ensureQueryData({
             queryKey: qk.currentWorld(user!.id),
             queryFn: () => getCurrentWorld(user!.id),
           })));
+      const world: string = resolvedWorld ?? DEFAULT_WORLD;
       const ordered = isGuest
         ? await getGuestWords(world)
         : await queryClient.ensureQueryData({

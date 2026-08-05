@@ -264,8 +264,8 @@ function StudyHome() {
   useEffect(() => {
     const next = search.world;
     if (!next || next === activeWorld) return;
-    if (!WORLD_ORDER.includes(next)) return;
-    setActiveWorld(next);
+    if (!(WORLD_ORDER as readonly string[]).includes(next)) return;
+    setActiveWorld(next as (typeof WORLD_ORDER)[number]);
     if (user) void setCurrentWorld(user.id, next);
   }, [search.world, activeWorld, user]);
 
@@ -364,6 +364,23 @@ function StudyHome() {
                 {t("home.takeQuiz")} →
               </Link>
             </div>
+          </div>
+
+          <div className="mt-4 rounded-2xl border bg-card p-5 shadow-card">
+            <div className="text-[11px] uppercase tracking-widest text-gold">
+              {lang === "ja" ? "読解トレーニング" : "Reading practice"}
+            </div>
+            <div className="font-display text-xl mt-1">
+              {lang === "ja" ? "大問1 語句空所補充" : "Vocab in context (Part 1)"}
+            </div>
+            <p className="mt-0.5 text-sm text-muted-foreground">
+              {lang === "ja"
+                ? "文脈に合う語を選ぶ練習。弱点スキルを記録します。"
+                : "Pick the word that fits the sentence — we track the micro-skill behind each answer."}
+            </p>
+            <Button asChild variant="outline" size="lg" className="mt-4 h-12 w-full">
+              <Link to="/study/vocab">{lang === "ja" ? "はじめる" : "Start practice"}</Link>
+            </Button>
           </div>
         </>
       ) : loading ? (
