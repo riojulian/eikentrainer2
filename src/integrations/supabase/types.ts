@@ -14,6 +14,68 @@ export type Database = {
   }
   public: {
     Tables: {
+      exam_sections: {
+        Row: {
+          code: string
+          created_at: string
+          exam_id: string
+          id: string
+          module_type: string
+          name: string
+          sort_order: number
+        }
+        Insert: {
+          code: string
+          created_at?: string
+          exam_id: string
+          id?: string
+          module_type: string
+          name: string
+          sort_order?: number
+        }
+        Update: {
+          code?: string
+          created_at?: string
+          exam_id?: string
+          id?: string
+          module_type?: string
+          name?: string
+          sort_order?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "exam_sections_exam_id_fkey"
+            columns: ["exam_id"]
+            isOneToOne: false
+            referencedRelation: "exams"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      exams: {
+        Row: {
+          code: string
+          created_at: string
+          description: string | null
+          id: string
+          name: string
+        }
+        Insert: {
+          code: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          name: string
+        }
+        Update: {
+          code?: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          name?: string
+        }
+        Relationships: []
+      }
       images: {
         Row: {
           id: string
@@ -80,6 +142,91 @@ export type Database = {
         }
         Relationships: []
       }
+      passage_sentences: {
+        Row: {
+          id: string
+          label: string | null
+          passage_id: string
+          sentence_index: number
+          text: string
+        }
+        Insert: {
+          id?: string
+          label?: string | null
+          passage_id: string
+          sentence_index: number
+          text: string
+        }
+        Update: {
+          id?: string
+          label?: string | null
+          passage_id?: string
+          sentence_index?: number
+          text?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "passage_sentences_passage_id_fkey"
+            columns: ["passage_id"]
+            isOneToOne: false
+            referencedRelation: "passages"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      passages: {
+        Row: {
+          body_text: string
+          created_at: string
+          difficulty_rating: number
+          exam_section_id: string
+          id: string
+          seed_key: string | null
+          source: string
+          status: string
+          title: string
+          topic_tag: string | null
+          updated_at: string
+          word_count: number | null
+        }
+        Insert: {
+          body_text: string
+          created_at?: string
+          difficulty_rating?: number
+          exam_section_id: string
+          id?: string
+          seed_key?: string | null
+          source?: string
+          status?: string
+          title: string
+          topic_tag?: string | null
+          updated_at?: string
+          word_count?: number | null
+        }
+        Update: {
+          body_text?: string
+          created_at?: string
+          difficulty_rating?: number
+          exam_section_id?: string
+          id?: string
+          seed_key?: string | null
+          source?: string
+          status?: string
+          title?: string
+          topic_tag?: string | null
+          updated_at?: string
+          word_count?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "passages_exam_section_id_fkey"
+            columns: ["exam_section_id"]
+            isOneToOne: false
+            referencedRelation: "exam_sections"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           created_at: string
@@ -97,6 +244,78 @@ export type Database = {
           id?: string
         }
         Relationships: []
+      }
+      questions: {
+        Row: {
+          blank_number: number | null
+          choices: Json
+          correct_choice_index: number
+          created_at: string
+          difficulty_rating: number
+          evidence_sentence_ids: string[] | null
+          exam_section_id: string
+          explanation: string | null
+          id: string
+          passage_id: string | null
+          prompt: string
+          seed_key: string | null
+          source: string
+          status: string
+          subskill_ids: string[]
+          updated_at: string
+        }
+        Insert: {
+          blank_number?: number | null
+          choices: Json
+          correct_choice_index: number
+          created_at?: string
+          difficulty_rating?: number
+          evidence_sentence_ids?: string[] | null
+          exam_section_id: string
+          explanation?: string | null
+          id?: string
+          passage_id?: string | null
+          prompt: string
+          seed_key?: string | null
+          source?: string
+          status?: string
+          subskill_ids?: string[]
+          updated_at?: string
+        }
+        Update: {
+          blank_number?: number | null
+          choices?: Json
+          correct_choice_index?: number
+          created_at?: string
+          difficulty_rating?: number
+          evidence_sentence_ids?: string[] | null
+          exam_section_id?: string
+          explanation?: string | null
+          id?: string
+          passage_id?: string | null
+          prompt?: string
+          seed_key?: string | null
+          source?: string
+          status?: string
+          subskill_ids?: string[]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "questions_exam_section_id_fkey"
+            columns: ["exam_section_id"]
+            isOneToOne: false
+            referencedRelation: "exam_sections"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "questions_passage_id_fkey"
+            columns: ["passage_id"]
+            isOneToOne: false
+            referencedRelation: "passages"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       quiz_results: {
         Row: {
@@ -259,6 +478,102 @@ export type Database = {
         }
         Relationships: []
       }
+      subskills: {
+        Row: {
+          created_at: string
+          exam_section_id: string
+          id: string
+          key: string
+          label_en: string
+          label_ja: string
+          sort_order: number
+        }
+        Insert: {
+          created_at?: string
+          exam_section_id: string
+          id?: string
+          key: string
+          label_en: string
+          label_ja: string
+          sort_order?: number
+        }
+        Update: {
+          created_at?: string
+          exam_section_id?: string
+          id?: string
+          key?: string
+          label_en?: string
+          label_ja?: string
+          sort_order?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "subskills_exam_section_id_fkey"
+            columns: ["exam_section_id"]
+            isOneToOne: false
+            referencedRelation: "exam_sections"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      user_answers: {
+        Row: {
+          answered_at: string
+          evidence_outcome: string | null
+          id: string
+          is_correct: boolean
+          question_id: string
+          selected_choice_index: number
+          tapped_sentence_id: string | null
+          user_id: string
+          user_session_id: string | null
+        }
+        Insert: {
+          answered_at?: string
+          evidence_outcome?: string | null
+          id?: string
+          is_correct: boolean
+          question_id: string
+          selected_choice_index: number
+          tapped_sentence_id?: string | null
+          user_id: string
+          user_session_id?: string | null
+        }
+        Update: {
+          answered_at?: string
+          evidence_outcome?: string | null
+          id?: string
+          is_correct?: boolean
+          question_id?: string
+          selected_choice_index?: number
+          tapped_sentence_id?: string | null
+          user_id?: string
+          user_session_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_answers_question_id_fkey"
+            columns: ["question_id"]
+            isOneToOne: false
+            referencedRelation: "questions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_answers_tapped_sentence_id_fkey"
+            columns: ["tapped_sentence_id"]
+            isOneToOne: false
+            referencedRelation: "passage_sentences"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_answers_user_session_id_fkey"
+            columns: ["user_session_id"]
+            isOneToOne: false
+            referencedRelation: "user_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_roles: {
         Row: {
           id: string
@@ -276,6 +591,74 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      user_sessions: {
+        Row: {
+          ended_at: string | null
+          id: string
+          module_type: string
+          questions_served: string[]
+          started_at: string
+          user_id: string
+        }
+        Insert: {
+          ended_at?: string | null
+          id?: string
+          module_type: string
+          questions_served?: string[]
+          started_at?: string
+          user_id: string
+        }
+        Update: {
+          ended_at?: string | null
+          id?: string
+          module_type?: string
+          questions_served?: string[]
+          started_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      user_subskill_stats: {
+        Row: {
+          attempts: number
+          correct: number
+          id: string
+          last_practiced_at: string | null
+          rolling_accuracy: number
+          subskill_id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          attempts?: number
+          correct?: number
+          id?: string
+          last_practiced_at?: string | null
+          rolling_accuracy?: number
+          subskill_id: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          attempts?: number
+          correct?: number
+          id?: string
+          last_practiced_at?: string | null
+          rolling_accuracy?: number
+          subskill_id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_subskill_stats_subskill_id_fkey"
+            columns: ["subskill_id"]
+            isOneToOne: false
+            referencedRelation: "subskills"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       word_status: {
         Row: {
