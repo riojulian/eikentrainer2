@@ -264,8 +264,8 @@ function StudyHome() {
   useEffect(() => {
     const next = search.world;
     if (!next || next === activeWorld) return;
-    if (!WORLD_ORDER.includes(next)) return;
-    setActiveWorld(next);
+    if (!(WORLD_ORDER as readonly string[]).includes(next)) return;
+    setActiveWorld(next as (typeof WORLD_ORDER)[number]);
     if (user) void setCurrentWorld(user.id, next);
   }, [search.world, activeWorld, user]);
 
