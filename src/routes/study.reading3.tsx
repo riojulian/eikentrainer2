@@ -245,7 +245,7 @@ function DetailInference() {
                     onClick={() => !revealed && setTapped(isTapped ? null : s.id)}
                     disabled={revealed}
                     aria-label={`Select sentence ${s.label ?? s.sentence_index + 1} as evidence`}
-                    className={`cursor-pointer px-0.5 text-left transition ${cls}`}
+                    className={`inline cursor-pointer px-0.5 text-left transition ${cls}`}
                   >
                     {s.text}{" "}
                   </button>
