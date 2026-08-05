@@ -370,17 +370,47 @@ function StudyHome() {
             <div className="text-[11px] uppercase tracking-widest text-gold">
               {lang === "ja" ? "読解トレーニング" : "Reading practice"}
             </div>
-            <div className="font-display text-xl mt-1">
-              {lang === "ja" ? "大問1 語句空所補充" : "Vocab in context (Part 1)"}
+            <div className="mt-3 space-y-3">
+              <div>
+                <div className="font-display text-lg">
+                  {lang === "ja" ? "大問1 短文語句空所補充" : "Vocab in context (Part 1)"}
+                </div>
+                <p className="mt-0.5 text-sm text-muted-foreground">
+                  {lang === "ja"
+                    ? "文脈に合う語を選ぶ練習。弱点スキルを記録します。"
+                    : "Pick the word that fits the sentence — we track the micro-skill behind each answer."}
+                </p>
+                <Button asChild variant="outline" size="lg" className="mt-2 h-11 w-full">
+                  <Link to="/study/vocab">{lang === "ja" ? "はじめる" : "Start practice"}</Link>
+                </Button>
+              </div>
+              <div className="border-t pt-3">
+                <div className="font-display text-lg">
+                  {lang === "ja" ? "大問2 長文語句空所補充" : "Passage blanks (Part 2)"}
+                </div>
+                <p className="mt-0.5 text-sm text-muted-foreground">
+                  {lang === "ja"
+                    ? "文章の流れを追って空所を埋める練習。"
+                    : "Follow the logic of the passage and fill each blank."}
+                </p>
+                <Button asChild variant="outline" size="lg" className="mt-2 h-11 w-full">
+                  <Link to="/study/reading2">{lang === "ja" ? "はじめる" : "Start practice"}</Link>
+                </Button>
+              </div>
+              <div className="border-t pt-3">
+                <div className="font-display text-lg">
+                  {lang === "ja" ? "大問3 長文内容一致選択" : "Reading comprehension (Part 3)"}
+                </div>
+                <p className="mt-0.5 text-sm text-muted-foreground">
+                  {lang === "ja"
+                    ? "根拠の文をタップしてから解答。読み方のクセが分かります。"
+                    : "Tap the sentence that proves your answer, then choose — see if your evidence was right."}
+                </p>
+                <Button asChild variant="outline" size="lg" className="mt-2 h-11 w-full">
+                  <Link to="/study/reading3">{lang === "ja" ? "はじめる" : "Start practice"}</Link>
+                </Button>
+              </div>
             </div>
-            <p className="mt-0.5 text-sm text-muted-foreground">
-              {lang === "ja"
-                ? "文脈に合う語を選ぶ練習。弱点スキルを記録します。"
-                : "Pick the word that fits the sentence — we track the micro-skill behind each answer."}
-            </p>
-            <Button asChild variant="outline" size="lg" className="mt-4 h-12 w-full">
-              <Link to="/study/vocab">{lang === "ja" ? "はじめる" : "Start practice"}</Link>
-            </Button>
           </div>
         </>
       ) : loading ? (
