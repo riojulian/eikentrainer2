@@ -17,6 +17,91 @@ export type Subskill = {
   label_ja: string;
 };
 
+export type PassageSentence = {
+  id: string;
+  sentence_index: number;
+  label: string | null;
+  text: string;
+};
+
+export type PassageQuestion = ReadingQuestion & {
+  blank_number: number | null;
+  evidence_sentence_ids: string[];
+};
+
+export type ReadingPassage = {
+  id: string;
+  title: string;
+  body_text: string;
+  topic_tag: string | null;
+  word_count: number | null;
+  difficulty_rating: number;
+  sentences: PassageSentence[];
+  questions: PassageQuestion[];
+};
+
+/** Fetch active passages (with sentences + questions) for a section code. */
+export async function fetchSectionPassages(sectionCode: string): Promise<ReadingPassage[]> {
+  const { data: section, error: sErr } = await supabase
+    .from("exam_sections")
+    .select("id")
+    .eq("code", sectionCode)
+    .maybeSingle();
+  if (sErr) throw sErr;
+  if (!section) return [];
+
+  const { data: passages, error: pErr } = await supabase
+    .from("passages")
+    .select("id,title,body_text,topic_tag,word_count,difficulty_rating")
+    .eq("exam_section_id", section.id)
+    .eq("status", "active")
+    .order("difficulty_rating", { ascending: true });
+  if (pErr) throw pErr;
+  const ids = (passages ?? []).map((p) => p.id);
+  if (ids.length === 0) return [];
+
+  const [{ data: sentences }, { data: questions }] = await Promise.all([
+    supabase
+      .from("passage_sentences")
+      .select("id,passage_id,sentence_index,label,text")
+      .in("passage_id", ids)
+      .order("sentence_index", { ascending: true }),
+    supabase
+      .from("questions")
+      .select(
+        "id,passage_id,prompt,choices,correct_choice_index,explanation,subskill_ids,difficulty_rating,blank_number,evidence_sentence_ids",
+      )
+      .in("passage_id", ids)
+      .eq("status", "active"),
+  ]);
+
+  return (passages ?? []).map((p) => ({
+    id: p.id,
+    title: p.title,
+    body_text: p.body_text,
+    topic_tag: p.topic_tag,
+    word_count: p.word_count,
+    difficulty_rating: p.difficulty_rating,
+    sentences: (sentences ?? [])
+      .filter((s) => s.passage_id === p.id)
+      .map((s) => ({ id: s.id, sentence_index: s.sentence_index, label: s.label, text: s.text })),
+    questions: (questions ?? [])
+      .filter((q) => q.passage_id === p.id)
+      .map((q) => ({
+        id: q.id,
+        prompt: q.prompt,
+        choices: (q.choices as unknown as string[]) ?? [],
+        correct_choice_index: q.correct_choice_index,
+        explanation: q.explanation,
+        subskill_ids: q.subskill_ids ?? [],
+        difficulty_rating: q.difficulty_rating,
+        blank_number: q.blank_number,
+        evidence_sentence_ids: q.evidence_sentence_ids ?? [],
+      }))
+      .sort((a, b) => (a.blank_number ?? 0) - (b.blank_number ?? 0)),
+  }));
+}
+
 /** Fetch all active questions for a section code (e.g. eiken_pre1_d1). */
 export async function fetchSectionQuestions(sectionCode: string): Promise<ReadingQuestion[]> {
   const { data: section, error: sErr } = await supabase
