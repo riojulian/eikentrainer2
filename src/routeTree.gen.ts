@@ -18,6 +18,7 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as StudyIndexRouteImport } from './routes/study.index'
 import { Route as AdminIndexRouteImport } from './routes/admin.index'
 import { Route as StudyVocabRouteImport } from './routes/study.vocab'
+import { Route as StudyReading2RouteImport } from './routes/study.reading2'
 import { Route as StudyQuizRouteImport } from './routes/study.quiz'
 import { Route as StudyListRouteImport } from './routes/study.list'
 import { Route as StudyFlashcardsRouteImport } from './routes/study.flashcards'
@@ -70,6 +71,11 @@ const AdminIndexRoute = AdminIndexRouteImport.update({
 const StudyVocabRoute = StudyVocabRouteImport.update({
   id: '/vocab',
   path: '/vocab',
+  getParentRoute: () => StudyRoute,
+} as any)
+const StudyReading2Route = StudyReading2RouteImport.update({
+  id: '/reading2',
+  path: '/reading2',
   getParentRoute: () => StudyRoute,
 } as any)
 const StudyQuizRoute = StudyQuizRouteImport.update({
@@ -127,6 +133,7 @@ export interface FileRoutesByFullPath {
   '/study/flashcards': typeof StudyFlashcardsRoute
   '/study/list': typeof StudyListRoute
   '/study/quiz': typeof StudyQuizRoute
+  '/study/reading2': typeof StudyReading2Route
   '/study/vocab': typeof StudyVocabRoute
   '/admin/': typeof AdminIndexRoute
   '/study/': typeof StudyIndexRoute
@@ -144,6 +151,7 @@ export interface FileRoutesByTo {
   '/study/flashcards': typeof StudyFlashcardsRoute
   '/study/list': typeof StudyListRoute
   '/study/quiz': typeof StudyQuizRoute
+  '/study/reading2': typeof StudyReading2Route
   '/study/vocab': typeof StudyVocabRoute
   '/admin': typeof AdminIndexRoute
   '/study': typeof StudyIndexRoute
@@ -164,6 +172,7 @@ export interface FileRoutesById {
   '/study/flashcards': typeof StudyFlashcardsRoute
   '/study/list': typeof StudyListRoute
   '/study/quiz': typeof StudyQuizRoute
+  '/study/reading2': typeof StudyReading2Route
   '/study/vocab': typeof StudyVocabRoute
   '/admin/': typeof AdminIndexRoute
   '/study/': typeof StudyIndexRoute
@@ -185,6 +194,7 @@ export interface FileRouteTypes {
     | '/study/flashcards'
     | '/study/list'
     | '/study/quiz'
+    | '/study/reading2'
     | '/study/vocab'
     | '/admin/'
     | '/study/'
@@ -202,6 +212,7 @@ export interface FileRouteTypes {
     | '/study/flashcards'
     | '/study/list'
     | '/study/quiz'
+    | '/study/reading2'
     | '/study/vocab'
     | '/admin'
     | '/study'
@@ -221,6 +232,7 @@ export interface FileRouteTypes {
     | '/study/flashcards'
     | '/study/list'
     | '/study/quiz'
+    | '/study/reading2'
     | '/study/vocab'
     | '/admin/'
     | '/study/'
@@ -300,6 +312,13 @@ declare module '@tanstack/react-router' {
       path: '/vocab'
       fullPath: '/study/vocab'
       preLoaderRoute: typeof StudyVocabRouteImport
+      parentRoute: typeof StudyRoute
+    }
+    '/study/reading2': {
+      id: '/study/reading2'
+      path: '/reading2'
+      fullPath: '/study/reading2'
+      preLoaderRoute: typeof StudyReading2RouteImport
       parentRoute: typeof StudyRoute
     }
     '/study/quiz': {
@@ -383,6 +402,7 @@ interface StudyRouteChildren {
   StudyFlashcardsRoute: typeof StudyFlashcardsRoute
   StudyListRoute: typeof StudyListRoute
   StudyQuizRoute: typeof StudyQuizRoute
+  StudyReading2Route: typeof StudyReading2Route
   StudyVocabRoute: typeof StudyVocabRoute
   StudyIndexRoute: typeof StudyIndexRoute
 }
@@ -391,6 +411,7 @@ const StudyRouteChildren: StudyRouteChildren = {
   StudyFlashcardsRoute: StudyFlashcardsRoute,
   StudyListRoute: StudyListRoute,
   StudyQuizRoute: StudyQuizRoute,
+  StudyReading2Route: StudyReading2Route,
   StudyVocabRoute: StudyVocabRoute,
   StudyIndexRoute: StudyIndexRoute,
 }
