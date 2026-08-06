@@ -43,11 +43,7 @@ type Outcome = "correct_evidence" | "lucky_guess" | "reasonable_miss" | "no_evid
 function groupSentences<T extends { text: string }>(body: string, sentences: T[]): T[][] {
   const paras = body.split(/\n\s*\n|\n/).map((t) => t.trim()).filter(Boolean);
   if (sentences.length === 0) return [sentences];
-  if (paras.length <= 1) {
-    const chunks: T[][] = [];
-    for (let i = 0; i < sentences.length; i += 3) chunks.push(sentences.slice(i, i + 3));
-    return chunks;
-  }
+  if (paras.length <= 1) return [sentences];
   const groups: T[][] = [];
   let idx = 0;
   for (const para of paras) {
