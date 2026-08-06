@@ -101,7 +101,7 @@ export async function fetchSectionPassages(sectionCode: string): Promise<Reading
       .map((s) => ({ id: s.id, sentence_index: s.sentence_index, label: s.label, text: s.text })),
     questions: (questions ?? [])
       .filter((q) => q.passage_id === p.id)
-      .map((q) => ({
+      .map((q) => shuffleChoices({
         id: q.id,
         prompt: q.prompt,
         choices: (q.choices as unknown as string[]) ?? [],
@@ -134,7 +134,7 @@ export async function fetchSectionQuestions(sectionCode: string): Promise<Readin
     .order("difficulty_rating", { ascending: true });
   if (error) throw error;
 
-  return (data ?? []).map((q) => ({
+  return (data ?? []).map((q) => shuffleChoices({
     id: q.id,
     prompt: q.prompt,
     choices: (q.choices as unknown as string[]) ?? [],
