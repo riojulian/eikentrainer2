@@ -37,6 +37,17 @@ export const Route = createFileRoute("/study/reading2")({
   }),
 });
 
+function splitParagraphs(body: string): string[] {
+  const explicit = body.split(/\n\s*\n|\n/).map((t) => t.trim()).filter(Boolean);
+  if (explicit.length > 1) return explicit;
+  const sentences = body.match(/[^.!?]+[.!?]+["')\]]*\s*/g) ?? [body];
+  const paras: string[] = [];
+  for (let i = 0; i < sentences.length; i += 3) {
+    paras.push(sentences.slice(i, i + 3).join("").trim());
+  }
+  return paras.filter(Boolean);
+}
+
 function renderBody(body: string, activeBlank: number | null, solved: Record<number, string>) {
   const parts = body.split(/(\(\s*\d+\s*\))/g);
   return parts.map((part, i) => {
@@ -218,9 +229,11 @@ function LogicalFlow() {
       <article className="mt-4 rounded-2xl border bg-card p-6 shadow-card">
         <h2 className="font-display text-xl">{p.title}</h2>
         {p.topic_tag && <div className="mt-1 text-[11px] uppercase tracking-widest text-gold">{p.topic_tag}</div>}
-        <div className="mt-3 space-y-8 text-[13.5px] leading-7">
-          {p.body_text.split(/\n\s*\n|\n/).filter((t) => t.trim()).map((para, i) => (
-            <p key={i}>{renderBody(para, q.blank_number, solved)}</p>
+        <div className="mt-3 text-[13.5px] leading-7">
+          {splitParagraphs(p.body_text).map((para, i) => (
+            <p key={i} className="mb-8 last:mb-0">
+              {renderBody(para, q.blank_number, solved)}
+            </p>
           ))}
         </div>
       </article>

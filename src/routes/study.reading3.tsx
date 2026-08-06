@@ -42,7 +42,12 @@ type Outcome = "correct_evidence" | "lucky_guess" | "reasonable_miss" | "no_evid
 /** Group sentences into paragraphs by matching them against body_text blocks. */
 function groupSentences<T extends { text: string }>(body: string, sentences: T[]): T[][] {
   const paras = body.split(/\n\s*\n|\n/).map((t) => t.trim()).filter(Boolean);
-  if (paras.length <= 1 || sentences.length === 0) return [sentences];
+  if (sentences.length === 0) return [sentences];
+  if (paras.length <= 1) {
+    const chunks: T[][] = [];
+    for (let i = 0; i < sentences.length; i += 3) chunks.push(sentences.slice(i, i + 3));
+    return chunks;
+  }
   const groups: T[][] = [];
   let idx = 0;
   for (const para of paras) {
@@ -247,7 +252,7 @@ function DetailInference() {
       <article className="mt-4 rounded-2xl border bg-card p-6 shadow-card">
         <h2 className="font-display text-xl">{p.title}</h2>
         {p.topic_tag && <div className="mt-1 text-[11px] uppercase tracking-widest text-gold">{p.topic_tag}</div>}
-        <div className="mt-3 space-y-8 text-[13.5px] leading-7">
+        <div className="mt-3 text-[13.5px] leading-7 [&>p]:mb-8 [&>p:last-child]:mb-0">
           {p.sentences.length > 0
             ? groupSentences(p.body_text, p.sentences).map((group, gi) => (
                 <p key={gi}>
