@@ -39,6 +39,29 @@ export const Route = createFileRoute("/study/reading3")({
 
 type Outcome = "correct_evidence" | "lucky_guess" | "reasonable_miss" | "no_evidence_found";
 
+/** Group sentences into paragraphs by matching them against body_text blocks. */
+function groupSentences<T extends { text: string }>(body: string, sentences: T[]): T[][] {
+  const paras = body.split(/\n\s*\n|\n/).map((t) => t.trim()).filter(Boolean);
+  if (paras.length <= 1 || sentences.length === 0) return [sentences];
+  const groups: T[][] = [];
+  let idx = 0;
+  for (const para of paras) {
+    const group: T[] = [];
+    let cursor = 0;
+    while (idx < sentences.length) {
+      const t = sentences[idx].text.trim();
+      const at = para.indexOf(t, cursor);
+      if (at === -1) break;
+      cursor = at + t.length;
+      group.push(sentences[idx]);
+      idx++;
+    }
+    if (group.length) groups.push(group);
+  }
+  if (idx < sentences.length) groups.push(sentences.slice(idx));
+  return groups.length ? groups : [sentences];
+}
+
 function outcomeCopy(o: Outcome, ja: boolean) {
   switch (o) {
     case "correct_evidence":
@@ -224,9 +247,11 @@ function DetailInference() {
       <article className="mt-4 rounded-2xl border bg-card p-6 shadow-card">
         <h2 className="font-display text-xl">{p.title}</h2>
         {p.topic_tag && <div className="mt-1 text-[11px] uppercase tracking-widest text-gold">{p.topic_tag}</div>}
-        <div className="mt-3 text-[15px] leading-8">
+        <div className="mt-3 space-y-4 text-[13.5px] leading-7">
           {p.sentences.length > 0
-            ? p.sentences.map((s) => {
+            ? groupSentences(p.body_text, p.sentences).map((group, gi) => (
+                <p key={gi}>
+                  {group.map((s) => {
                 const isEvidence = q.evidence_sentence_ids.includes(s.id);
                 const isTapped = tapped === s.id;
                 const cls = revealed
@@ -250,7 +275,9 @@ function DetailInference() {
                     {s.text}{" "}
                   </button>
                 );
-              })
+                  })}
+                </p>
+              ))
             : <p className="whitespace-pre-wrap">{p.body_text}</p>}
         </div>
       </article>
@@ -271,8 +298,8 @@ function DetailInference() {
                 ? "根拠の文を選びました。答えを選びましょう。"
                 : "Evidence selected — now pick your answer."
               : ja
-                ? "答える前に、根拠になる文をタップ（任意）"
-                : "Tap the sentence that proves your answer first (optional)"}
+                ? "ヒント：答えの手がかり・背景になる文（段落）を本文からタップしてみましょう。"
+                : "Hint: tap the sentence or paragraph above that gives you the clue or background for your answer."}
           </p>
         )}
 
