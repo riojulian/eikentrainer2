@@ -218,7 +218,7 @@ function LogicalFlow() {
       <article className="mt-4 rounded-2xl border bg-card p-6 shadow-card">
         <h2 className="font-display text-xl">{p.title}</h2>
         {p.topic_tag && <div className="mt-1 text-[11px] uppercase tracking-widest text-gold">{p.topic_tag}</div>}
-        <div className="mt-3 space-y-4 text-[13.5px] leading-7">
+        <div className="mt-3 space-y-8 text-[13.5px] leading-7">
           {p.body_text.split(/\n\s*\n|\n/).filter((t) => t.trim()).map((para, i) => (
             <p key={i}>{renderBody(para, q.blank_number, solved)}</p>
           ))}
