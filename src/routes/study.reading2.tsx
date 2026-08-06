@@ -244,7 +244,7 @@ function LogicalFlow() {
             <Sparkles className="h-3 w-3 text-gold" /> {skillLabel}
           </div>
         )}
-        <p className="mt-3 text-sm font-medium">
+        <p className="mt-3 text-[15px] font-medium">
           {ja ? `空所 ( ${q.blank_number} ) に入るものを選びましょう` : `Choose what belongs in blank ( ${q.blank_number} )`}
         </p>
 
