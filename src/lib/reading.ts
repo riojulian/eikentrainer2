@@ -17,6 +17,20 @@ export type Subskill = {
   label_ja: string;
 };
 
+/** Shuffle choices so the correct answer isn't always first; remaps the answer index. */
+function shuffleChoices<T extends { choices: string[]; correct_choice_index: number }>(q: T): T {
+  const idx = q.choices.map((_, i) => i);
+  for (let i = idx.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [idx[i]!, idx[j]!] = [idx[j]!, idx[i]!];
+  }
+  return {
+    ...q,
+    choices: idx.map((i) => q.choices[i]!),
+    correct_choice_index: idx.indexOf(q.correct_choice_index),
+  };
+}
+
 export type PassageSentence = {
   id: string;
   sentence_index: number;
