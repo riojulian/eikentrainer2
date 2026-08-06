@@ -16,6 +16,7 @@ import {
 import { useLang } from "@/lib/i18n";
 
 const SECTION = "eiken_pre1_d2";
+const MAX_QUESTIONS = 5;
 
 export const Route = createFileRoute("/study/reading2")({
   component: LogicalFlow,
@@ -80,11 +81,26 @@ function LogicalFlow() {
   const { lang } = useLang();
   const ja = lang === "ja";
 
-  const { data: passages, isLoading } = useQuery({
+  const { data: allPassages, isLoading } = useQuery({
     queryKey: ["reading", SECTION, "passages"],
     queryFn: () => fetchSectionPassages(SECTION),
     staleTime: 30 * 60 * 1000,
   });
+
+  // Cap each practice session at 5 blanks total
+  const passages = useMemo(() => {
+    if (!allPassages) return undefined;
+    const out: ReadingPassage[] = [];
+    let count = 0;
+    for (const p of allPassages) {
+      if (count >= MAX_QUESTIONS) break;
+      const qs = p.questions.slice(0, MAX_QUESTIONS - count);
+      if (qs.length === 0) continue;
+      out.push({ ...p, questions: qs });
+      count += qs.length;
+    }
+    return out;
+  }, [allPassages]);
   const { data: subskills } = useQuery({
     queryKey: ["reading", SECTION, "subskills"],
     queryFn: () => fetchSubskills(SECTION),
