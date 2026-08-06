@@ -229,7 +229,7 @@ function LogicalFlow() {
       <article className="mt-4 rounded-2xl border bg-card p-6 shadow-card">
         <h2 className="font-display text-xl">{p.title}</h2>
         {p.topic_tag && <div className="mt-1 text-[11px] uppercase tracking-widest text-gold">{p.topic_tag}</div>}
-        <div className="mt-3 text-[13.5px] leading-7">
+        <div className="mt-3 text-[15.5px] leading-8">
           {splitParagraphs(p.body_text).map((para, i) => (
             <p key={i} className="mb-8 last:mb-0">
               {renderBody(para, q.blank_number, solved)}
@@ -244,7 +244,7 @@ function LogicalFlow() {
             <Sparkles className="h-3 w-3 text-gold" /> {skillLabel}
           </div>
         )}
-        <p className="mt-3 text-sm font-medium">
+        <p className="mt-3 text-[15px] font-medium">
           {ja ? `空所 ( ${q.blank_number} ) に入るものを選びましょう` : `Choose what belongs in blank ( ${q.blank_number} )`}
         </p>
 

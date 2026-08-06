@@ -17,6 +17,20 @@ export type Subskill = {
   label_ja: string;
 };
 
+/** Shuffle choices so the correct answer isn't always first; remaps the answer index. */
+function shuffleChoices<T extends { choices: string[]; correct_choice_index: number }>(q: T): T {
+  const idx = q.choices.map((_, i) => i);
+  for (let i = idx.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [idx[i]!, idx[j]!] = [idx[j]!, idx[i]!];
+  }
+  return {
+    ...q,
+    choices: idx.map((i) => q.choices[i]!),
+    correct_choice_index: idx.indexOf(q.correct_choice_index),
+  };
+}
+
 export type PassageSentence = {
   id: string;
   sentence_index: number;
@@ -87,7 +101,7 @@ export async function fetchSectionPassages(sectionCode: string): Promise<Reading
       .map((s) => ({ id: s.id, sentence_index: s.sentence_index, label: s.label, text: s.text })),
     questions: (questions ?? [])
       .filter((q) => q.passage_id === p.id)
-      .map((q) => ({
+      .map((q) => shuffleChoices({
         id: q.id,
         prompt: q.prompt,
         choices: (q.choices as unknown as string[]) ?? [],
@@ -120,7 +134,7 @@ export async function fetchSectionQuestions(sectionCode: string): Promise<Readin
     .order("difficulty_rating", { ascending: true });
   if (error) throw error;
 
-  return (data ?? []).map((q) => ({
+  return (data ?? []).map((q) => shuffleChoices({
     id: q.id,
     prompt: q.prompt,
     choices: (q.choices as unknown as string[]) ?? [],

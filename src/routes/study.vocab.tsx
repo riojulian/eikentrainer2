@@ -175,7 +175,9 @@ function VocabInContext() {
             <Sparkles className="h-3 w-3 text-gold" /> {skillLabel}
           </div>
         )}
-        <p className="mt-3 text-lg leading-relaxed">{q.prompt}</p>
+        <p className="mt-3 text-xl leading-relaxed">
+          {q.prompt.replace(/\(\s*\)/g, "( ·············· )")}
+        </p>
 
         <div className="mt-5 space-y-2">
           {q.choices.map((c, i) => {
