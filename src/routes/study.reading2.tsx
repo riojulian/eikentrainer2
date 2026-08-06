@@ -39,7 +39,13 @@ export const Route = createFileRoute("/study/reading2")({
 
 function splitParagraphs(body: string): string[] {
   const explicit = body.split(/\n\s*\n|\n/).map((t) => t.trim()).filter(Boolean);
-  return explicit.length ? explicit : [body];
+  if (explicit.length > 1) return explicit;
+  const sentences = body.match(/[^.!?]+[.!?]+["')\]]*\s*/g) ?? [body];
+  const paras: string[] = [];
+  for (let i = 0; i < sentences.length; i += 3) {
+    paras.push(sentences.slice(i, i + 3).join("").trim());
+  }
+  return paras.filter(Boolean);
 }
 
 function renderBody(body: string, activeBlank: number | null, solved: Record<number, string>) {
