@@ -328,7 +328,7 @@ function DetailInference() {
         <article className="rounded-2xl border bg-card p-6 shadow-card lg:sticky lg:top-20 lg:max-h-[calc(100vh-7rem)] lg:overflow-y-auto">
           <h2 className="font-display text-xl">{p.title}</h2>
           {p.topic_tag && <div className="mt-1 text-[11px] uppercase tracking-widest text-gold">{p.topic_tag}</div>}
-          <div className="mt-3 text-[15.5px] leading-8 [&>p]:mb-8 [&>p:last-child]:mb-0">
+          <div className="mt-3 text-[15.5px] leading-7 [&>p]:mb-4 [&>p:last-child]:mb-0">
             {p.sentences.length > 0
               ? groupSentences(p.body_text, p.sentences).map((group, gi) => (
                   <p key={gi}>
