@@ -4,9 +4,9 @@ import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { CheckCircle2, XCircle, Sparkles, ArrowRight, Highlighter } from "lucide-react";
+import { CheckCircle2, XCircle, Sparkles, ArrowRight, Highlighter, ChevronDown, ChevronUp } from "lucide-react";
 import {
-  fetchSectionPassages,
+  fetchRandomSectionPassage,
   fetchSubskills,
   startSession,
   endSession,
@@ -16,6 +16,7 @@ import {
 import { useLang } from "@/lib/i18n";
 
 const SECTION = "eiken_pre1_d3";
+const MAX_QUESTIONS = 4;
 
 export const Route = createFileRoute("/study/reading3")({
   component: DetailInference,
@@ -85,10 +86,15 @@ function DetailInference() {
   const { lang } = useLang();
   const ja = lang === "ja";
 
-  const { data: passages, isLoading } = useQuery({
-    queryKey: ["reading", SECTION, "passages"],
-    queryFn: () => fetchSectionPassages(SECTION),
-    staleTime: 30 * 60 * 1000,
+  const [round, setRound] = useState(0);
+  const [lastPassageId, setLastPassageId] = useState<string | null>(null);
+
+  const { data: passage, isLoading } = useQuery({
+    queryKey: ["reading", SECTION, "passage", round],
+    queryFn: () =>
+      fetchRandomSectionPassage(SECTION, { excludeId: lastPassageId, maxQuestions: MAX_QUESTIONS }),
+    staleTime: Infinity,
+    gcTime: 0,
   });
   const { data: subskills } = useQuery({
     queryKey: ["reading", SECTION, "subskills"],
@@ -96,7 +102,6 @@ function DetailInference() {
     staleTime: Infinity,
   });
 
-  const [pIdx, setPIdx] = useState(0);
   const [qIdx, setQIdx] = useState(0);
   const [tapped, setTapped] = useState<string | null>(null);
   const [picked, setPicked] = useState<number | null>(null);
@@ -105,15 +110,19 @@ function DetailInference() {
   const [evidenceHits, setEvidenceHits] = useState(0);
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [done, setDone] = useState(false);
+  const [sheetOpen, setSheetOpen] = useState(true);
 
-  const passage: ReadingPassage | undefined = passages?.[pIdx];
-  const question = passage?.questions[qIdx];
+  const p: ReadingPassage | undefined = passage ?? undefined;
+  const question = p?.questions[qIdx];
 
   useEffect(() => {
-    if (!passages || passages.length === 0 || !user) return;
-    const ids = passages.flatMap((p) => p.questions.map((q) => q.id));
+    if (!p) return;
+    setLastPassageId(p.id);
+    if (!user) return;
+    const ids = p.questions.map((q) => q.id);
     void startSession(user.id, "detail_inference", ids).then(setSessionId).catch(() => setSessionId(null));
-  }, [passages, user]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [p?.id, user]);
 
   const skillLabel = useMemo(() => {
     if (!question || !subskills) return null;
@@ -133,6 +142,7 @@ function DetailInference() {
   function choose(i: number) {
     if (revealed || !question) return;
     setPicked(i);
+    setSheetOpen(true);
     const correct = i === question.correct_choice_index;
     const evidenceOk = !!tapped && question.evidence_sentence_ids.includes(tapped);
     setTotal((t) => t + 1);
@@ -158,16 +168,11 @@ function DetailInference() {
   }
 
   function next() {
-    if (!passage) return;
+    if (!p) return;
     setPicked(null);
     setTapped(null);
-    if (qIdx + 1 < passage.questions.length) {
+    if (qIdx + 1 < p.questions.length) {
       setQIdx((n) => n + 1);
-      return;
-    }
-    if (passages && pIdx + 1 < passages.length) {
-      setPIdx((n) => n + 1);
-      setQIdx(0);
       return;
     }
     setDone(true);
@@ -175,7 +180,6 @@ function DetailInference() {
   }
 
   function restart() {
-    setPIdx(0);
     setQIdx(0);
     setPicked(null);
     setTapped(null);
@@ -183,29 +187,34 @@ function DetailInference() {
     setTotal(0);
     setEvidenceHits(0);
     setDone(false);
+    setSheetOpen(true);
+    setRound((n) => n + 1);
   }
 
-  if (isLoading || (!passage && !done)) {
+  if (isLoading || (!p && !done)) {
     return (
-      <main className="mx-auto max-w-2xl px-4 py-6">
+      <main className="mx-auto max-w-6xl px-4 py-6">
         <h1 className="sr-only">Reading comprehension practice</h1>
         <Skeleton className="h-2 w-full rounded-full" />
-        <div className="mt-6 space-y-2 rounded-2xl border bg-card p-6 shadow-card">
-          <Skeleton className="h-5 w-1/2" />
-          {[...Array(6)].map((_, i) => (
-            <Skeleton key={i} className="h-4 w-full" />
-          ))}
-        </div>
-        <div className="mt-4 space-y-2">
-          {[...Array(4)].map((_, i) => (
-            <Skeleton key={i} className="h-12 w-full rounded-xl" />
-          ))}
+        <div className="mt-4 grid gap-4 lg:grid-cols-[1.2fr_1fr]">
+          <div className="space-y-2 rounded-2xl border bg-card p-6 shadow-card">
+            <Skeleton className="h-5 w-1/2" />
+            {[...Array(8)].map((_, i) => (
+              <Skeleton key={i} className="h-4 w-full" />
+            ))}
+          </div>
+          <div className="space-y-2 rounded-2xl border bg-card p-6 shadow-card">
+            <Skeleton className="h-5 w-3/4" />
+            {[...Array(4)].map((_, i) => (
+              <Skeleton key={i} className="h-12 w-full rounded-xl" />
+            ))}
+          </div>
         </div>
       </main>
     );
   }
 
-  if (done) {
+  if (done || !p || !question) {
     const pct = total ? Math.round((score / total) * 100) : 0;
     const evPct = total ? Math.round((evidenceHits / total) * 100) : 0;
     return (
@@ -219,7 +228,7 @@ function DetailInference() {
             {pct}% {ja ? "正解" : "correct"} · {evPct}% {ja ? "根拠も的中" : "evidence found"}
           </p>
           <div className="mt-6 grid gap-2 sm:grid-cols-2">
-            <Button onClick={restart}>{ja ? "もう一度" : "Practice again"}</Button>
+            <Button onClick={restart}>{ja ? "別の長文に挑戦" : "Try another passage"}</Button>
             <Button variant="outline" asChild>
               <Link to="/study">{ja ? "ホームに戻る" : "Back to study"}</Link>
             </Button>
@@ -229,14 +238,78 @@ function DetailInference() {
     );
   }
 
-  const p = passage!;
-  const q = question!;
-  const totalQs = passages!.reduce((n, x) => n + x.questions.length, 0);
-  const answeredSoFar = passages!.slice(0, pIdx).reduce((n, x) => n + x.questions.length, 0) + qIdx;
-  const progress = (answeredSoFar / Math.max(1, totalQs)) * 100;
+  const q = question;
+  const totalQs = p.questions.length;
+  const progress = (qIdx / Math.max(1, totalQs)) * 100;
+
+  const questionPanel = (
+    <div className="p-4 sm:p-6">
+      {skillLabel && (
+        <div className="inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] text-muted-foreground">
+          <Sparkles className="h-3 w-3 text-gold" /> {skillLabel}
+        </div>
+      )}
+      <p className="mt-3 text-[17px] font-medium leading-relaxed">{q.prompt}</p>
+
+      {!revealed && (
+        <p className="mt-2 inline-flex items-start gap-1.5 text-xs text-muted-foreground">
+          <Highlighter className="mt-0.5 h-3.5 w-3.5 shrink-0 text-gold" />
+          {tapped
+            ? ja
+              ? "根拠の文を選びました。答えを選びましょう。"
+              : "Evidence selected — now pick your answer."
+            : ja
+              ? "ヒント：答えの手がかり・背景になる文（段落）を本文からタップしてみましょう。"
+              : "Hint: tap the sentence or paragraph that gives you the clue or background for your answer."}
+        </p>
+      )}
+
+      <div className="mt-4 space-y-2">
+        {q.choices.map((c, i) => {
+          const isAnswer = i === q.correct_choice_index;
+          const isPicked = picked === i;
+          const cls = !revealed
+            ? "border bg-background hover:border-gold hover:bg-muted/50"
+            : isAnswer
+              ? "border-sage bg-sage/10"
+              : isPicked
+                ? "border-rose bg-rose/10"
+                : "border bg-background opacity-60";
+          return (
+            <button
+              key={i}
+              type="button"
+              onClick={() => choose(i)}
+              disabled={revealed}
+              className={`flex w-full items-center justify-between gap-3 rounded-xl px-4 py-3 text-left text-[15px] transition ${cls}`}
+            >
+              <span>{c}</span>
+              {revealed && isAnswer && <CheckCircle2 className="h-5 w-5 shrink-0 text-sage" />}
+              {revealed && isPicked && !isAnswer && <XCircle className="h-5 w-5 shrink-0 text-rose" />}
+            </button>
+          );
+        })}
+      </div>
+
+      {revealed && (
+        <div className="mt-5 space-y-3">
+          {outcome && (
+            <p className="rounded-xl border border-gold/40 bg-gold/10 p-3 text-sm">{outcomeCopy(outcome, ja)}</p>
+          )}
+          {q.explanation && (
+            <p className="rounded-xl bg-muted/60 p-3 text-sm text-muted-foreground">{q.explanation}</p>
+          )}
+          <Button className="h-12 w-full" onClick={next}>
+            {qIdx + 1 >= totalQs ? (ja ? "結果を見る" : "See results") : ja ? "次へ" : "Next"}
+            <ArrowRight className="ml-2 h-4 w-4" />
+          </Button>
+        </div>
+      )}
+    </div>
+  );
 
   return (
-    <main className="mx-auto max-w-2xl px-4 py-6">
+    <main className="mx-auto max-w-6xl px-4 py-6 pb-[65vh] lg:pb-6">
       <h1 className="sr-only">Reading comprehension practice</h1>
 
       <div className="h-2 w-full overflow-hidden rounded-full bg-muted">
@@ -245,109 +318,75 @@ function DetailInference() {
       <div className="mt-2 flex items-center justify-between text-xs text-muted-foreground">
         <span>{ja ? "大問3 長文内容一致選択" : "Part 3 · Reading comprehension"}</span>
         <span>
-          {answeredSoFar + 1} / {totalQs}
+          {ja ? "問" : "Question"} {qIdx + 1} / {totalQs}
         </span>
       </div>
 
-      <article className="mt-4 rounded-2xl border bg-card p-6 shadow-card">
-        <h2 className="font-display text-xl">{p.title}</h2>
-        {p.topic_tag && <div className="mt-1 text-[11px] uppercase tracking-widest text-gold">{p.topic_tag}</div>}
-        <div className="mt-3 text-[15.5px] leading-8 [&>p]:mb-8 [&>p:last-child]:mb-0">
-          {p.sentences.length > 0
-            ? groupSentences(p.body_text, p.sentences).map((group, gi) => (
-                <p key={gi}>
-                  {group.map((s) => {
-                const isEvidence = q.evidence_sentence_ids.includes(s.id);
-                const isTapped = tapped === s.id;
-                const cls = revealed
-                  ? isEvidence
-                    ? "bg-sage/20 rounded-md"
-                    : isTapped
-                      ? "bg-rose/15 rounded-md"
-                      : ""
-                  : isTapped
-                    ? "bg-gold/25 rounded-md"
-                    : "hover:bg-muted/60 rounded-md";
-                return (
-                  <button
-                    key={s.id}
-                    type="button"
-                    onClick={() => !revealed && setTapped(isTapped ? null : s.id)}
-                    disabled={revealed}
-                    aria-label={`Select sentence ${s.label ?? s.sentence_index + 1} as evidence`}
-                    className={`inline cursor-pointer px-0.5 text-left transition ${cls}`}
-                  >
-                    {s.text}{" "}
-                  </button>
-                );
-                  })}
-                </p>
-              ))
-            : <p className="whitespace-pre-wrap">{p.body_text}</p>}
-        </div>
-      </article>
-
-      <div className="mt-4 rounded-2xl border bg-card p-6 shadow-card">
-        {skillLabel && (
-          <div className="inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] text-muted-foreground">
-            <Sparkles className="h-3 w-3 text-gold" /> {skillLabel}
+      <div className="mt-4 grid gap-4 lg:grid-cols-[1.2fr_1fr] lg:items-start">
+        <article className="rounded-2xl border bg-card p-6 shadow-card lg:sticky lg:top-20 lg:max-h-[calc(100vh-7rem)] lg:overflow-y-auto">
+          <h2 className="font-display text-xl">{p.title}</h2>
+          {p.topic_tag && <div className="mt-1 text-[11px] uppercase tracking-widest text-gold">{p.topic_tag}</div>}
+          <div className="mt-3 text-[15.5px] leading-8 [&>p]:mb-8 [&>p:last-child]:mb-0">
+            {p.sentences.length > 0
+              ? groupSentences(p.body_text, p.sentences).map((group, gi) => (
+                  <p key={gi}>
+                    {group.map((s) => {
+                      const isEvidence = q.evidence_sentence_ids.includes(s.id);
+                      const isTapped = tapped === s.id;
+                      const cls = revealed
+                        ? isEvidence
+                          ? "bg-sage/20 rounded-md"
+                          : isTapped
+                            ? "bg-rose/15 rounded-md"
+                            : ""
+                        : isTapped
+                          ? "bg-gold/25 rounded-md"
+                          : "hover:bg-muted/60 rounded-md";
+                      return (
+                        <button
+                          key={s.id}
+                          type="button"
+                          onClick={() => !revealed && setTapped(isTapped ? null : s.id)}
+                          disabled={revealed}
+                          aria-label={`Select sentence ${s.label ?? s.sentence_index + 1} as evidence`}
+                          className={`inline cursor-pointer px-0.5 text-left transition ${cls}`}
+                        >
+                          {s.text}{" "}
+                        </button>
+                      );
+                    })}
+                  </p>
+                ))
+              : <p className="whitespace-pre-wrap">{p.body_text}</p>}
           </div>
-        )}
-        <p className="mt-3 text-[17px] font-medium leading-relaxed">{q.prompt}</p>
+        </article>
 
-        {!revealed && (
-          <p className="mt-2 inline-flex items-center gap-1.5 text-xs text-muted-foreground">
-            <Highlighter className="h-3.5 w-3.5 text-gold" />
-            {tapped
-              ? ja
-                ? "根拠の文を選びました。答えを選びましょう。"
-                : "Evidence selected — now pick your answer."
-              : ja
-                ? "ヒント：答えの手がかり・背景になる文（段落）を本文からタップしてみましょう。"
-                : "Hint: tap the sentence or paragraph above that gives you the clue or background for your answer."}
-          </p>
-        )}
-
-        <div className="mt-4 space-y-2">
-          {q.choices.map((c, i) => {
-            const isAnswer = i === q.correct_choice_index;
-            const isPicked = picked === i;
-            const cls = !revealed
-              ? "border bg-background hover:border-gold hover:bg-muted/50"
-              : isAnswer
-                ? "border-sage bg-sage/10"
-                : isPicked
-                  ? "border-rose bg-rose/10"
-                  : "border bg-background opacity-60";
-            return (
-              <button
-                key={i}
-                type="button"
-                onClick={() => choose(i)}
-                disabled={revealed}
-                className={`flex w-full items-center justify-between gap-3 rounded-xl px-4 py-3 text-left transition ${cls}`}
-              >
-                <span>{c}</span>
-                {revealed && isAnswer && <CheckCircle2 className="h-5 w-5 shrink-0 text-sage" />}
-                {revealed && isPicked && !isAnswer && <XCircle className="h-5 w-5 shrink-0 text-rose" />}
-              </button>
-            );
-          })}
+        {/* Desktop: pinned question column */}
+        <div className="hidden rounded-2xl border bg-card shadow-card lg:sticky lg:top-20 lg:block lg:max-h-[calc(100vh-7rem)] lg:overflow-y-auto">
+          {questionPanel}
         </div>
+      </div>
 
-        {revealed && (
-          <div className="mt-5 space-y-3">
-            {outcome && (
-              <p className="rounded-xl border border-gold/40 bg-gold/10 p-3 text-sm">{outcomeCopy(outcome, ja)}</p>
-            )}
-            {q.explanation && (
-              <p className="rounded-xl bg-muted/60 p-3 text-sm text-muted-foreground">{q.explanation}</p>
-            )}
-            <Button className="h-12 w-full" onClick={next}>
-              {answeredSoFar + 1 >= totalQs ? (ja ? "結果を見る" : "See results") : ja ? "次へ" : "Next"}
-              <ArrowRight className="ml-2 h-4 w-4" />
-            </Button>
-          </div>
+      {/* Mobile: sticky question sheet */}
+      <div className="fixed inset-x-0 bottom-0 z-40 border-t bg-card shadow-[0_-8px_24px_rgba(0,0,0,0.08)] lg:hidden">
+        <button
+          type="button"
+          onClick={() => setSheetOpen((v) => !v)}
+          aria-expanded={sheetOpen}
+          className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left"
+        >
+          <span className="min-w-0 truncate text-sm font-medium">
+            {ja ? "問" : "Q"}
+            {qIdx + 1} · {q.prompt}
+          </span>
+          {sheetOpen ? (
+            <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground" />
+          ) : (
+            <ChevronUp className="h-4 w-4 shrink-0 text-muted-foreground" />
+          )}
+        </button>
+        {sheetOpen && (
+          <div className="max-h-[62vh] overflow-y-auto pb-[env(safe-area-inset-bottom)]">{questionPanel}</div>
         )}
       </div>
 
