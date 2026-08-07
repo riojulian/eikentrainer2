@@ -243,16 +243,16 @@ function DetailInference() {
   const progress = (qIdx / Math.max(1, totalQs)) * 100;
 
   const questionPanel = (
-    <div className="p-4 sm:p-6">
+    <div className="p-3 sm:p-6">
       {skillLabel && (
         <div className="inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] text-muted-foreground">
           <Sparkles className="h-3 w-3 text-gold" /> {skillLabel}
         </div>
       )}
-      <p className="mt-3 text-[17px] font-medium leading-relaxed">{q.prompt}</p>
+      <p className="mt-2 text-[14px] font-medium leading-snug sm:mt-3 sm:text-[17px] sm:leading-relaxed">{q.prompt}</p>
 
       {!revealed && (
-        <p className="mt-2 inline-flex items-start gap-1.5 text-xs text-muted-foreground">
+        <p className="mt-1.5 inline-flex items-start gap-1.5 text-[11px] leading-snug text-muted-foreground sm:mt-2 sm:text-xs">
           <Highlighter className="mt-0.5 h-3.5 w-3.5 shrink-0 text-gold" />
           {tapped
             ? ja
@@ -264,7 +264,7 @@ function DetailInference() {
         </p>
       )}
 
-      <div className="mt-4 space-y-2">
+      <div className="mt-3 space-y-1.5 sm:mt-4 sm:space-y-2">
         {q.choices.map((c, i) => {
           const isAnswer = i === q.correct_choice_index;
           const isPicked = picked === i;
@@ -281,25 +281,25 @@ function DetailInference() {
               type="button"
               onClick={() => choose(i)}
               disabled={revealed}
-              className={`flex w-full items-center justify-between gap-3 rounded-xl px-4 py-3 text-left text-[15px] transition ${cls}`}
+              className={`flex w-full items-center justify-between gap-2 rounded-xl px-3 py-2 text-left text-[13px] leading-snug transition sm:gap-3 sm:px-4 sm:py-3 sm:text-[15px] sm:leading-normal ${cls}`}
             >
               <span>{c}</span>
-              {revealed && isAnswer && <CheckCircle2 className="h-5 w-5 shrink-0 text-sage" />}
-              {revealed && isPicked && !isAnswer && <XCircle className="h-5 w-5 shrink-0 text-rose" />}
+              {revealed && isAnswer && <CheckCircle2 className="h-4 w-4 shrink-0 text-sage sm:h-5 sm:w-5" />}
+              {revealed && isPicked && !isAnswer && <XCircle className="h-4 w-4 shrink-0 text-rose sm:h-5 sm:w-5" />}
             </button>
           );
         })}
       </div>
 
       {revealed && (
-        <div className="mt-5 space-y-3">
+        <div className="mt-4 space-y-2 sm:mt-5 sm:space-y-3">
           {outcome && (
-            <p className="rounded-xl border border-gold/40 bg-gold/10 p-3 text-sm">{outcomeCopy(outcome, ja)}</p>
+            <p className="rounded-xl border border-gold/40 bg-gold/10 p-2.5 text-[12.5px] leading-snug sm:p-3 sm:text-sm">{outcomeCopy(outcome, ja)}</p>
           )}
           {q.explanation && (
-            <p className="rounded-xl bg-muted/60 p-3 text-sm text-muted-foreground">{q.explanation}</p>
+            <p className="rounded-xl bg-muted/60 p-2.5 text-[12.5px] leading-snug text-muted-foreground sm:p-3 sm:text-sm">{q.explanation}</p>
           )}
-          <Button className="h-12 w-full" onClick={next}>
+          <Button className="h-11 w-full sm:h-12" onClick={next}>
             {qIdx + 1 >= totalQs ? (ja ? "結果を見る" : "See results") : ja ? "次へ" : "Next"}
             <ArrowRight className="ml-2 h-4 w-4" />
           </Button>
