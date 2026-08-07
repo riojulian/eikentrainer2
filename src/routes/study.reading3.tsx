@@ -244,12 +244,14 @@ function DetailInference() {
 
   const questionPanel = (
     <div className="p-3 sm:p-6">
-      {skillLabel && (
-        <div className="inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] text-muted-foreground">
-          <Sparkles className="h-3 w-3 text-gold" /> {skillLabel}
-        </div>
-      )}
-      <p className="mt-2 text-[14px] font-medium leading-snug sm:mt-3 sm:text-[17px] sm:leading-relaxed">{q.prompt}</p>
+      <p className="text-[14px] font-medium leading-snug sm:text-[17px] sm:leading-relaxed">
+        {skillLabel && (
+          <span className="mr-1.5 inline-flex translate-y-[-1px] items-center gap-1 rounded-full border px-2 py-0.5 align-middle text-[10px] font-normal text-muted-foreground sm:text-[11px]">
+            <Sparkles className="h-2.5 w-2.5 text-gold sm:h-3 sm:w-3" /> {skillLabel}
+          </span>
+        )}
+        {q.prompt}
+      </p>
 
       {!revealed && (
         <p className="mt-1.5 inline-flex items-start gap-1.5 text-[11px] leading-snug text-muted-foreground sm:mt-2 sm:text-xs">
