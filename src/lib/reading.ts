@@ -118,6 +118,31 @@ export async function fetchSectionPassages(sectionCode: string): Promise<Reading
 
 /** Fetch all active questions for a section code (e.g. eiken_pre1_d1). */
 export async function fetchSectionQuestions(sectionCode: string): Promise<ReadingQuestion[]> {
+  return fetchSectionQuestionsImpl(sectionCode);
+}
+
+/** Pick one random active passage for a section, with at most `maxQuestions` questions. */
+export async function fetchRandomSectionPassage(
+  sectionCode: string,
+  opts?: { excludeId?: string | null; maxQuestions?: number },
+): Promise<ReadingPassage | null> {
+  const max = opts?.maxQuestions ?? 4;
+  const all = await fetchSectionPassages(sectionCode);
+  const withQs = all.filter((p) => p.questions.length > 0);
+  if (withQs.length === 0) return null;
+  const pool = withQs.length > 1 && opts?.excludeId
+    ? withQs.filter((p) => p.id !== opts.excludeId)
+    : withQs;
+  const picked = pool[Math.floor(Math.random() * pool.length)]!;
+  const qs = [...picked.questions];
+  for (let i = qs.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [qs[i]!, qs[j]!] = [qs[j]!, qs[i]!];
+  }
+  return { ...picked, questions: qs.slice(0, max) };
+}
+
+async function fetchSectionQuestionsImpl(sectionCode: string): Promise<ReadingQuestion[]> {
   const { data: section, error: sErr } = await supabase
     .from("exam_sections")
     .select("id")
